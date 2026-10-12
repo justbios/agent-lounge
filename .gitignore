@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# macOS metadata on non-APFS drives
+._*
+
+# keep the env template
+!.env.example

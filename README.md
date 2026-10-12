@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Relay — живий конвеєр агентів
 
-## Getting Started
+Гейміфікована візуалізація мультиагентного пайплайну: 8 агентів по черзі беруться
+за роботу і передають «пакунок» один одному, а глядач бачить це в реальному часі —
+з подіями, статусами, рівнями та лічильником передач.
 
-First, run the development server:
+Зараз запускається в **replay-режимі** на змодельованому прогоні (жодного бекенду не
+треба). Той самий UI вмикається на живі дані, коли оркестратор починає писати події.
+
+## Запуск
+
+Потрібен **Node ≥ 18** (розроблялось на Node 20).
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Як воно влаштоване
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+Оркестратор (Claude Agent SDK)         Next.js фронт
+  emit(start|tool_call|handoff|…)         PipelineStage  ← анімований конвеєр
+        │                                 ActivityLog    ← потік подій
+        ▼                                 AgentRoster    ← статуси агентів
+   Supabase: agent_events  ──realtime──▶  useAgentEvents(runId)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Один контракт на все — таблиця `agent_events`. Фронт малює те, що в ній є, і не знає,
+звідки взялися події (SDK, Claude Code хуки, будь-що).
 
-## Learn More
+### Ключові файли
 
-To learn more about Next.js, take a look at the following resources:
+| Файл | Що це |
+|---|---|
+| `lib/types.ts` | тип події + опис 8 агентів (імена, ролі, кольори, іконки) |
+| `lib/mockRun.ts` | детермінований змодельований прогін для replay-демо |
+| `lib/useReplay.ts` | rAF-годинник, що програє прогін (play/pause/швидкість/цикли) |
+| `lib/stage.ts` | геометрія конвеєра + стан вузлів і позиція пакунка з годинника |
+| `components/PipelineStage.tsx` | анімований конвеєр (SVG-трек, вузли, пакунок) |
+| `components/ActivityLog.tsx` | термінальний потік подій |
+| `components/AgentRoster.tsx` | список агентів з живими статусами |
+| `lib/useAgentEvents.ts` | **live-режим**: backlog + Supabase Realtime |
+| `orchestrator/` | `emit()` + приклад інтеграції з Agent SDK |
+| `supabase/migrations/0001_agent_events.sql` | схема таблиць + RLS + realtime |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Перемикання на живі дані
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Створи проєкт у Supabase, застосуй `supabase/migrations/0001_agent_events.sql`.
+2. Заповни `.env` (див. `.env.example`).
+3. У `PipelineDashboard` заміни `buildMockRun()` на `useAgentEvents(runId)` і
+   збери `timings` з подій замість моку (події вже в правильному форматі).
+4. Запусти оркестратор з `orchestrator/` — він пише `agent_events`, фронт оживає.
 
-## Deploy on Vercel
+## Далі
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ ] `useAgentEvents` → адаптер подій у `timings` (live-режим на екрані)
+- [ ] сторінка `/pipeline/[runId]` + список запусків
+- [ ] деплой на Vercel
+- [ ] звук/партикли на хендофах, ачівки, лідерборд запусків
