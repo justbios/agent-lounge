@@ -20,9 +20,11 @@ export interface Look {
   style: number;
 }
 
+const at = <T,>(list: T[], i: number): T => list[((i % list.length) + list.length) % list.length];
+
 export function lookFor(i: number, color: string, override: Partial<Look> = {}): Look {
-  const hair = HAIR[i % HAIR.length];
-  const skin = SKIN[(i * 3 + 1) % SKIN.length];
+  const hair = at(HAIR, i);
+  const skin = at(SKIN, i * 3 + 1);
   return {
     hair,
     hairDark: shade(hair, 0.7),
@@ -30,10 +32,10 @@ export function lookFor(i: number, color: string, override: Partial<Look> = {}):
     skinDark: shade(skin, 0.82),
     shirt: color,
     shirtDark: shade(color, 0.66),
-    pants: PANTS[i % PANTS.length],
+    pants: at(PANTS, i),
     accent: color,
     accentDark: shade(color, 0.55),
-    style: i % 4,
+    style: ((i % 4) + 4) % 4,
     ...override,
   };
 }

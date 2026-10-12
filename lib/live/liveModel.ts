@@ -128,7 +128,7 @@ export function buildLiveModel(events: LiveEvent[], session: string): LiveScene 
         role: "субагент",
         color: hue ?? PALETTE[h % PALETTE.length],
         icon: "cpu",
-        look: (h >> 4) % 16,
+        look: (h >>> 4) % 16,
       });
       stints.push([]);
       notes.push([]);
