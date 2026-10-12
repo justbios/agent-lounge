@@ -1,18 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Radio, Play, Pause, RotateCcw, Zap, Package, Coins, Layers, Gamepad2, GitBranch, Plug } from "lucide-react";
+import { Radio, Play, Pause, RotateCcw, Zap, Package, Coins, Layers, Coffee, GitBranch, Plug } from "lucide-react";
 import { AGENTS, AgentDef } from "@/lib/types";
 import { buildMockRun } from "@/lib/mockRun";
 import { useReplay } from "@/lib/useReplay";
 import { getStageState } from "@/lib/stage";
+import { cafeLayout, cafeTravelMs } from "@/lib/cafe/layout";
 import PipelineStage from "./PipelineStage";
-import PixelGame from "./PixelGame";
+import CafeScene from "./cafe/CafeScene";
 import ActivityLog from "./ActivityLog";
 import AgentRoster from "./AgentRoster";
 
 const XP_PER_HANDOFF = 18;
 const XP_PER_LEVEL = 120;
+const CAFE_TAIL_MS = 2600;
 
 const byId = Object.fromEntries(AGENTS.map((a) => [a.id, a]));
 const MINI: AgentDef[] = [byId.intake, byId.planner, byId.coder, byId.deployer];
@@ -33,7 +35,11 @@ const PRESETS: Record<string, AgentDef[]> = {
 export default function PipelineDashboard() {
   const [preset, setPreset] = useState("8 · повний");
   const [view, setView] = useState<"game" | "diagram">("game");
-  const run = useMemo(() => buildMockRun(PRESETS[preset], "run_demo"), [preset]);
+  const run = useMemo(() => {
+    const agents = PRESETS[preset];
+    const lay = cafeLayout(agents.length);
+    return buildMockRun(agents, "run_demo", { travelMs: (i) => cafeTravelMs(lay, i), tailMs: CAFE_TAIL_MS });
+  }, [preset]);
   const { clock, cycle, playing, speed, setPlaying, setSpeed, restart } = useReplay(run.totalMs);
 
   const n = run.agents.length;
@@ -143,7 +149,7 @@ export default function PipelineDashboard() {
         <div className="card-hd">
           <div className="viewseg">
             <button className={view === "game" ? "on" : ""} onClick={() => setView("game")}>
-              <Gamepad2 size={13} /> гра
+              <Coffee size={13} /> кафе
             </button>
             <button className={view === "diagram" ? "on" : ""} onClick={() => setView("diagram")}>
               <GitBranch size={13} /> схема
@@ -155,7 +161,7 @@ export default function PipelineDashboard() {
           </span>
         </div>
         <div className="stage-pad">
-          {view === "game" ? <PixelGame run={run} clock={clock} /> : <PipelineStage run={run} clock={clock} />}
+          {view === "game" ? <CafeScene run={run} clock={clock} /> : <PipelineStage run={run} clock={clock} />}
         </div>
       </section>
 
@@ -165,7 +171,7 @@ export default function PipelineDashboard() {
       </div>
 
       <p className="foot">
-        Це <strong>replay</strong>-демо. Перемкни <strong>розмір пайплайну</strong> вгорі — і схема, і піксельна кімната
+        Це <strong>replay</strong>-демо. Перемкни <strong>розмір пайплайну</strong> вгорі — і схема, і інтернет-кафе
         самі розставлять будь-яке N агентів. У проді список агентів (назви, ролі, порядок) приходить із подій твого Claude
         через <code>agent_events</code> + Supabase Realtime — нічого хардкодити.
       </p>

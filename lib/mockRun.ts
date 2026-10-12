@@ -20,11 +20,18 @@ export interface MockRun {
 
 const TRAVEL_MS = 720;
 
+export interface MockRunOptions {
+  /** per-handoff travel duration; the café scene derives it from the walking distance */
+  travelMs?: (index: number) => number;
+  /** idle time after the last agent finishes, before the replay loops */
+  tailMs?: number;
+}
+
 /**
  * Builds a deterministic replay from ANY agent list (any names, any count).
  * Deterministic (no Date/Math.random) so server and client render identically.
  */
-export function buildMockRun(agents: AgentDef[] = AGENTS, runId = "run_demo"): MockRun {
+export function buildMockRun(agents: AgentDef[] = AGENTS, runId = "run_demo", opts: MockRunOptions = {}): MockRun {
   const timings: AgentTiming[] = [];
   const events: AgentEvent[] = [];
   let t = 0;
@@ -44,7 +51,7 @@ export function buildMockRun(agents: AgentDef[] = AGENTS, runId = "run_demo"): M
 
     const isLast = i === agents.length - 1;
     const travelStart = isLast ? null : t;
-    const travelEnd = isLast ? null : t + TRAVEL_MS;
+    const travelEnd = isLast ? null : t + (opts.travelMs?.(i) ?? TRAVEL_MS);
     if (!isLast) t = travelEnd as number;
 
     timings.push({ index: i, start, end, travelStart, travelEnd });
@@ -70,5 +77,5 @@ export function buildMockRun(agents: AgentDef[] = AGENTS, runId = "run_demo"): M
   }
 
   events.sort((x, y) => x.ts - y.ts || x.seq - y.seq);
-  return { runId, agents, totalMs: t, travelMs: TRAVEL_MS, timings, events };
+  return { runId, agents, totalMs: t + (opts.tailMs ?? 0), travelMs: TRAVEL_MS, timings, events };
 }
