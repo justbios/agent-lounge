@@ -101,7 +101,7 @@ export function drawLights(ctx: Ctx, lay: CafeLayout, views: AgentView[], colors
   for (const x of SCONCES) glow(ctx, x, 13, 34, "#ffb15e", 0.22);
   for (const w of WINDOWS) glow(ctx, w.x + w.w / 2, 20, 40, "#4f6bff", 0.06);
   glow(ctx, VENDING.x + 12, VENDING.y + 22, 36, "#59d8ff", 0.15);
-  for (const top of new Set(lay.desks.map((d) => d.top))) glow(ctx, lay.width / 2, top + 30, 160, "#ffcf8a", 0.045);
+  for (const top of lay.bands) glow(ctx, lay.width / 2, top + 30, 160, "#ffcf8a", 0.045);
 
   views.forEach((v, i) => {
     const d = lay.desks[i];

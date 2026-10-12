@@ -1,12 +1,13 @@
 import { CafeLayout, Desk } from "@/lib/cafe/layout";
+import { CafeModel } from "@/lib/cafe/model";
 import { AgentView, CafeTimeline, Walker, agentView } from "@/lib/cafe/timeline";
-import { MockRun } from "@/lib/mockRun";
 import { drawAmbient, drawBar, drawCupSteam, drawLights } from "./ambient";
+import { Cat } from "./cat";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
 import { Ctx, px, rand, shade } from "./pixel";
 
 export interface FrameInput {
-  run: MockRun;
+  model: CafeModel;
   lay: CafeLayout;
   tl: CafeTimeline;
   looks: Look[];
@@ -14,6 +15,7 @@ export interface FrameInput {
   clock: number;
   /** wall time in seconds — drives ambience, which keeps moving while the replay is paused */
   t: number;
+  cat?: Cat;
 }
 
 const CHECK = [[-4, 3], [-3, 4], [-2, 5], [-1, 4], [0, 3], [1, 2], [2, 1], [3, 0]];
@@ -103,7 +105,7 @@ function drawWalker(ctx: Ctx, w: Walker, look: Look, lay: CafeLayout, clock: num
 }
 
 export function drawFrame(ctx: Ctx, f: FrameInput) {
-  const { run, lay, tl, looks, clock, t } = f;
+  const { model, lay, tl, looks, clock, t } = f;
   ctx.imageSmoothingEnabled = false;
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
@@ -111,14 +113,17 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   drawAmbient(ctx, t);
   drawBar(ctx, t);
 
-  const views = run.agents.map((_, i) => agentView(run, tl, lay, i, clock));
-  views.forEach((v, i) => drawStation(ctx, lay.desks[i], v, run.agents[i].color, looks[i], f, i));
+  const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
+  views.forEach((v, i) => drawStation(ctx, lay.desks[i], v, model.agents[i].color, looks[i], f, i));
 
-  views
-    .map((v, i) => ({ w: v.walker, i }))
-    .filter((e): e is { w: Walker; i: number } => e.w != null)
-    .sort((a, b) => a.w.y - b.w.y)
-    .forEach(({ w, i }) => drawWalker(ctx, w, looks[i], lay, clock));
+  const sprites: { y: number; draw: () => void }[] = [];
+  views.forEach((v, i) => {
+    const w = v.walker;
+    if (w) sprites.push({ y: w.y, draw: () => drawWalker(ctx, w, looks[i], lay, clock) });
+  });
+  const cat = f.cat;
+  if (cat) sprites.push({ y: cat.footY, draw: () => cat.draw(ctx, t) });
+  sprites.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 
-  drawLights(ctx, lay, views, run.agents.map((a) => a.color), t);
+  drawLights(ctx, lay, views, model.agents.map((a) => a.color), t);
 }

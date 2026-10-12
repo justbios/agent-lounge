@@ -1,5 +1,5 @@
-import PipelineDashboard from "@/components/PipelineDashboard";
+import Home from "@/components/Home";
 
-export default function Home() {
-  return <PipelineDashboard />;
+export default function Page() {
+  return <Home />;
 }

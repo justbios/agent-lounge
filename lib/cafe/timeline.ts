@@ -1,17 +1,5 @@
-import { Point } from "@/lib/layout";
-import { MockRun } from "@/lib/mockRun";
-import { AgentEvent } from "@/lib/types";
-import {
-  CafeLayout,
-  Dir,
-  GIVE_MS,
-  SIT_MS,
-  STAND_MS,
-  WALK_PX_PER_MS,
-  handoffPath,
-  pathLength,
-  pointAt,
-} from "./layout";
+import { BubbleTone, CafeModel, Note, Trip } from "./model";
+import { CafeLayout, Dir, GIVE_MS, SIT_MS, STAND_MS, WALK_PX_PER_MS, pointAt } from "./layout";
 
 export type ScreenMode = "idle" | "incoming" | "work" | "done";
 
@@ -34,8 +22,6 @@ export interface AgentView {
   walker: Walker | null;
 }
 
-export type BubbleTone = "work" | "done" | "handoff" | "error";
-
 export interface Bubble {
   key: string;
   agent: number;
@@ -49,134 +35,128 @@ export interface Bubble {
 }
 
 export interface CafeTimeline {
-  paths: Point[][];
-  back: Point[][];
-  lengths: number[];
-  byAgent: AgentEvent[][];
+  byFrom: Trip[][];
+  byTo: Trip[][];
 }
 
 const COMPLETE_HOLD_MS = 1000;
+const LOOP_PROGRESS_MS = 6000;
 
-export function buildTimeline(run: MockRun, lay: CafeLayout): CafeTimeline {
-  const paths = run.agents.slice(0, -1).map((_, i) => handoffPath(lay, i, i + 1));
-  const index = new Map(run.agents.map((a, i) => [a.id, i]));
-  const byAgent: AgentEvent[][] = run.agents.map(() => []);
-  for (const e of run.events) {
-    const i = index.get(e.agent_id);
-    if (i != null) byAgent[i].push(e);
+export function buildTimeline(m: CafeModel): CafeTimeline {
+  const byFrom: Trip[][] = m.agents.map(() => []);
+  const byTo: Trip[][] = m.agents.map(() => []);
+  for (const tr of m.trips) {
+    byFrom[tr.from]?.push(tr);
+    byTo[tr.to]?.push(tr);
   }
-  return { paths, back: paths.map((p) => [...p].reverse()), lengths: paths.map(pathLength), byAgent };
+  return { byFrom, byTo };
 }
 
-function walkerAt(run: MockRun, tl: CafeTimeline, lay: CafeLayout, i: number, clock: number): Walker | null {
-  const tm = run.timings[i];
-  if (tm.travelStart == null || tm.travelEnd == null || clock < tm.travelStart) return null;
-  const path = tl.paths[i];
-  const len = tl.lengths[i];
-  const target = i + 1;
-  const t = clock - tm.travelStart;
-
-  if (clock < tm.travelEnd) {
-    const walkMs = Math.max(1, tm.travelEnd - tm.travelStart - STAND_MS - GIVE_MS);
-    if (t < STAND_MS) {
-      const p = pointAt(path, 0);
-      return { ...p, moving: false, carrying: true, settle: 1 - t / STAND_MS, give: -1, target };
-    }
-    if (t < STAND_MS + walkMs) {
-      const p = pointAt(path, ((t - STAND_MS) / walkMs) * len);
-      return { ...p, moving: true, carrying: true, settle: 0, give: -1, target };
-    }
-    const end = path[path.length - 1];
-    const dir: Dir = lay.desks[target].x > end.x ? "right" : "left";
-    const give = Math.min(1, (t - STAND_MS - walkMs) / GIVE_MS);
-    return { x: end.x, y: end.y, dir, moving: false, carrying: false, settle: 0, give, target };
-  }
-
-  const back = clock - tm.travelEnd;
-  const walkBack = len / WALK_PX_PER_MS;
-  if (back < walkBack) {
-    const p = pointAt(tl.back[i], back * WALK_PX_PER_MS);
-    return { ...p, moving: true, carrying: false, settle: 0, give: -1, target };
-  }
-  if (back < walkBack + SIT_MS) {
-    const seat = path[0];
-    const dir: Dir = lay.desks[i].x > seat.x ? "right" : "left";
-    return { x: seat.x, y: seat.y, dir, moving: false, carrying: false, settle: (back - walkBack) / SIT_MS, give: -1, target };
+function currentTrip(trips: Trip[], clock: number): Trip | null {
+  for (const tr of trips) {
+    if (tr.start > clock) return null;
+    if (clock < tr.home) return tr;
   }
   return null;
 }
 
-export function agentView(run: MockRun, tl: CafeTimeline, lay: CafeLayout, i: number, clock: number): AgentView {
-  const tm = run.timings[i];
-  const prev = i > 0 ? run.timings[i - 1] : null;
-  let screen: ScreenMode = "idle";
-  if (clock >= tm.end) screen = "done";
-  else if (clock >= tm.start) screen = "work";
-  else if (prev?.travelStart != null && clock >= prev.travelStart) screen = "incoming";
-  const progress = screen === "work" ? (clock - tm.start) / Math.max(1, tm.end - tm.start) : screen === "done" ? 1 : 0;
-  return { screen, progress, walker: walkerAt(run, tl, lay, i, clock) };
+function walkerOn(tr: Trip, lay: CafeLayout, clock: number): Walker {
+  const target = tr.to;
+  const t = clock - tr.start;
+  if (clock < tr.arrive) {
+    const walkMs = Math.max(1, tr.arrive - tr.start - STAND_MS - GIVE_MS);
+    if (t < STAND_MS) {
+      const p = pointAt(tr.path, 0);
+      return { ...p, moving: false, carrying: true, settle: 1 - t / STAND_MS, give: -1, target };
+    }
+    if (t < STAND_MS + walkMs) {
+      const p = pointAt(tr.path, ((t - STAND_MS) / walkMs) * tr.len);
+      return { ...p, moving: true, carrying: true, settle: 0, give: -1, target };
+    }
+    const end = tr.path[tr.path.length - 1];
+    const dir: Dir = lay.desks[target].x > end.x ? "right" : "left";
+    const give = Math.min(1, (t - STAND_MS - walkMs) / GIVE_MS);
+    return { x: end.x, y: end.y, dir, moving: false, carrying: false, settle: 0, give, target };
+  }
+  const back = clock - tr.arrive;
+  const walkBack = tr.len / WALK_PX_PER_MS;
+  if (back < walkBack) {
+    const p = pointAt(tr.back, back * WALK_PX_PER_MS);
+    return { ...p, moving: true, carrying: false, settle: 0, give: -1, target };
+  }
+  const seat = tr.path[0];
+  const dir: Dir = lay.desks[tr.from].x > seat.x ? "right" : "left";
+  const settle = Math.min(1, (back - walkBack) / SIT_MS);
+  return { x: seat.x, y: seat.y, dir, moving: false, carrying: false, settle, give: -1, target };
 }
 
-function describe(e: AgentEvent, run: MockRun): { text: string; tool?: string; tone: BubbleTone } {
-  switch (e.type) {
-    case "start":
-      return { text: e.payload?.label ?? e.agent_role ?? "береться до роботи", tone: "work" };
-    case "thinking":
-      return { text: e.payload?.summary ?? "думає…", tone: "work" };
-    case "tool_call":
-      return { text: e.payload?.summary ?? "працює", tool: e.payload?.tool, tone: "work" };
-    case "complete":
-      return { text: e.payload?.tokens ? `готово ✓ · ${e.payload.tokens} ток.` : "готово ✓", tone: "done" };
-    case "handoff": {
-      const to = run.agents.find((a) => a.id === e.to_agent)?.name;
-      const label = e.payload?.label ?? "передає далі";
-      return { text: to ? `${label} → ${to}` : label, tone: "handoff" };
-    }
-    case "error":
-      return { text: e.payload?.summary ?? "помилка", tone: "error" };
+export function agentView(m: CafeModel, tl: CafeTimeline, lay: CafeLayout, i: number, clock: number): AgentView {
+  const stints = m.stints[i];
+  const working = stints.find((s) => s.start <= clock && clock < s.end);
+  const incoming = tl.byTo[i].some((tr) => tr.start <= clock && clock < tr.arrive);
+  const started = stints.some((s) => s.start <= clock);
+  let screen: ScreenMode = "idle";
+  if (working) screen = "work";
+  else if (incoming) screen = "incoming";
+  else if (started) screen = "done";
+
+  let progress = screen === "done" ? 1 : 0;
+  if (working) {
+    progress = Number.isFinite(working.end)
+      ? (clock - working.start) / Math.max(1, working.end - working.start)
+      : ((clock - working.start) % LOOP_PROGRESS_MS) / LOOP_PROGRESS_MS;
   }
+  const tr = currentTrip(tl.byFrom[i], clock);
+  return { screen, progress, walker: tr ? walkerOn(tr, lay, clock) : null };
+}
+
+function lastNote(notes: Note[], clock: number): Note | null {
+  let last: Note | null = null;
+  for (const n of notes) {
+    if (n.ts > clock) break;
+    last = n;
+  }
+  return last;
 }
 
 export function bubbleFor(
-  run: MockRun,
+  m: CafeModel,
   tl: CafeTimeline,
   lay: CafeLayout,
   i: number,
   view: AgentView,
   clock: number,
 ): Bubble | null {
-  const evs = tl.byAgent[i];
-  let last: AgentEvent | null = null;
-  for (const e of evs) {
-    if (e.ts > clock) break;
-    last = e;
-  }
-  if (!last) return null;
-
-  const make = (e: AgentEvent, x: number, y: number, seated: boolean): Bubble => ({
-    key: e.id,
+  const last = lastNote(m.notes[i], clock);
+  const desk = lay.desks[i];
+  const seated = (n: Note): Bubble => ({
+    key: n.key,
     agent: i,
-    x,
-    y,
-    age: clock - e.ts,
-    seated,
-    ...describe(e, run),
+    x: desk.x,
+    y: desk.top - 3,
+    text: n.text,
+    tool: n.tool,
+    tone: n.tone,
+    age: clock - n.ts,
+    seated: true,
   });
 
-  const tm = run.timings[i];
-  const desk = lay.desks[i];
   const w = view.walker;
   if (w) {
-    if (tm.travelEnd == null || clock >= tm.travelEnd) return null;
-    const complete = evs.find((e) => e.type === "complete" && e.ts <= clock);
-    const handoff = evs.find((e) => e.type === "handoff" && e.ts <= clock);
-    const pick = complete && clock - complete.ts < COMPLETE_HOLD_MS ? complete : handoff;
-    return pick ? make(pick, w.x, w.y - 21, false) : null;
+    const tr = currentTrip(tl.byFrom[i], clock);
+    if (!tr || clock >= tr.arrive) return null;
+    const at = { agent: i, x: w.x, y: w.y - 21, seated: false };
+    if (last && last.tone === "done" && clock - last.ts < COMPLETE_HOLD_MS) {
+      return { ...at, key: last.key, text: last.text, tool: last.tool, tone: last.tone, age: clock - last.ts };
+    }
+    return { ...at, key: tr.key, text: tr.label, tone: "handoff", age: clock - tr.start };
   }
-  if (last.type === "error") return make(last, desk.x, desk.top - 3, true);
-  if (view.screen === "work") return make(last, desk.x, desk.top - 3, true);
-  if (view.screen === "done" && i === run.agents.length - 1 && last.type === "complete") {
-    return make(last, desk.x, desk.top - 3, true);
+
+  if (!last) return null;
+  if (last.tone === "error" || view.screen === "work") return seated(last);
+  if (last.tone === "done" || last.tone === "alert") {
+    const handedOff = tl.byFrom[i].some((tr) => tr.start >= last.ts && tr.start <= clock);
+    if (!handedOff && clock - last.ts < m.doneHoldMs) return seated(last);
   }
   return null;
 }

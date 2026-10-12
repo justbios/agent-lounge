@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "live": "next build --webpack && next start -H 127.0.0.1 -p 3737",
+    "live:dev": "next dev --webpack -H 127.0.0.1 -p 3737"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",

@@ -50,6 +50,8 @@ export interface AgentDef {
   work?: string;
   handoff?: string;
   tokens?: number;
+  /** index into the café's character looks; live agents keep the same face per agent type */
+  look?: number;
 }
 
 /**

@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Radio, Play, Pause, RotateCcw, Zap, Package, Coins, Layers, Coffee, GitBranch, Plug } from "lucide-react";
+import { Play, Pause, RotateCcw, Zap, Package, Coins, Layers, Coffee, GitBranch, Dices } from "lucide-react";
 import { AGENTS, AgentDef } from "@/lib/types";
 import { buildMockRun } from "@/lib/mockRun";
 import { useReplay } from "@/lib/useReplay";
 import { getStageState } from "@/lib/stage";
-import { cafeLayout, cafeTravelMs } from "@/lib/cafe/layout";
+import { cafeLayout, cafeTravelMs, rng } from "@/lib/cafe/layout";
+import { modelFromRun } from "@/lib/cafe/model";
 import PipelineStage from "./PipelineStage";
 import CafeScene from "./cafe/CafeScene";
 import ActivityLog from "./ActivityLog";
@@ -26,20 +27,36 @@ const EXTRA: AgentDef[] = [
 ];
 const BIG: AgentDef[] = [...AGENTS.slice(0, 7), ...EXTRA, AGENTS[7]];
 
-const PRESETS: Record<string, AgentDef[]> = {
-  "8 · повний": AGENTS,
-  "4 · міні": MINI,
-  "12 · макс": BIG,
+const RANDOM = "🎲 випадково";
+
+function randomCrew(seed: number): AgentDef[] {
+  const r = rng(seed * 13 + 1);
+  const n = 3 + Math.floor(r() * 10);
+  const picked = BIG.map((a, i) => ({ a, i, k: r() }))
+    .sort((x, y) => x.k - y.k)
+    .slice(0, n)
+    .sort((x, y) => x.i - y.i)
+    .map((e) => e.a);
+  return picked;
+}
+
+const PRESETS: Record<string, (seed: number) => AgentDef[]> = {
+  [RANDOM]: randomCrew,
+  "8 · повний": () => AGENTS,
+  "4 · міні": () => MINI,
+  "12 · макс": () => BIG,
 };
 
 export default function PipelineDashboard() {
-  const [preset, setPreset] = useState("8 · повний");
+  const [preset, setPreset] = useState(RANDOM);
+  const [seed, setSeed] = useState(7);
   const [view, setView] = useState<"game" | "diagram">("game");
-  const run = useMemo(() => {
-    const agents = PRESETS[preset];
-    const lay = cafeLayout(agents.length);
-    return buildMockRun(agents, "run_demo", { travelMs: (i) => cafeTravelMs(lay, i), tailMs: CAFE_TAIL_MS });
-  }, [preset]);
+  const { run, cafe } = useMemo(() => {
+    const agents = PRESETS[preset](seed);
+    const lay = cafeLayout(agents.length, seed);
+    const run = buildMockRun(agents, "run_demo", { travelMs: (i) => cafeTravelMs(lay, i), tailMs: CAFE_TAIL_MS });
+    return { run, cafe: modelFromRun(run, lay, seed) };
+  }, [preset, seed]);
   const { clock, cycle, playing, speed, setPlaying, setSpeed, restart } = useReplay(run.totalMs);
 
   const n = run.agents.length;
@@ -65,27 +82,7 @@ export default function PipelineDashboard() {
   const activeLabel = st.travelFrom != null ? `${active.name} → передача` : `${active.name} · ${active.role}`;
 
   return (
-    <div className="app">
-      <header className="header">
-        <div className="brand">
-          <span className="brand-badge">
-            <Radio size={20} />
-          </span>
-          <div>
-            <div className="brand-name">Relay</div>
-            <div className="brand-sub">живий конвеєр агентів</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <a className="btn" href="/connect">
-            <Plug size={14} /> підключити Claude
-          </a>
-          <span className="live">
-            <span className="live-dot" />
-            replay · демо
-          </span>
-        </div>
-      </header>
+    <>
 
       <div className="statbar">
         <span className="level-pill">
@@ -131,6 +128,17 @@ export default function PipelineDashboard() {
               </option>
             ))}
           </select>
+          <button
+            className="btn"
+            onClick={() => {
+              setSeed(Math.floor(Math.random() * 1e6));
+              restart();
+            }}
+            aria-label="перемішати кафе"
+            title="перемішати кафе"
+          >
+            <Dices size={15} />
+          </button>
           <button className="btn btn-primary" onClick={() => setPlaying(!playing)}>
             {playing ? <Pause size={15} /> : <Play size={15} />}
             {playing ? "пауза" : "грати"}
@@ -161,7 +169,7 @@ export default function PipelineDashboard() {
           </span>
         </div>
         <div className="stage-pad">
-          {view === "game" ? <CafeScene run={run} clock={clock} /> : <PipelineStage run={run} clock={clock} />}
+          {view === "game" ? <CafeScene model={cafe} clock={clock} /> : <PipelineStage run={run} clock={clock} />}
         </div>
       </section>
 
@@ -175,6 +183,6 @@ export default function PipelineDashboard() {
         самі розставлять будь-яке N агентів. У проді список агентів (назви, ролі, порядок) приходить із подій твого Claude
         через <code>agent_events</code> + Supabase Realtime — нічого хардкодити.
       </p>
-    </div>
+    </>
   );
 }

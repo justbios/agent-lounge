@@ -1,0 +1,37 @@
+"use client";
+
+import Link from "next/link";
+import { Radio, Plug } from "lucide-react";
+import { FeedStatus } from "@/lib/live/useLiveFeed";
+
+export type Mode = "demo" | "live";
+
+export default function TopBar({ mode, onMode, status }: { mode: Mode; onMode: (m: Mode) => void; status: FeedStatus }) {
+  return (
+    <header className="header">
+      <div className="brand">
+        <span className="brand-badge">
+          <Radio size={20} />
+        </span>
+        <div>
+          <div className="brand-name">Relay</div>
+          <div className="brand-sub">живий конвеєр агентів</div>
+        </div>
+      </div>
+      <div className="header-r">
+        <Link className="btn" href="/connect">
+          <Plug size={14} /> підключити Claude
+        </Link>
+        <div className="viewseg modeseg">
+          <button className={mode === "demo" ? "on" : ""} onClick={() => onMode("demo")}>
+            демо
+          </button>
+          <button className={mode === "live" ? "on" : ""} onClick={() => onMode("live")}>
+            <span className={`feed-dot feed-${status}`} />
+            наживо
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
