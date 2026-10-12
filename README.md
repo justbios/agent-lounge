@@ -28,7 +28,8 @@ Claude Code hooks ──curl──▶ Vercel /api/claude-hook?k=<ключ> ─�
 сторінка: rpc relay_snapshot (знімок) + Realtime broadcast ◀───────────────────────┘
 ```
 
-- Supabase-проєкт `relay` (`ipkifjukrykdfxwjtnit`, Франкфурт), схема в `supabase/migrations/0003_live_rooms.sql`.
+- Supabase-проєкт `relay` (`tebhpitpwijkrxthxpcy`, Франкфурт) в окремій організації `Relay` (`wetxsehqqnjowburqbvf`).
+  З safeapp/Guard не ділить нічого: ні організації, ні білінгу, ні ключів. Схема в `supabase/migrations/0003_live_rooms.sql`.
 - Таблиця закрита RLS, ходять лише дві функції за ключем. Кімната — це `sha256(ключ)`, сам ключ ніде не лежить.
 - Події живуть добу (pg_cron) і не більше 5000 на кімнату.
 - На сервер іде лише нормалізоване: короткі описи дій, імена агентів, назва папки. Вміст файлів і повні тексти
