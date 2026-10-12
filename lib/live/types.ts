@@ -7,7 +7,8 @@ export type LiveKind =
   | "sub_stop"
   | "stop"
   | "notify"
-  | "session_end";
+  | "session_end"
+  | "roster";
 
 /** One Claude Code hook call, boiled down to what the café shows. */
 export interface LiveEvent {
@@ -24,5 +25,7 @@ export interface LiveEvent {
   text?: string;
   /** dispatch only: the subagent type being launched */
   target?: string;
+  /** roster only: agent names from the project's .claude/agents */
+  agents?: string[];
 }
 

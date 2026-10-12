@@ -14,12 +14,32 @@
 
 ## Наживо: підключити свій Claude Code
 
-Найпростіше: віддати одну фразу своєму Claude Code, і він усе зробить сам:
+Два способи, і обидва — одна фраза для свого Claude Code.
 
-> Підключи Relay до мого Claude Code: прочитай https://agent-pipeline-viz-one.vercel.app/setup.md і виконай усі кроки звідти.
+### Хмарно, через сайт (для всіх)
 
-Інструкція для Claude лежить у [`public/setup.md`](public/setup.md), на Vercel вона за адресою `/setup.md`.
-Руками це чотири команди:
+На https://agent-pipeline-viz-one.vercel.app/connect сайт видає особистий ключ і готову фразу з хуками. Claude
+дописує їх у `~/.claude/settings.json`, і далі агенти видно на сайті, з будь-якого пристрою (посилання
+`/#k=<ключ>`). Нічого завантажувати не треба.
+
+```
+Claude Code hooks ──curl──▶ Vercel /api/claude-hook?k=<ключ> ──▶ normalize ──▶ Supabase rpc relay_ingest
+                                                                                  │ realtime.send(relay:<sha256(ключ)>)
+сторінка: rpc relay_snapshot (знімок) + Realtime broadcast ◀───────────────────────┘
+```
+
+- Supabase-проєкт `relay` (`ipkifjukrykdfxwjtnit`, Франкфурт), схема в `supabase/migrations/0003_live_rooms.sql`.
+- Таблиця закрита RLS, ходять лише дві функції за ключем. Кімната — це `sha256(ключ)`, сам ключ ніде не лежить.
+- Події живуть добу (pg_cron) і не більше 5000 на кімнату.
+- На сервер іде лише нормалізоване: короткі описи дій, імена агентів, назва папки. Вміст файлів і повні тексти
+  відкидаються одразу у `lib/live/normalize.ts`.
+- Хуки на `UserPromptSubmit` і `SessionStart` додають список файлів з `.claude/agents`, тож за столи сідає вся
+  команда, навіть хто ще не працював.
+- Змінні для Vercel: `NEXT_PUBLIC_SUPABASE_URL` і `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (див. `.env.example`).
+
+### Локально (нічого не йде в мережу)
+
+Для власника репозиторію: інструкція для Claude лежить у [`public/setup.md`](public/setup.md). Руками:
 
 ```bash
 git clone https://github.com/justbios/agent-pipeline-viz.git ~/relay
@@ -35,13 +55,9 @@ npm run setup         # хук у ~/.claude/settings.json + Relay у фоні н
 | `npm run up` / `npm run down` | збирає й тримає Relay у фоні (лог `data/server.log`) / зупиняє. `npm run up -- --restart` після `git pull` |
 | `npm run live` | те саме на передньому плані, в терміналі |
 
-Хук і його JSON живуть у `lib/live/hookConfig.mjs`, звідти їх беруть і сторінка `/connect`, і скрипт.
-Хук асинхронний (`async: true`), мовчазний і завжди виходить з 0: він не гальмує агентів, не
-витрачає токенів, а коли Relay не запущений, curl просто тихо падає.
-
-Чому не прямо на сайті Vercel: сайт на https не може надійно читати `http://127.0.0.1`.
-Safari такі запити блокує, Chrome питає окремий дозвіл. Тож Relay крутиться в кожного свій, а
-Vercel показує демо й роздає інструкцію.
+Сторінка сама обирає режим: на `127.0.0.1` / `localhost` вона читає локальний Relay, на будь-якому іншому домені
+хмарну кімнату. Хуки обох режимів живуть у `lib/live/hookConfig.mjs`. Вони асинхронні (`async: true`), мовчазні й
+завжди виходять з 0: не гальмують агентів, не витрачають токенів, а коли адресат недоступний, curl тихо падає.
 
 Події тримаються в пам'яті процесу Relay (і в `data/live-events.jsonl`, щоб пережити перезапуск) і нікуди з машини не йдуть. Перевірити без
 справжнього Claude можна так: `node scripts/simulate-claude.mjs` програє вигадану сесію.
@@ -94,7 +110,9 @@ npm run dev -- --webpack
 | `orchestrator/` | `emit()` + приклад інтеграції з Agent SDK |
 | `supabase/migrations/0001_agent_events.sql` | схема таблиць + RLS + realtime |
 
-## Хмарний режим (щоб дивились інші, ще не зроблено)
+## Стара заготовка: оркестратор Agent SDK (не підключена)
+
+До хмарного режиму вище не має стосунку: окремі таблиці `agent_events` і `/api/ingest`, у проєкті `relay` їх немає.
 
 1. Створи проєкт у Supabase, застосуй `supabase/migrations/0001_agent_events.sql`.
 2. Заповни `.env` (див. `.env.example`).
@@ -106,5 +124,5 @@ npm run dev -- --webpack
 
 - [x] live-режим на екрані (локально, з хуків Claude Code)
 - [x] деплой демо на Vercel
-- [ ] хмарний live через Supabase, щоб показувати іншим наживо
+- [x] хмарний live через Supabase: кожен підключає свій Claude однією фразою
 - [ ] звук/партикли на хендофах, ачівки, лідерборд запусків

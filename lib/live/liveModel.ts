@@ -39,6 +39,7 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
   const map = new Map<string, LiveSession>();
   const worked = new Set<string>();
   for (const e of events) {
+    if (e.kind === "roster") continue;
     if (e.kind !== "prompt" && e.kind !== "session_end") worked.add(e.session);
     const s = map.get(e.session);
     if (!s) {
@@ -73,6 +74,15 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
   return list;
 }
 
+/** The agent list a cloud hook sent with the session's latest prompt; null when none came (local mode reads the disk). */
+export function sessionRoster(events: LiveEvent[], session: string): string[] | null {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.session === session && e.kind === "roster") return e.agents ?? [];
+  }
+  return null;
+}
+
 interface Seat {
   type: string;
   busy: boolean;
@@ -96,7 +106,7 @@ export interface LiveScene {
 
 /** Turns one session's hook events into the café: desk 0 is the main Claude, every subagent type gets its own desk. */
 export function buildLiveModel(events: LiveEvent[], session: string, roster: string[] = []): LiveScene {
-  const evs = events.filter((e) => e.session === session);
+  const evs = events.filter((e) => e.session === session && e.kind !== "roster");
   const origin = evs[0]?.at ?? Date.now();
   const seed = hash(session) % 100000;
 

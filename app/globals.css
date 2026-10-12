@@ -711,6 +711,8 @@ body {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding-right: 110px;
+  max-height: 300px;
+  overflow-y: auto;
 }
 .step-more {
   margin: -6px 0 22px 40px;

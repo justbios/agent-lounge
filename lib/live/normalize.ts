@@ -1,3 +1,4 @@
+import { ROSTER_MARK } from "./hookConfig.mjs";
 import { LiveEvent, LiveKind } from "./types";
 
 type Json = Record<string, unknown>;
@@ -146,4 +147,35 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
     default:
       return null;
   }
+}
+
+const MAX_ROSTER = 60;
+
+/** A hook body is the raw JSON, optionally followed by a marker line and the file names in .claude/agents. */
+export function parseHookBody(text: string): { raw: Json; agents: string[] | null } | null {
+  const cut = text.indexOf(`\n${ROSTER_MARK}\n`);
+  let raw: unknown;
+  try {
+    raw = JSON.parse(cut < 0 ? text : text.slice(0, cut));
+  } catch {
+    return null;
+  }
+  if (!raw || typeof raw !== "object") return null;
+  if (cut < 0) return { raw: raw as Json, agents: null };
+  const agents = text
+    .slice(cut + ROSTER_MARK.length + 2)
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.endsWith(".md") && !l.startsWith(".") && !/^readme\.md$/i.test(l))
+    .map((l) => l.slice(0, -3))
+    .filter((n) => /^[\w.-]{1,64}$/.test(n))
+    .slice(0, MAX_ROSTER)
+    .sort();
+  return { raw: raw as Json, agents };
+}
+
+export function rosterEvent(raw: Json, agents: string[], seq: number, at: number): LiveEvent | null {
+  const session = str(raw.session_id);
+  if (!session || str(raw.agent_id)) return null;
+  return { seq, at, session, cwd: str(raw.cwd), kind: "roster", agents };
 }
