@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Plays a made-up Claude Code session into a local Relay, using the exact hook payloads Claude Code sends.
 //   node scripts/simulate-claude.mjs [url]
+// SIM_CWD sets the folder the fake session claims to run in; its .claude/agents/ becomes the roster.
 const URL = process.argv[2] ?? "http://127.0.0.1:3737/api/claude-hook";
 const session = `sim-${Date.now().toString(36)}`;
-const cwd = "/Users/me/projects/safeapp/.claude/worktrees/demo-feature";
+const cwd = process.env.SIM_CWD ?? process.cwd();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function send(hook) {

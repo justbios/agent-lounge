@@ -7,6 +7,7 @@ export const CLAUDE_COLOR = "#ff9a62";
 const PALETTE = ["#38bdf8", "#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#a3e635", "#f87171", "#2dd4bf", "#e879f9", "#facc15", "#60a5fa", "#fb7185"];
 const DONE_HOLD_MS = 8000;
 const MIN_WORK_MS = 1400;
+const LIVE_PACE = 1.6;
 
 export interface LiveSession {
   id: string;
@@ -16,6 +17,8 @@ export interface LiveSession {
   last: number;
   count: number;
   ended: boolean;
+  /** the latest thing the user actually typed, to tell chats in the same folder apart */
+  ask?: string;
 }
 
 function hash(s: string): number {
@@ -37,18 +40,35 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
   for (const e of events) {
     const s = map.get(e.session);
     if (!s) {
-      map.set(e.session, { id: e.session, label: sessionLabel(e.cwd), cwd: e.cwd, first: e.at, last: e.at, count: 1, ended: e.kind === "session_end" });
+      map.set(e.session, {
+        id: e.session,
+        label: sessionLabel(e.cwd),
+        cwd: e.cwd,
+        first: e.at,
+        last: e.at,
+        count: 1,
+        ended: e.kind === "session_end",
+        ask: e.kind === "prompt" && e.tool === "питання" ? e.text : undefined,
+      });
       continue;
     }
     s.last = e.at;
     s.count += 1;
     if (e.kind === "session_end") s.ended = true;
+    if (e.kind === "prompt" && e.tool === "питання") s.ask = e.text;
     if (!s.cwd && e.cwd) {
       s.cwd = e.cwd;
       s.label = sessionLabel(e.cwd);
     }
   }
-  return [...map.values()].sort((a, b) => b.last - a.last);
+  const list = [...map.values()].sort((a, b) => b.last - a.last);
+  const seen = new Map<string, number>();
+  for (const s of [...list].sort((a, b) => a.first - b.first)) {
+    const n = (seen.get(s.label) ?? 0) + 1;
+    seen.set(s.label, n);
+    if (n > 1) s.label = `${s.label} #${n}`;
+  }
+  return list;
 }
 
 interface Seat {
@@ -73,7 +93,7 @@ export interface LiveScene {
 }
 
 /** Turns one session's hook events into the café: desk 0 is the main Claude, every subagent type gets its own desk. */
-export function buildLiveModel(events: LiveEvent[], session: string): LiveScene {
+export function buildLiveModel(events: LiveEvent[], session: string, roster: string[] = []): LiveScene {
   const evs = events.filter((e) => e.session === session);
   const origin = evs[0]?.at ?? Date.now();
   const seed = hash(session) % 100000;
@@ -111,34 +131,39 @@ export function buildLiveModel(events: LiveEvent[], session: string): LiveScene 
     note(seat, { key: `${key}-task`, ts: t, text: p.label, tool: "завдання", tone: "work" });
   };
 
+  const addSeat = (type: string): number => {
+    const i = seats.length;
+    const twins = seats.filter((s) => s.type === type).length;
+    const h = hash(type);
+    const used = new Set(agents.map((a) => a.color));
+    const hue = Array.from({ length: PALETTE.length }, (_, k) => PALETTE[(h + k) % PALETTE.length]).find((c) => !used.has(c));
+    seats.push({ type, busy: false, parent: 0 });
+    agents.push({
+      id: `seat-${i}`,
+      name: twins ? `${type} ${twins + 1}` : type,
+      role: "субагент",
+      color: hue ?? PALETTE[h % PALETTE.length],
+      icon: "cpu",
+      look: (h >>> 4) % 16,
+    });
+    stints.push([]);
+    notes.push([]);
+    return i;
+  };
+
   const seatFor = (id: string, type: string, t: number, key: string): number => {
     const known = bySubagent.get(id);
     if (known != null) return known;
     let i = seats.findIndex((s, k) => k > 0 && s.type === type && !s.busy);
-    if (i < 0) {
-      i = seats.length;
-      const twins = seats.filter((s) => s.type === type).length;
-      const h = hash(type);
-      seats.push({ type, busy: true, parent: 0 });
-      const used = new Set(agents.map((a) => a.color));
-      const hue = Array.from({ length: PALETTE.length }, (_, k) => PALETTE[(h + k) % PALETTE.length]).find((c) => !used.has(c));
-      agents.push({
-        id: `seat-${i}`,
-        name: twins ? `${type} ${twins + 1}` : type,
-        role: "субагент",
-        color: hue ?? PALETTE[h % PALETTE.length],
-        icon: "cpu",
-        look: (h >>> 4) % 16,
-      });
-      stints.push([]);
-      notes.push([]);
-    }
+    if (i < 0) i = addSeat(type);
     seats[i].busy = true;
     bySubagent.set(id, i);
     open(i, t);
     claim(i, t, key);
     return i;
   };
+
+  for (const type of roster) addSeat(type);
 
   for (const e of evs) {
     const t = e.at - origin;
@@ -192,7 +217,7 @@ export function buildLiveModel(events: LiveEvent[], session: string): LiveScene 
   }
 
   const lay = cafeLayout(agents.length, seed);
-  const going = scheduleTrips(dispatchReqs, lay);
+  const going = scheduleTrips(dispatchReqs, lay, LIVE_PACE);
 
   for (const tr of going) {
     const s = stints[tr.to].find((x) => x.end > tr.ts && x.start >= tr.ts - 1);
@@ -217,7 +242,7 @@ export function buildLiveModel(events: LiveEvent[], session: string): LiveScene 
       agents,
       stints,
       notes,
-      trips: scheduleTrips([...dispatchReqs, ...backReqs], lay),
+      trips: scheduleTrips([...dispatchReqs, ...backReqs], lay, LIVE_PACE),
       doneHoldMs: DONE_HOLD_MS,
       seed,
     },

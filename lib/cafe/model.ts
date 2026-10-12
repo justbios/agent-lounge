@@ -37,6 +37,8 @@ export interface Trip extends TripRequest {
   arrive: number;
   /** back in the chair */
   home: number;
+  /** walking-speed multiplier: walkers hurry when they are running behind */
+  pace: number;
 }
 
 export interface CafeModel {
@@ -50,22 +52,29 @@ export interface CafeModel {
   seed: number;
 }
 
-export function tripTiming(len: number) {
-  const walk = Math.round(len / WALK_PX_PER_MS);
-  return { out: STAND_MS + walk + GIVE_MS, back: walk + SIT_MS };
+const MAX_HURRY = 3;
+const HURRY_PER_MS = 1 / 4000;
+
+export function tripTiming(len: number, pace = 1) {
+  const walk = len / WALK_PX_PER_MS;
+  return { out: Math.round((STAND_MS + walk + GIVE_MS) / pace), back: Math.round((walk + SIT_MS) / pace) };
 }
 
-/** One person cannot be in two places: a walker's trips run back to back, in request order. */
-export function scheduleTrips(reqs: TripRequest[], lay: CafeLayout): Trip[] {
+/**
+ * One person cannot be in two places: a walker's trips run back to back, in request order.
+ * A walker whose queue has fallen behind real time hurries, so a live café never drifts far from the session.
+ */
+export function scheduleTrips(reqs: TripRequest[], lay: CafeLayout, basePace = 1): Trip[] {
   const free = new Map<number, number>();
   return [...reqs]
     .sort((a, b) => a.ts - b.ts)
     .map((r) => {
       const path = handoffPath(lay, r.from, r.to);
       const len = pathLength(path);
-      const { out, back } = tripTiming(len);
       const start = Math.max(r.ts, free.get(r.from) ?? -Infinity);
-      const trip: Trip = { ...r, path, back: [...path].reverse(), len, start, arrive: start + out, home: start + out + back };
+      const pace = basePace * Math.min(MAX_HURRY, 1 + (start - r.ts) * HURRY_PER_MS);
+      const { out, back } = tripTiming(len, pace);
+      const trip: Trip = { ...r, path, back: [...path].reverse(), len, start, arrive: start + out, home: start + out + back, pace };
       free.set(r.from, trip.home);
       return trip;
     });

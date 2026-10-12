@@ -78,6 +78,20 @@ export function describeTool(name: string, input: Json): { tool: string; text: s
   }
 }
 
+/** Claude Code also submits its own wrapped messages (a finished background task, …) as prompts. */
+function promptEvent(prompt: string | undefined): { tool: string; text: string } {
+  const p = prompt ?? "";
+  if (/^\s*<task-notification/.test(p)) {
+    const summary = /<summary>([\s\S]*?)<\/summary>/.exec(p)?.[1];
+    return { tool: "сповіщення", text: clip(summary ?? "фонова задача завершилась", 56) };
+  }
+  if (/^\s*</.test(p)) {
+    const plain = p.replace(/<[^>]+>/g, " ").trim();
+    return { tool: "система", text: clip(plain || "службове повідомлення", 56) };
+  }
+  return { tool: "питання", text: clip(`«${p || "…"}»`, 56) };
+}
+
 function notice(message: string | undefined): string {
   if (!message) return "чекає на тебе";
   if (/permission/i.test(message)) return "чекає на дозвіл";
@@ -110,7 +124,7 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
 
   switch (hook) {
     case "UserPromptSubmit":
-      return ev("prompt", { tool: "питання", text: clip(`«${str(raw.prompt) ?? "…"}»`, 56) });
+      return ev("prompt", promptEvent(str(raw.prompt)));
     case "PreToolUse":
       if (toolName === "Agent" || toolName === "Task") {
         const target = str(input.subagent_type) ?? "general-purpose";

@@ -2,14 +2,36 @@ import { CafeLayout, WALL_H, rng } from "@/lib/cafe/layout";
 import { AgentDef } from "@/lib/types";
 import { Ctx, LINE, px, rand, shade } from "./pixel";
 
-export const WINDOWS = [
-  { x: 54, w: 70 },
-  { x: 276, w: 70 },
-];
-export const SIGN = { x: 146, y: 6, w: 108, h: 26 };
-export const CLOCK = { x: 366, y: 19 };
-export const SCONCES = [135, 265];
-export const VENDING = { x: 352, y: 38, w: 28, h: 54 };
+export interface Fixtures {
+  WINDOWS: { x: number; w: number }[];
+  SIGN: { x: number; y: number; w: number; h: number };
+  CLOCK: { x: number; y: number };
+  SCONCES: number[];
+  VENDING: { x: number; y: number; w: number; h: number };
+}
+
+const memo = new Map<number, Fixtures>();
+
+/** Wall fixtures for a room of the given width: the sign stays centred, the vending machine and clock hug the right wall. */
+export function fixtures(width: number): Fixtures {
+  const hit = memo.get(width);
+  if (hit) return hit;
+  const sign = { x: Math.round(width / 2 - 54), y: 6, w: 108, h: 26 };
+  const windows = [
+    { x: 54, w: 70 },
+    { x: width - 108, w: 70 },
+  ];
+  if (width >= 512) windows.splice(1, 0, { x: Math.round((54 + 70 + sign.x) / 2 - 25), w: 50 }, { x: Math.round((sign.x + sign.w + width - 108) / 2 - 25), w: 50 });
+  const fx: Fixtures = {
+    WINDOWS: windows,
+    SIGN: sign,
+    CLOCK: { x: width - 18, y: 19 },
+    SCONCES: [sign.x - 11, sign.x + sign.w + 11],
+    VENDING: { x: width - 32, y: 38, w: 28, h: 54 },
+  };
+  memo.set(width, fx);
+  return fx;
+}
 
 function drawFloor(ctx: Ctx, lay: CafeLayout) {
   const planks = ["#3b2c2a", "#382927", "#3f2f2c", "#352725"];
@@ -84,8 +106,8 @@ function drawWindow(ctx: Ctx, x: number, w: number, seed: number) {
   px(ctx, x - 2, 35, w + 4, 1, "#20182a");
 }
 
-function drawSignBoard(ctx: Ctx) {
-  const { x, y, w, h } = SIGN;
+function drawSignBoard(ctx: Ctx, fx: Fixtures) {
+  const { x, y, w, h } = fx.SIGN;
   px(ctx, x - 1, y - 1, w + 2, h + 2, LINE);
   px(ctx, x, y, w, h, "#150f22");
   px(ctx, x, y, w, 1, "#2a2140");
@@ -112,7 +134,8 @@ function drawSconce(ctx: Ctx, x: number) {
   px(ctx, x - 2, 11, 1, 3, "#ffe2a8");
 }
 
-function drawClockFace(ctx: Ctx) {
+function drawClockFace(ctx: Ctx, fx: Fixtures) {
+  const CLOCK = fx.CLOCK;
   for (let dy = -8; dy <= 8; dy++) {
     for (let dx = -8; dx <= 8; dx++) {
       const d = Math.hypot(dx, dy);
@@ -124,6 +147,7 @@ function drawClockFace(ctx: Ctx) {
 }
 
 function drawWall(ctx: Ctx, width: number) {
+  const fx = fixtures(width);
   px(ctx, 0, 0, width, WALL_H, "#2b2140");
   for (let x = 3; x < width; x += 8) px(ctx, x, 0, 1, 37, "#30254a");
   px(ctx, 0, 37, width, 2, "#4b3a52");
@@ -133,11 +157,11 @@ function drawWall(ctx: Ctx, width: number) {
     px(ctx, x + 1, 40, 1, 7, "#45333f");
   }
   px(ctx, 0, 48, width, 2, "#1c1520");
-  WINDOWS.forEach((w, i) => drawWindow(ctx, w.x, w.w, i));
-  drawSignBoard(ctx);
+  fx.WINDOWS.forEach((w, i) => drawWindow(ctx, w.x, w.w, i));
+  drawSignBoard(ctx, fx);
   drawChalkboard(ctx);
-  SCONCES.forEach((x) => drawSconce(ctx, x));
-  drawClockFace(ctx);
+  fx.SCONCES.forEach((x) => drawSconce(ctx, x));
+  drawClockFace(ctx, fx);
 }
 
 function drawStools(ctx: Ctx) {
@@ -150,8 +174,8 @@ function drawStools(ctx: Ctx) {
   }
 }
 
-function drawVending(ctx: Ctx) {
-  const { x, y, w, h } = VENDING;
+function drawVending(ctx: Ctx, fx: Fixtures) {
+  const { x, y, w, h } = fx.VENDING;
   px(ctx, x - 1, y - 1, w + 2, h + 2, LINE);
   px(ctx, x, y, w, h, "#233150");
   px(ctx, x, y, w, 4, "#ff4fa3");
@@ -279,7 +303,7 @@ export function buildRoom(lay: CafeLayout, agents: AgentDef[], seed = 1): HTMLCa
   drawRugs(ctx, lay);
   drawWall(ctx, lay.width);
   drawStools(ctx);
-  drawVending(ctx);
+  drawVending(ctx, fixtures(lay.width));
   if (lay.height >= 180) drawPlant(ctx, 14, lay.height - 10);
   lay.desks.forEach((d, i) => {
     drawDesk(ctx, d.x, d.top, agents[i].color);

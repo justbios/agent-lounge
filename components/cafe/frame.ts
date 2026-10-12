@@ -110,7 +110,7 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
   ctx.drawImage(f.room, 0, 0);
-  drawAmbient(ctx, t);
+  drawAmbient(ctx, t, lay.width);
   drawBar(ctx, t);
 
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));

@@ -850,7 +850,7 @@ body {
   white-space: nowrap;
 }
 .cafe-neon-main {
-  font-size: 3.4cqw;
+  font-size: calc(3.4cqw * var(--k, 1));
   font-weight: 700;
   letter-spacing: 0.14em;
   color: #e3fcff;
@@ -862,8 +862,8 @@ body {
   animation: neon-flicker 7s steps(1) infinite;
 }
 .cafe-neon-sub {
-  margin-top: 0.4cqw;
-  font-size: 1.4cqw;
+  margin-top: calc(0.4cqw * var(--k, 1));
+  font-size: calc(1.4cqw * var(--k, 1));
   letter-spacing: 0.08em;
   color: #ffe0f0;
   text-shadow:
@@ -874,6 +874,9 @@ body {
 .cafe-name {
   position: absolute;
   transform: translate(-50%, -100%);
+  max-width: calc(17cqw * var(--k, 1));
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: clamp(7px, 1.3cqw, 13px);
   line-height: 1;
   letter-spacing: 0.04em;
@@ -1089,4 +1092,76 @@ body {
     width: 100%;
     justify-content: space-between;
   }
+}
+
+/* ---------- chat switcher ---------- */
+.chat-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 14px;
+  scrollbar-width: thin;
+}
+.chat-tab {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 220px;
+  padding: 9px 12px;
+  text-align: left;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.chat-tab:hover {
+  border-color: var(--border-2);
+}
+.chat-tab.on {
+  color: #f3f0ff;
+  border-color: rgba(255, 154, 98, 0.55);
+  background: linear-gradient(180deg, rgba(255, 154, 98, 0.12), rgba(255, 154, 98, 0.03));
+}
+.chat-tab-hd {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.chat-tab-nm {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-tab-ago {
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.chat-tab-ask {
+  font-size: 11.5px;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5b5670;
+}
+.chat-dot.busy {
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  animation: ping 1.6s ease-out infinite;
 }

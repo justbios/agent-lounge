@@ -2,7 +2,7 @@ import { CafeLayout } from "@/lib/cafe/layout";
 import { AgentView } from "@/lib/cafe/timeline";
 import { drawPerson, lookFor } from "./people";
 import { Ctx, LINE, glow, px, rand } from "./pixel";
-import { CLOCK, SCONCES, SIGN, VENDING, WINDOWS } from "./room";
+import { Fixtures, fixtures } from "./room";
 
 const BARISTA = lookFor(9, "#e9e2cf", {
   hair: "#3a2416",
@@ -15,14 +15,14 @@ const BARISTA = lookFor(9, "#e9e2cf", {
   style: 3,
 });
 
-function hand(ctx: Ctx, angle: number, len: number, color: string) {
+function hand(ctx: Ctx, CLOCK: Fixtures["CLOCK"], angle: number, len: number, color: string) {
   for (let r = 0; r <= len; r++) {
     px(ctx, CLOCK.x + Math.round(Math.cos(angle) * r), CLOCK.y + Math.round(Math.sin(angle) * r), 1, 1, color);
   }
 }
 
-function rain(ctx: Ctx, t: number) {
-  WINDOWS.forEach((w, wi) => {
+function rain(ctx: Ctx, t: number, fx: Fixtures) {
+  fx.WINDOWS.forEach((w, wi) => {
     const ix = w.x + 2;
     const iw = w.w - 4;
     const ih = 23;
@@ -45,10 +45,11 @@ function steamPuff(ctx: Ctx, x: number, y: number, t: number, puffs: number, ris
   ctx.globalAlpha = 1;
 }
 
-export function drawAmbient(ctx: Ctx, t: number) {
-  rain(ctx, t);
-  hand(ctx, -Math.PI / 2 + t * 0.35, 5, LINE);
-  hand(ctx, -Math.PI / 2 + t * 0.03, 3, "#7a2d3a");
+export function drawAmbient(ctx: Ctx, t: number, width: number) {
+  const fx = fixtures(width);
+  rain(ctx, t, fx);
+  hand(ctx, fx.CLOCK, -Math.PI / 2 + t * 0.35, 5, LINE);
+  hand(ctx, fx.CLOCK, -Math.PI / 2 + t * 0.03, 3, "#7a2d3a");
 }
 
 /** The coffee bar on the left wall: barista first, then the counter in front of them. */
@@ -93,6 +94,7 @@ export function drawLights(ctx: Ctx, lay: CafeLayout, views: AgentView[], colors
   ctx.fillRect(0, 0, lay.width, lay.height);
   ctx.globalCompositeOperation = "lighter";
 
+  const { SIGN, SCONCES, WINDOWS, VENDING } = fixtures(lay.width);
   const flick = rand(Math.floor(t * 9)) > 0.96 ? 0.35 : 0.9 + 0.1 * Math.sin(t * 17);
   const sx = SIGN.x + SIGN.w / 2;
   const sy = SIGN.y + SIGN.h / 2;

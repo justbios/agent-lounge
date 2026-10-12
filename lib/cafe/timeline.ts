@@ -63,30 +63,33 @@ function currentTrip(trips: Trip[], clock: number): Trip | null {
 function walkerOn(tr: Trip, lay: CafeLayout, clock: number): Walker {
   const target = tr.to;
   const t = clock - tr.start;
+  const stand = STAND_MS / tr.pace;
+  const giveMs = GIVE_MS / tr.pace;
   if (clock < tr.arrive) {
-    const walkMs = Math.max(1, tr.arrive - tr.start - STAND_MS - GIVE_MS);
-    if (t < STAND_MS) {
+    const walkMs = Math.max(1, tr.arrive - tr.start - stand - giveMs);
+    if (t < stand) {
       const p = pointAt(tr.path, 0);
-      return { ...p, moving: false, carrying: true, settle: 1 - t / STAND_MS, give: -1, target };
+      return { ...p, moving: false, carrying: true, settle: 1 - t / stand, give: -1, target };
     }
-    if (t < STAND_MS + walkMs) {
-      const p = pointAt(tr.path, ((t - STAND_MS) / walkMs) * tr.len);
+    if (t < stand + walkMs) {
+      const p = pointAt(tr.path, ((t - stand) / walkMs) * tr.len);
       return { ...p, moving: true, carrying: true, settle: 0, give: -1, target };
     }
     const end = tr.path[tr.path.length - 1];
     const dir: Dir = lay.desks[target].x > end.x ? "right" : "left";
-    const give = Math.min(1, (t - STAND_MS - walkMs) / GIVE_MS);
+    const give = Math.min(1, (t - stand - walkMs) / giveMs);
     return { x: end.x, y: end.y, dir, moving: false, carrying: false, settle: 0, give, target };
   }
   const back = clock - tr.arrive;
-  const walkBack = tr.len / WALK_PX_PER_MS;
+  const speed = WALK_PX_PER_MS * tr.pace;
+  const walkBack = tr.len / speed;
   if (back < walkBack) {
-    const p = pointAt(tr.back, back * WALK_PX_PER_MS);
+    const p = pointAt(tr.back, back * speed);
     return { ...p, moving: true, carrying: false, settle: 0, give: -1, target };
   }
   const seat = tr.path[0];
   const dir: Dir = lay.desks[tr.from].x > seat.x ? "right" : "left";
-  const settle = Math.min(1, (back - walkBack) / SIT_MS);
+  const settle = Math.min(1, (back - walkBack) / (SIT_MS / tr.pace));
   return { x: seat.x, y: seat.y, dir, moving: false, carrying: false, settle, give: -1, target };
 }
 

@@ -7,7 +7,7 @@ import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline
 import { Cat } from "./cat";
 import { drawFrame } from "./frame";
 import { lookFor } from "./people";
-import { SIGN, buildRoom } from "./room";
+import { buildRoom, fixtures } from "./room";
 
 const TYPE_MS_PER_CHAR = 22;
 
@@ -58,6 +58,7 @@ export default function CafeScene({ model, clock }: { model: CafeModel; clock: n
     return () => cancelAnimationFrame(raf);
   }, [model, agents, lay, tl, cat]);
 
+  const { SIGN } = fixtures(lay.width);
   const pos = (x: number, y: number): CSSProperties => ({
     left: `${(x / lay.width) * 100}%`,
     top: `${(y / lay.height) * 100}%`,
@@ -68,7 +69,7 @@ export default function CafeScene({ model, clock }: { model: CafeModel; clock: n
   const talking = new Set(bubbles.filter((b) => b.seated).map((b) => b.agent));
 
   return (
-    <div className="arcade cafe">
+    <div className="arcade cafe" style={{ "--k": 384 / lay.width } as CSSProperties}>
       <canvas
         ref={canvasRef}
         width={lay.width}

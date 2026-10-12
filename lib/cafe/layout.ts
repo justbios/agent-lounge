@@ -1,6 +1,9 @@
 import { Point } from "@/lib/layout";
 
-export const CAFE_W = 384;
+/** The room widens for a big crew so everyone fits in fewer bands. */
+export function cafeWidth(n: number): number {
+  return n > 16 ? 576 : n > 10 ? 512 : 384;
+}
 export const WALL_H = 50;
 export const SEAT_DY = 44;
 export const STAND_MS = 320;
@@ -15,8 +18,8 @@ const SIDE_STEP = 15;
 const MIN_GAP = 62;
 const DESK_HALF = 24;
 /** the bar and stools on the left and the vending machine on the right eat into the first band */
-const FIRST_SPAN: [number, number] = [72, 326];
-const SPAN: [number, number] = [34, 352];
+const firstSpan = (w: number): [number, number] => [72, w - 58];
+const span = (w: number): [number, number] => [34, w - 32];
 
 export type Dir = "up" | "down" | "left" | "right";
 
@@ -46,8 +49,9 @@ export function rng(seed: number): () => number {
   };
 }
 
-function bandCap(seed: number, band: number): number {
-  return 2 + Math.floor(rng(seed * 31 + band * 7919)() * 3);
+function bandCap(seed: number, band: number, width: number): number {
+  const lo = width >= 576 ? 5 : width >= 512 ? 4 : 2;
+  return lo + Math.floor(rng(seed * 31 + band * 7919)() * (width >= 512 ? 2 : 3));
 }
 
 function fits(xs: number[], x: number): boolean {
@@ -76,6 +80,7 @@ function pickX(xs: number[], span: [number, number], r: () => number): number | 
  * before it, so a live café that gains an agent never reshuffles the ones already sitting.
  */
 export function cafeLayout(n: number, seed = 1): CafeLayout {
+  const width = cafeWidth(n);
   const desks: Desk[] = [];
   const bandXs: number[][] = [];
   const full: boolean[] = [];
@@ -84,14 +89,14 @@ export function cafeLayout(n: number, seed = 1): CafeLayout {
     const r = rng(seed * 1009 + i * 7349 + 17);
     let placed = false;
     while (!placed) {
-      const open = bandXs.map((xs, b) => b).filter((b) => !full[b] && bandXs[b].length < bandCap(seed, b));
+      const open = bandXs.map((xs, b) => b).filter((b) => !full[b] && bandXs[b].length < bandCap(seed, b, width));
       if (!open.length) {
         bandXs.push([]);
         full.push(false);
         continue;
       }
       const b = open[Math.floor(r() * open.length)];
-      const x = pickX(bandXs[b], b === 0 ? FIRST_SPAN : SPAN, r);
+      const x = pickX(bandXs[b], b === 0 ? firstSpan(width) : span(width), r);
       if (x == null) {
         full[b] = true;
         continue;
@@ -106,7 +111,7 @@ export function cafeLayout(n: number, seed = 1): CafeLayout {
   const rows = Math.max(1, bandXs.length);
   const bands = Array.from({ length: rows }, (_, b) => FIRST_BAND + b * BAND_STEP);
   const walkY = bands.map((t) => t + SEAT_DY + JITTER + 3);
-  return { desks, bands, walkY, width: CAFE_W, height: bands[rows - 1] + 70 };
+  return { desks, bands, walkY, width, height: bands[rows - 1] + 70 };
 }
 
 function laneFree(lay: CafeLayout, x: number, lo: number, hi: number): boolean {

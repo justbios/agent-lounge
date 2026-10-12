@@ -45,3 +45,6 @@ next-env.d.ts
 
 # keep the env template
 !.env.example
+
+# local live-mode event log
+/data/

@@ -11,8 +11,10 @@ import { LiveEvent } from "@/lib/live/types";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import CafeScene from "./cafe/CafeScene";
 
-const AUTO = "auto";
 const LOG_ROWS = 120;
+const PICK_KEY = "relay.session";
+const RECENT_MS = 6 * 60 * 60 * 1000;
+const ACTIVE_MS = 90 * 1000;
 
 const EMPTY: CafeModel = {
   agents: [{ id: "main", name: "Claude", role: "головна сесія", color: CLAUDE_COLOR, icon: "bot", look: 2 }],
@@ -22,6 +24,36 @@ const EMPTY: CafeModel = {
   doneHoldMs: 0,
   seed: 4242,
 };
+
+function readPick(): string | null {
+  try {
+    return typeof window === "undefined" ? null : localStorage.getItem(PICK_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function savePick(id: string) {
+  try {
+    localStorage.setItem(PICK_KEY, id);
+  } catch {}
+}
+
+function useRoster(cwd: string | undefined): string[] {
+  const [roster, setRoster] = useState<{ cwd: string; agents: string[] } | null>(null);
+  useEffect(() => {
+    if (!cwd) return;
+    let live = true;
+    fetch(`/api/roster?cwd=${encodeURIComponent(cwd)}`)
+      .then((r) => (r.ok ? r.json() : { agents: [] }))
+      .then((d: { agents: string[] }) => live && setRoster({ cwd, agents: d.agents ?? [] }))
+      .catch(() => live && setRoster({ cwd, agents: [] }));
+    return () => {
+      live = false;
+    };
+  }, [cwd]);
+  return roster && roster.cwd === cwd ? roster.agents : [];
+}
 
 function useNow(): number {
   const [now, setNow] = useState(0);
@@ -60,7 +92,7 @@ function badge(v: AgentView, carrying: boolean): { cls: string; text: string } {
 function logText(e: LiveEvent): string {
   switch (e.kind) {
     case "prompt":
-      return `питання ${e.text ?? ""}`;
+      return `${e.tool ?? "питання"} ${e.text ?? ""}`;
     case "dispatch":
       return `→ ${e.target}: ${e.text ?? ""}`;
     case "sub_start":
@@ -77,12 +109,21 @@ function logText(e: LiveEvent): string {
 }
 
 export default function LiveDashboard({ feed }: { feed: LiveFeed }) {
-  const [pick, setPick] = useState(AUTO);
+  const [pick, setPick] = useState<string | null>(readPick);
+  const choose = (id: string) => {
+    setPick(id);
+    savePick(id);
+  };
   const now = useNow();
   const sessions = useMemo(() => listSessions(feed.events), [feed.events]);
-  const session = (pick !== AUTO && sessions.find((s) => s.id === pick)) || sessions[0] || null;
+  const session = (pick && sessions.find((s) => s.id === pick)) || sessions[0] || null;
+  const tabs = sessions.filter((s) => s === session || (!s.ended && now - s.last < RECENT_MS));
+  const roster = useRoster(session?.cwd);
 
-  const scene = useMemo(() => (session ? buildLiveModel(feed.events, session.id) : null), [feed.events, session]);
+  const scene = useMemo(
+    () => (session ? buildLiveModel(feed.events, session.id, roster) : null),
+    [feed.events, session, roster],
+  );
   const model = scene?.model ?? EMPTY;
   const clock = scene && now ? now - scene.origin : 0;
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model]);
@@ -115,17 +156,6 @@ export default function LiveDashboard({ feed }: { feed: LiveFeed }) {
           <span className={`feed-dot feed-${feed.status}`} />
           {feed.status === "open" ? "на зв'язку" : offline ? "Relay-сервер не запущений" : "підключаюсь…"}
         </span>
-        {sessions.length > 0 && (
-          <select className="preset session-sel" value={pick} onChange={(e) => setPick(e.target.value)} aria-label="сесія Claude Code">
-            <option value={AUTO}>авто · найсвіжіша сесія</option>
-            {sessions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label} · {ago(now - s.last)}
-                {s.ended ? " · закрита" : ""}
-              </option>
-            ))}
-          </select>
-        )}
         <span className="stat-sep" />
         <div className="stat">
           <span className="stat-k">
@@ -149,6 +179,21 @@ export default function LiveDashboard({ feed }: { feed: LiveFeed }) {
           <span className="stat-v">{session?.count ?? 0}</span>
         </div>
       </div>
+
+      {tabs.length > 0 && (
+        <nav className="chat-tabs" aria-label="чати Claude Code">
+          {tabs.map((s) => (
+            <button key={s.id} className={`chat-tab ${s === session ? "on" : ""}`} onClick={() => choose(s.id)} title={s.cwd}>
+              <span className="chat-tab-hd">
+                <span className={`chat-dot ${now - s.last < ACTIVE_MS ? "busy" : ""}`} />
+                <span className="chat-tab-nm">{s.label}</span>
+                <span className="chat-tab-ago">{ago(now - s.last)}</span>
+              </span>
+              <span className="chat-tab-ask">{s.ask ?? "питань ще не було"}</span>
+            </button>
+          ))}
+        </nav>
+      )}
 
       <section className="card stage-card">
         <div className="card-hd">
@@ -202,7 +247,9 @@ export default function LiveDashboard({ feed }: { feed: LiveFeed }) {
         <div className="card">
           <div className="card-hd">
             <span className="card-ttl">агенти</span>
-            <span className="muted-sm">{model.agents.length} за столами</span>
+            <span className="muted-sm">
+              {model.agents.length} за столами{roster.length ? ` · ${roster.length} з .claude/agents` : ""}
+            </span>
           </div>
           <div className="roster">
             {model.agents.map((a, i) => {
