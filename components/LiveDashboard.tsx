@@ -207,8 +207,9 @@ export default function LiveDashboard({ feed }: { feed: LiveFeed }) {
               <b>{offline ? "Relay-сервер не запущений" : "Чекаю на твого Claude…"}</b>
               {offline ? (
                 <>
-                  Наживо працює з локального сервера: у папці проєкту запусти <code>npm run live</code> і відкрий{" "}
-                  <code>localhost:3737</code>.
+                  Наживо показує агентів з Relay на твоєму комп&apos;ютері. Ще не стоїть? Віддай одну фразу своєму
+                  Claude: <Link href="/connect">підключити Claude</Link>. Вже стоїть: <code>npm run up</code> у папці
+                  Relay і відкрий <a href="http://127.0.0.1:3737">127.0.0.1:3737</a>.
                 </>
               ) : (
                 <>

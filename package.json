@@ -2,13 +2,21 @@
   "name": "agent-pipeline-viz",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "live": "next build --webpack && next start -H 127.0.0.1 -p 3737",
-    "live:dev": "next dev --webpack -H 127.0.0.1 -p 3737"
+    "live:dev": "next dev --webpack -H 127.0.0.1 -p 3737",
+    "setup": "node scripts/install-hooks.mjs && node scripts/live-bg.mjs",
+    "up": "node scripts/live-bg.mjs",
+    "down": "node scripts/live-bg.mjs --stop",
+    "hooks": "node scripts/install-hooks.mjs",
+    "unhook": "node scripts/install-hooks.mjs --remove"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",

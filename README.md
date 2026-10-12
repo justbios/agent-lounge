@@ -14,17 +14,36 @@
 
 ## Наживо: підключити свій Claude Code
 
+Найпростіше: віддати одну фразу своєму Claude Code, і він усе зробить сам:
+
+> Підключи Relay до мого Claude Code: прочитай https://agent-pipeline-viz-one.vercel.app/setup.md і виконай усі кроки звідти.
+
+Інструкція для Claude лежить у [`public/setup.md`](public/setup.md), на Vercel вона за адресою `/setup.md`.
+Руками це чотири команди:
+
 ```bash
+git clone https://github.com/justbios/agent-pipeline-viz.git ~/relay
+cd ~/relay
 npm install
-npm run live          # збірка + сервер на http://127.0.0.1:3737 (лише localhost)
+npm run setup         # хук у ~/.claude/settings.json + Relay у фоні на http://127.0.0.1:3737
 ```
 
-Далі хук у `~/.claude/settings.json`: готовий блок на сторінці `/connect`
-(генерується з `lib/live/hookConfig.ts`). Хук асинхронний (`async: true`), мовчазний
-і завжди виходить з 0: він не гальмує агентів, не витрачає токенів, а коли Relay не
-запущений, curl просто тихо падає.
+| Команда | Що робить |
+|---|---|
+| `npm run setup` | `hooks` + `up` |
+| `npm run hooks` / `npm run unhook` | додає / прибирає хук у `~/.claude/settings.json` (або `$CLAUDE_CONFIG_DIR`). Решту налаштувань не чіпає, бекап `settings.json.bak-relay`, повторний запуск нічого не міняє |
+| `npm run up` / `npm run down` | збирає й тримає Relay у фоні (лог `data/server.log`) / зупиняє. `npm run up -- --restart` після `git pull` |
+| `npm run live` | те саме на передньому плані, в терміналі |
 
-Події тримаються в пам'яті процесу Relay і нікуди з машини не йдуть. Перевірити без
+Хук і його JSON живуть у `lib/live/hookConfig.mjs`, звідти їх беруть і сторінка `/connect`, і скрипт.
+Хук асинхронний (`async: true`), мовчазний і завжди виходить з 0: він не гальмує агентів, не
+витрачає токенів, а коли Relay не запущений, curl просто тихо падає.
+
+Чому не прямо на сайті Vercel: сайт на https не може надійно читати `http://127.0.0.1`.
+Safari такі запити блокує, Chrome питає окремий дозвіл. Тож Relay крутиться в кожного свій, а
+Vercel показує демо й роздає інструкцію.
+
+Події тримаються в пам'яті процесу Relay (і в `data/live-events.jsonl`, щоб пережити перезапуск) і нікуди з машини не йдуть. Перевірити без
 справжнього Claude можна так: `node scripts/simulate-claude.mjs` програє вигадану сесію.
 
 ```

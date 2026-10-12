@@ -37,7 +37,9 @@ function sessionLabel(cwd?: string): string {
 
 export function listSessions(events: LiveEvent[]): LiveSession[] {
   const map = new Map<string, LiveSession>();
+  const worked = new Set<string>();
   for (const e of events) {
+    if (e.kind !== "prompt" && e.kind !== "session_end") worked.add(e.session);
     const s = map.get(e.session);
     if (!s) {
       map.set(e.session, {
@@ -61,7 +63,7 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
       s.label = sessionLabel(e.cwd);
     }
   }
-  const list = [...map.values()].sort((a, b) => b.last - a.last);
+  const list = [...map.values()].filter((s) => !(s.ended && !worked.has(s.id))).sort((a, b) => b.last - a.last);
   const seen = new Map<string, number>();
   for (const s of [...list].sort((a, b) => a.first - b.first)) {
     const n = (seen.get(s.label) ?? 0) + 1;

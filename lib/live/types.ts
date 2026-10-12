@@ -26,4 +26,3 @@ export interface LiveEvent {
   target?: string;
 }
 
-export const LIVE_PORT = 3737;

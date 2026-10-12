@@ -707,6 +707,23 @@ body {
   gap: 14px;
   margin-bottom: 22px;
 }
+.codeblock.wrap pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-right: 110px;
+}
+.step-more {
+  margin: -6px 0 22px 40px;
+}
+.step-more summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.step-more .step-body {
+  display: block;
+}
 .step-n {
   flex: none;
   width: 26px;

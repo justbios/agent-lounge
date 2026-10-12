@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Radio, ArrowLeft, Copy, Check, TerminalSquare, ShieldCheck } from "lucide-react";
+import { Radio, ArrowLeft, Copy, Check, TerminalSquare, ShieldCheck, Sparkles } from "lucide-react";
 import { HOOK_URL, hookSettings } from "@/lib/live/hookConfig";
 
-function Code({ text }: { text: string }) {
+const SITE = "https://agent-pipeline-viz-one.vercel.app";
+
+function Code({ text, wrap }: { text: string; wrap?: boolean }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="codeblock">
+    <div className={wrap ? "codeblock wrap" : "codeblock"}>
       <button
         className="copybtn"
         onClick={() => {
@@ -24,9 +26,12 @@ function Code({ text }: { text: string }) {
   );
 }
 
+const PROMPT = `Підключи Relay до мого Claude Code: прочитай ${SITE}/setup.md і виконай усі кроки звідти.`;
+const MANUAL = `git clone https://github.com/justbios/agent-pipeline-viz.git ~/relay
+cd ~/relay
+npm install
+npm run setup`;
 const SETTINGS = JSON.stringify(hookSettings(), null, 2);
-const RUN = `cd /Volumes/Безіменний/2026/agent-pipeline-viz
-npm run live`;
 const TEST = `echo '{"session_id":"test","cwd":"/tmp/demo","hook_event_name":"UserPromptSubmit","prompt":"привіт, Relay"}' \\
   | curl -s -H 'content-type: application/json' --data-binary @- ${HOOK_URL}`;
 
@@ -44,55 +49,65 @@ export default function ConnectPanel() {
         <div>
           <h1>Підключи свій Claude</h1>
           <p className="connect-sub">
-            Один хук у Claude Code, і твої справжні агенти сядуть за столи: хто працює, що саме робить, кому несе задачу.
+            Твої справжні агенти сядуть за столи: хто працює, що саме робить, кому несе задачу. Кожен чат на окремій
+            вкладці, уся команда з <code>.claude/agents</code> за своїми столами.
           </p>
         </div>
       </div>
 
       <div className="notice">
         <ShieldCheck size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
-        Усе локально: хук шле події лише на <code>127.0.0.1:3737</code>, у мережу нічого не йде. Хук асинхронний і
-        мовчазний, тож він не гальмує агентів і не витрачає токенів. Якщо Relay не запущений, curl тихо падає, і Claude
+        Relay працює на твоєму комп&apos;ютері: хук шле події лише на <code>127.0.0.1:3737</code>, у мережу нічого не
+        йде. Хук асинхронний і мовчазний, тож не гальмує агентів і не витрачає токенів. Якщо Relay не запущений, Claude
         працює як завжди.
       </div>
 
       <div className="step">
-        <div className="step-n">1</div>
+        <div className="step-n">
+          <Sparkles size={14} />
+        </div>
         <div className="step-body">
-          <div className="step-ttl">Запусти Relay у себе</div>
-          <Code text={RUN} />
+          <div className="step-ttl">Найпростіше: віддай це своєму Claude</div>
           <p className="step-p">
-            Відкрий <a href="http://127.0.0.1:3737">127.0.0.1:3737</a> і перемкнись на «наживо».
+            Встав у будь-який чат Claude Code. Він сам завантажить Relay, поставить хук і запустить сервер, це хвилини
+            дві. Потрібен лише Node 20+.
+          </p>
+          <Code text={PROMPT} wrap />
+          <p className="step-p">
+            Далі відкрий <a href="http://127.0.0.1:3737">127.0.0.1:3737</a> і перемкнись на «наживо». Що саме він
+            зробить, написано в <a href="/setup.md">setup.md</a>.
           </p>
         </div>
       </div>
 
       <div className="step">
-        <div className="step-n">2</div>
+        <div className="step-n">
+          <TerminalSquare size={14} />
+        </div>
         <div className="step-body">
-          <div className="step-ttl">Додай хук у Claude Code</div>
+          <div className="step-ttl">Або сам, чотири команди</div>
+          <Code text={MANUAL} />
           <p className="step-p">
-            У <code>~/.claude/settings.json</code>, поряд з іншими ключами. Діє на всі проєкти й нові сесії, включно з
-            desktop-застосунком і worktree.
+            <code>npm run setup</code> дописує хук у <code>~/.claude/settings.json</code> (інші налаштування не
+            чіпає, стару версію зберігає як <code>settings.json.bak-relay</code>) і запускає Relay у фоні. Після
+            перезавантаження: <code>npm run up</code>. Зупинити: <code>npm run down</code>, прибрати хук:{" "}
+            <code>npm run unhook</code>.
+          </p>
+        </div>
+      </div>
+
+      <details className="step-more">
+        <summary className="step-ttl">Хук вручну й перевірка</summary>
+        <div className="step-body">
+          <p className="step-p">
+            Блок для <code>~/.claude/settings.json</code>, поряд з іншими ключами. Діє на всі проєкти й нові сесії,
+            включно з desktop-застосунком і worktree.
           </p>
           <Code text={SETTINGS} />
-        </div>
-      </div>
-
-      <div className="step">
-        <div className="step-n">3</div>
-        <div className="step-body">
-          <div className="step-ttl">
-            <TerminalSquare size={15} style={{ verticalAlign: "-2px", marginRight: 6 }} />
-            Перевір (необов&apos;язково)
-          </div>
+          <p className="step-p">Перевірка: у кафе з&apos;явиться сесія «demo» з питанням над головою Claude.</p>
           <Code text={TEST} />
-          <p className="step-p">
-            У кафе з&apos;явиться сесія «demo» з питанням над головою Claude. Далі просто працюй: кожен виклик субагента
-            стане походом до його столу.
-          </p>
         </div>
-      </div>
+      </details>
     </div>
   );
 }
