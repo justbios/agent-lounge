@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Earned } from "@/lib/live/achievements";
-import { ItemId } from "@/lib/live/interior";
+import { BRAND, ItemId, TITLE_MAX } from "@/lib/live/interior";
 import { CafeState } from "@/lib/live/useCafe";
 import Shop from "./Shop";
 import ThemePicker from "./ThemePicker";
@@ -42,24 +42,39 @@ function Card({ e }: { e: Earned }) {
   );
 }
 
-function CatName({ cafe }: { cafe: CafeState }) {
-  const [name, setName] = useState(cafe.settings.cat_name ?? "");
+function NameForm({
+  id,
+  label,
+  value,
+  max,
+  placeholder,
+  done,
+  onSave,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  max: number;
+  placeholder: string;
+  done: string;
+  onSave: (v: string) => Promise<boolean>;
+}) {
+  const [name, setName] = useState(value);
   const [note, setNote] = useState<"" | "ok" | "bad" | "busy">("");
   const submit = async (ev: FormEvent) => {
     ev.preventDefault();
     setNote("busy");
-    const ok = await cafe.save({ cat_name: name.trim() || null });
-    setNote(ok ? "ok" : "bad");
+    setNote((await onSave(name.trim())) ? "ok" : "bad");
   };
   return (
     <form className="cat-name" onSubmit={submit}>
-      <label htmlFor="cat-name">Ім&apos;я кота</label>
+      <label htmlFor={id}>{label}</label>
       <div className="key-paste-row">
         <input
-          id="cat-name"
+          id={id}
           value={name}
-          maxLength={24}
-          placeholder="рудий кіт без імені"
+          maxLength={max}
+          placeholder={placeholder}
           onChange={(e) => {
             setName(e.target.value);
             setNote("");
@@ -69,7 +84,7 @@ function CatName({ cafe }: { cafe: CafeState }) {
           {note === "busy" ? "зберігаю…" : "зберегти"}
         </button>
       </div>
-      {note === "ok" && <span className="alerts-hint">Готово, ім&apos;я вже над котом.</span>}
+      {note === "ok" && <span className="alerts-hint">{done}</span>}
       {note === "bad" && <span className="key-paste-bad">Не вдалося зберегти, спробуй ще раз.</span>}
     </form>
   );
@@ -116,7 +131,28 @@ export default function CafePanel({
         </p>
 
         <ThemePicker cafe={cafe} />
-        {cafe.editable && <CatName cafe={cafe} />}
+        {cafe.editable && (
+          <NameForm
+            id="cafe-title"
+            label="Назва кафе"
+            value={cafe.interior.title ?? ""}
+            max={TITLE_MAX}
+            placeholder={`${BRAND}, або назва команди`}
+            done="Готово, назва вже на вивісці й на даху."
+            onSave={(v) => cafe.setNames({ title: v || undefined })}
+          />
+        )}
+        {cafe.editable && (
+          <NameForm
+            id="cat-name"
+            label="Ім'я кота"
+            value={cafe.settings.cat_name ?? ""}
+            max={24}
+            placeholder="рудий кіт без імені"
+            done="Готово, ім'я вже над котом."
+            onSave={(v) => cafe.save({ cat_name: v || null })}
+          />
+        )}
         {cafe.error && <p className="key-paste-bad">Не вдалося дістати прогрес, спробую ще раз за хвилину.</p>}
         {cafe.progress && <Shop cafe={cafe} onPlace={onPlace} />}
 

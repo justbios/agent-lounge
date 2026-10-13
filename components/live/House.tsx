@@ -3,7 +3,7 @@
 import { CSSProperties, ReactNode, useState } from "react";
 import { flushSync } from "react-dom";
 import { Floor, LOBBY } from "@/lib/live/house";
-import { Interior } from "@/lib/live/interior";
+import { BRAND, Interior } from "@/lib/live/interior";
 import { LiveScene, LiveSession } from "@/lib/live/liveModel";
 import { DecorSet } from "../cafe/decor";
 import MiniCafe from "../cafe/MiniCafe";
@@ -110,7 +110,7 @@ export default function House({
   return (
     <section className="card house-card">
       <div className="card-hd">
-        <span className="card-ttl">інтернет-кафе</span>
+        <span className="card-ttl">{look.interior.title ?? "інтернет-кафе"}</span>
         <div className="stage-tools">
           <span className="muted-sm">
             {rooms} {plural(rooms, "зала", "зали", "зал")}
@@ -121,7 +121,7 @@ export default function House({
       </div>
       <div className="house">
         <div className="house-roof" aria-hidden>
-          <span className="house-sign">RELAY</span>
+          <span className="house-sign">{look.interior.title ?? BRAND}</span>
         </div>
         {floors.map((f) => (
           <div key={f.key} className="house-floor" style={{ "--c": f.color } as CSSProperties}>

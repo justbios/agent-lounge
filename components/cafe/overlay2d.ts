@@ -1,5 +1,6 @@
 import { CafeLayout } from "@/lib/cafe/layout";
 import { Bubble } from "@/lib/cafe/timeline";
+import { titleFit } from "@/lib/live/interior";
 import { chip, line, speechNow } from "@/lib/live/speech";
 import { AgentDef } from "@/lib/types";
 import { fixtures } from "./room";
@@ -12,6 +13,8 @@ export interface OverlayInput {
   cats: { x: number; y: number; name: string }[];
   /** the neon sign's second line, when the café bought its own */
   sign?: string;
+  /** the sign's big line: the café's name, or RELAY */
+  title: string;
   watermark: string;
 }
 
@@ -76,7 +79,8 @@ function neon(ctx: CanvasRenderingContext2D, o: OverlayInput, s: number, k: numb
     }
     ctx.shadowBlur = 0;
   };
-  glowText("RELAY", top, main, 700, "#e3fcff", [["#1aa7d8", 26], ["#5ce1ff", 14], ["#5ce1ff", 6], ["#ffffff", 2]]);
+  const big: [string, number][] = [["#1aa7d8", 26], ["#5ce1ff", 14], ["#5ce1ff", 6], ["#ffffff", 2]];
+  glowText(o.title, top, main * titleFit(o.title), 700, "#e3fcff", big);
   glowText(o.sign ?? "інтернет-кафе", top + main + gap, sub, 400, "#ffe0f0", [["#ff4fa3", 14], ["#ff4fa3", 6], ["#ffffff", 2]]);
   spacing(ctx, 0, 1);
 }

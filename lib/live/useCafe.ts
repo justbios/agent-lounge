@@ -81,8 +81,8 @@ export interface CafeState {
   place: (p: Placed) => Promise<boolean>;
   stow: (pid: string) => Promise<boolean>;
   setLook: (agent: string, pick: LookPick | null) => Promise<boolean>;
-  /** the neon sign's own line and the second cat's name */
-  setNames: (patch: Pick<Interior, "sign" | "cat2Name">) => Promise<boolean>;
+  /** the neon sign's own line, the second cat's name and the café's name */
+  setNames: (patch: Pick<Interior, "sign" | "cat2Name" | "title">) => Promise<boolean>;
 }
 
 /** Lifetime progress, the decor it unlocks and the café's own settings: from Relay in the cloud, from memory and this browser locally. */
@@ -172,7 +172,8 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
     else delete looks[agent];
     return fit({ ...interior, looks });
   };
-  const setNames = (patch: Pick<Interior, "sign" | "cat2Name">) => fit(cleanInterior({ ...interior, ...patch }));
+  const setNames = (patch: Pick<Interior, "sign" | "cat2Name" | "title">) =>
+    fit(cleanInterior({ ...interior, ...patch }));
 
   return {
     progress,

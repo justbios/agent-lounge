@@ -77,6 +77,8 @@ export interface Interior {
   /** the second line of the neon sign */
   sign?: string;
   cat2Name?: string;
+  /** the café's own name, on the sign and the roof instead of RELAY */
+  title?: string;
 }
 
 export const EMPTY_INTERIOR: Interior = { owned: [], placed: [], looks: {} };
@@ -84,6 +86,11 @@ export const EMPTY_INTERIOR: Interior = { owned: [], placed: [], looks: {} };
 const MAX_OWNED = 80;
 const MAX_LOOKS = 64;
 export const SIGN_MAX = 18;
+export const TITLE_MAX = 20;
+/** What the sign's big line says when the café has no name of its own. */
+export const BRAND = "RELAY";
+/** How much the sign's big line shrinks so a long café name still fits the board. */
+export const titleFit = (t: string) => Math.min(1, 9 / Math.max(1, [...t].length));
 export const NAME_MAX = 16;
 
 const int = (v: unknown, lo: number, hi: number): number | undefined =>
@@ -143,8 +150,10 @@ export function cleanInterior(v: unknown): Interior {
   const out: Interior = { owned, placed, looks };
   const sign = text(o.sign, SIGN_MAX);
   const cat2Name = text(o.cat2Name, 24);
+  const title = text(o.title, TITLE_MAX);
   if (sign) out.sign = sign;
   if (cat2Name) out.cat2Name = cat2Name;
+  if (title) out.title = title;
   return out;
 }
 

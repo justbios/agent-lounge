@@ -420,7 +420,7 @@ export default function LiveDashboard({
         />
       ) : (
         <Stage
-          title={whole ? "уся команда" : session ? session.label : "інтернет-кафе"}
+          title={whole ? "уся команда" : session ? session.label : (cafe.interior.title ?? "інтернет-кафе")}
           sub={
             replay && replay.session === session?.id ? (
               <ReplayBar

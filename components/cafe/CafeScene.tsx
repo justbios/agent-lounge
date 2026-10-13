@@ -5,7 +5,7 @@ import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
-import { EMPTY_INTERIOR, Interior, ItemId, LookPick, Placed, itemOf, owns } from "@/lib/live/interior";
+import { BRAND, EMPTY_INTERIOR, Interior, ItemId, LookPick, Placed, itemOf, owns, titleFit } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { AgentCard, ScenePop } from "./AgentCard";
 import { Cat } from "./cat";
@@ -95,7 +95,8 @@ export default function CafeScene({
   const sign = owns(interior, "neon") ? interior.sign : undefined;
   const hasCat2 = owns(interior, "cat2");
   const cat2Name = hasCat2 ? interior.cat2Name : undefined;
-  const namesRef = useRef({ cat: catName, cat2: cat2Name, sign });
+  const title = interior.title ?? BRAND;
+  const namesRef = useRef({ cat: catName, cat2: cat2Name, sign, title });
   const seats = useMemo(() => seatGuests(guests ?? []), [guests]);
   const seatsRef = useRef<GuestSeat[]>(seats);
   const agents = model.agents;
@@ -119,11 +120,11 @@ export default function CafeScene({
     clockRef.current = clock;
     alertRef.current = alert;
     decorRef.current = decor;
-    namesRef.current = { cat: catName, cat2: cat2Name, sign };
+    namesRef.current = { cat: catName, cat2: cat2Name, sign, title };
     closedRef.current = closed;
     seatsRef.current = seats;
     shownRef.current = shown;
-  }, [clock, alert, decor, catName, cat2Name, sign, seats, shown, closed]);
+  }, [clock, alert, decor, catName, cat2Name, sign, title, seats, shown, closed]);
 
   useEffect(() => {
     if (placing) return;
@@ -187,7 +188,8 @@ export default function CafeScene({
           ...(cat2 && n.cat2 ? [{ ...cat2.pos, name: n.cat2 }] : []),
         ];
         const watermark = `relay · ${location.host}`;
-        clipFrame(canvas, { lay, agents: named, bubbles, alert: alertRef.current, cats, sign: n.sign, watermark });
+        const alert = alertRef.current;
+        clipFrame(canvas, { lay, agents: named, bubbles, alert, cats, sign: n.sign, title: n.title, watermark });
       }
       raf = requestAnimationFrame(loop);
     };
@@ -327,7 +329,9 @@ export default function CafeScene({
         />
         <div className="cafe-overlay" aria-hidden>
           <div className={`cafe-neon ${closed ? "off" : ""}`} style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
-            <span className="cafe-neon-main">RELAY</span>
+            <span className="cafe-neon-main" style={{ "--fit": titleFit(title) } as CSSProperties}>
+              {title}
+            </span>
             <span className="cafe-neon-sub">{closed ? "зачинено до ранку" : (sign ?? SIGN_TEXT)}</span>
           </div>
           {closed && (
