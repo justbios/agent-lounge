@@ -14,13 +14,13 @@ import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
 import { Ghost, drawFrame } from "./frame";
 import { CAT2 } from "./furniture";
-import { GuestSeat, seatGuests } from "./guests";
+import { GuestSeat, barOverflow, seatGuests } from "./guests";
 import { HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
 import { buildRoom, doorOf, fixtures } from "./room";
 import { Anchor, CafeBubble, FixturePick, Placing, SceneAlert, agentAnchor, anchorAt, fixtureAnchor, onCat } from "./sceneParts";
-import { GuestTags, ReactionLayer, SeatReaction } from "./SceneSocial";
+import { ChatTag, GuestTags, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
 import { fmtTokens } from "../live/tokens";
 
@@ -45,6 +45,7 @@ export default function CafeScene({
   theme = THEMES.cafe,
   rate = 0,
   guests,
+  chatUnread = 0,
   reactions,
   onReact,
   onPick,
@@ -64,8 +65,10 @@ export default function CafeScene({
   theme?: Theme;
   /** tokens a minute, shown on the LED strip under the sign */
   rate?: number;
-  /** others who have this café open right now */
+  /** everyone who has this café open right now, this tab included */
   guests?: Guest[];
+  /** messages in the café's chat this tab has not read yet */
+  chatUnread?: number;
   reactions?: SeatReaction[];
   /** shows reaction buttons in the agent card */
   onReact?: (agent: number, emoji: string) => void;
@@ -357,7 +360,8 @@ export default function CafeScene({
               </span>
             );
           })}
-          <GuestTags seats={seats} pos={pos} />
+          <GuestTags seats={seats} more={barOverflow(guests ?? [])} pos={pos} />
+          <ChatTag unread={chatUnread} pos={pos} />
           {reactions && <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />}
           {catName && (
             <span ref={catRef} className="cafe-cat">

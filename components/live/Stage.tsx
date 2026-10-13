@@ -103,6 +103,10 @@ export default function Stage({
   alert,
   rate,
   guests,
+  bar,
+  chatTool,
+  chatUnread,
+  onChat,
   reactions,
   onReact,
   cafe,
@@ -128,6 +132,13 @@ export default function Stage({
   /** tokens a minute over the last quarter hour, for the meter on the wall */
   rate: number;
   guests: Guest[];
+  /** everyone at the bar, this tab included */
+  bar: Guest[];
+  /** the chat button for the toolbar, when the café has a chat */
+  chatTool?: ReactNode;
+  chatUnread: number;
+  /** a click on the bar; without it the bar only says the chat lives in the hosted café */
+  onChat?: () => void;
   reactions: SeatReaction[];
   onReact: (agent: number, emoji: string) => void;
   cafe: CafeState;
@@ -168,6 +179,7 @@ export default function Stage({
     if (p.kind === "board") return onRecap();
     if (p.kind === "vending") return onCafe();
     if (p.kind === "window") return nextTheme(p.anchor);
+    if (p.kind === "bar") return onChat ? onChat() : note(p.anchor, "груповий чат є в хмарному кафе");
     setPop(pop?.kind === "door" ? null : { kind: "door", anchor: p.anchor });
   };
   const flip = (s: Side) => setDrawer(drawer === s ? null : s);
@@ -191,6 +203,7 @@ export default function Stage({
         <div className="stage-tools">
           {sub}
           <Presence guests={guests} />
+          {chatTool}
           <button className="btn btn-ic" onClick={onGames} title="ігри">
             <Gamepad2 size={14} />
           </button>
@@ -211,7 +224,8 @@ export default function Stage({
           clock={clock}
           alert={alert}
           rate={rate}
-          guests={guests}
+          guests={bar}
+          chatUnread={chatUnread}
           reactions={reactions}
           onReact={onReact}
           decor={cafe.decor}

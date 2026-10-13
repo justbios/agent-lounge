@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
-import { CalendarDays, Gamepad2, Trophy, Volume2, VolumeX } from "lucide-react";
+import { CalendarDays, Gamepad2, MessageCircle, Trophy, Volume2, VolumeX } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
@@ -11,12 +11,13 @@ import { staleHooks } from "@/lib/live/hookHealth";
 import { LOBBY, houseFloors, useHouseScenes } from "@/lib/live/house";
 import { CLAUDE_COLOR, LiveSession, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
 import { leaveView, useViewRoom } from "@/lib/live/relayKey";
-import { setFocus, useTeamView } from "@/lib/live/team";
+import { setFocus, setMe, useTeamView } from "@/lib/live/team";
 import { buildTeamModel, memberOf, teamAlert } from "@/lib/live/teamModel";
 import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
 import { useCafe } from "@/lib/live/useCafe";
 import { useCafeSound } from "@/lib/live/useCafeSound";
+import { useChat } from "@/lib/live/useChat";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
@@ -30,6 +31,7 @@ import { themeOf } from "./cafe/theme";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
 import CafePanel from "./live/CafePanel";
+import ChatPanel from "./live/ChatPanel";
 import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
 import BetStrip from "./live/BetStrip";
@@ -248,6 +250,24 @@ export default function LiveDashboard({
     viewer: viewing,
     enabled: cloud,
   });
+  const [chatOpen, setChatOpen] = useState(false);
+  const chat = useChat({
+    cloud,
+    key: viewing ? null : roomKey,
+    room: viewing ? viewRoom : null,
+    social,
+    open: chatOpen,
+  });
+  const chatTool = chat.on && (
+    <button
+      className={`btn btn-ic btn-dot ${chatOpen ? "on" : ""}`}
+      onClick={() => setChatOpen(!chatOpen)}
+      title="чат кафе"
+    >
+      <MessageCircle size={14} />
+      {chat.unread > 0 && <b>{chat.unread}</b>}
+    </button>
+  );
   const sceneId = whole ? "team" : (session?.id ?? "");
   const [gamesOpen, setGamesOpen] = useState(false);
   const games = useGames({
@@ -364,6 +384,16 @@ export default function LiveDashboard({
           onClose={() => setGamesOpen(false)}
         />
       )}
+      {chatOpen && chat.on && (
+        <ChatPanel
+          chat={chat}
+          me={team.me}
+          here={social.bar}
+          colorOf={team.colorOf}
+          onName={(name) => roomKey && setMe(roomKey, name)}
+          onClose={() => setChatOpen(false)}
+        />
+      )}
       <InviteToast duels={games.duels} onPlay={() => setGamesOpen(true)} />
       {cafe.fresh.length > 0 && !cafeOpen && (
         <AchToast
@@ -411,6 +441,7 @@ export default function LiveDashboard({
           tools={
             <>
               <Presence guests={social.guests} />
+              {chatTool}
               <button className="btn btn-ic" onClick={() => setGamesOpen(true)} title="ігри">
                 <Gamepad2 size={14} />
               </button>
@@ -441,6 +472,10 @@ export default function LiveDashboard({
           alert={alert}
           rate={rate}
           guests={social.guests}
+          bar={social.bar}
+          chatTool={chatTool}
+          chatUnread={chat.unread}
+          onChat={chat.on ? () => setChatOpen(true) : undefined}
           reactions={reactions}
           onReact={(i, emoji) => social.react(sceneId, model.agents[i].id, emoji)}
           cafe={cafe}
@@ -500,7 +535,7 @@ export default function LiveDashboard({
         Головний Claude сидить за першим столом. Доручаючи задачу, він несе її субагенту, а той, закінчивши, приносить
         результат назад. Сцена клікабельна: агент покаже картку, з якої можна кинути йому реакцію, кіт дасться погладити,
         дошка відкриє підсумок, автомат досягнення, вікно змінить вид, двері запросять команду.
-        {cloud && " Хто ще відкрив це кафе, сидить біля бару."}
+        {cloud && " Усі, хто відкрив це кафе, і ти теж, сидять біля бару, а клік по бару відкриває груповий чат."}
         {houseOn && " Інші чати живуть у сусідніх залах: кнопка з будиночком угорі віддаляє до всього будинку."}
       </p>
     </>

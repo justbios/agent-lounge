@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { BUS_EVENTS, Bus } from "./bus";
 import { roomOf } from "./relayKey";
-import { Guest, Reaction, addReaction, cleanReaction, guestsOf } from "./social";
+import { Guest, Reaction, addReaction, barOf, cleanReaction, guestsOf } from "./social";
 
 const GAP_MS = 350;
 const NONE: Guest[] = [];
@@ -15,6 +15,8 @@ const newBus = () => new Bus();
 
 export interface Social {
   guests: Guest[];
+  /** everyone at the bar, this tab included */
+  bar: Guest[];
   reactions: Reaction[];
   react: (scene: string, agent: string, emoji: string) => void;
   /** reactions and games travel here */
@@ -95,8 +97,11 @@ export function useSocial({
   };
 
   const on = enabled && !!id;
+  const guests = on && seen.id === id ? seen.guests : NONE;
+  const bar = useMemo(() => (on ? barOf(guests, { id: self, name, viewer }) : NONE), [on, guests, self, name, viewer]);
   return {
-    guests: on && seen.id === id ? seen.guests : NONE,
+    guests,
+    bar,
     reactions,
     react,
     bus,

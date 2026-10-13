@@ -1,7 +1,6 @@
 import { CSSProperties } from "react";
 import { REACT_MS } from "@/lib/live/social";
-import { GuestSeat } from "./guests";
-import { STOOL_TOP } from "./room";
+import { GuestSeat, guestTag } from "./guests";
 
 /** A reaction already matched to a desk in the scene on screen. */
 export interface SeatReaction {
@@ -13,12 +12,31 @@ export interface SeatReaction {
 
 type Pos = (x: number, y: number) => CSSProperties;
 
-export function GuestTags({ seats, pos }: { seats: GuestSeat[]; pos: Pos }) {
-  return seats.map((s) => (
-    <span key={s.id} className="cafe-guest" style={pos(s.x, STOOL_TOP - 13)}>
-      {s.name}
+export function GuestTags({ seats, more, pos }: { seats: GuestSeat[]; more: number; pos: Pos }) {
+  return (
+    <>
+      {seats.map((s) => (
+        <span key={s.id} className={`cafe-guest ${s.me ? "me" : ""}`} style={pos(s.x, s.y - 13)}>
+          {guestTag(s)}
+        </span>
+      ))}
+      {more > 0 && (
+        <span className="cafe-guest" style={pos(23, 127)}>
+          +{more}
+        </span>
+      )}
+    </>
+  );
+}
+
+/** New messages in the café's chat, floating over the counter until someone opens it. */
+export function ChatTag({ unread, pos }: { unread: number; pos: Pos }) {
+  if (!unread) return null;
+  return (
+    <span className="cafe-chat" style={pos(33, 54)}>
+      💬 {unread}
     </span>
-  ));
+  );
 }
 
 export function ReactionLayer({

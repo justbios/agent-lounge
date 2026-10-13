@@ -4,11 +4,13 @@ export const REACTIONS = ["👏", "🔥", "☕", "❤️", "😂", "🎉"] as co
 export const REACT_MS = 2600;
 const MAX_SHOWN = 24;
 
-/** Someone else looking at the same café right now. */
+/** Someone looking at the same café right now. */
 export interface Guest {
   id: string;
   name: string;
   viewer: boolean;
+  /** this tab, among everyone at the bar */
+  me?: boolean;
 }
 
 export interface Reaction {
@@ -42,6 +44,11 @@ export function addReaction(list: Reaction[], r: Reaction, now: number): Reactio
 }
 
 type PresenceState = Record<string, { name?: unknown; viewer?: unknown }[]>;
+
+/** Everyone at the bar: the others and this tab, marked, in the same order on every screen. */
+export function barOf(guests: Guest[], me: Guest): Guest[] {
+  return [...guests, { ...me, me: true }].sort((a, b) => a.id.localeCompare(b.id));
+}
 
 /** Everyone tracked on the channel but this tab, one entry per tab. */
 export function guestsOf(state: PresenceState, self: string): Guest[] {

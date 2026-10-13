@@ -1,4 +1,5 @@
 import { CafeLayout, WALL_H } from "@/lib/cafe/layout";
+import { Point } from "@/lib/layout";
 import { AgentDef } from "@/lib/types";
 import { drawDesks } from "./desk";
 import { Ctx, LINE, px, rand, shade } from "./pixel";
@@ -197,18 +198,26 @@ function drawWall(ctx: Ctx, width: number, th: Theme) {
   drawClockFace(ctx, fx);
 }
 
-/** Bar stools along the counter; guests watching the café sit here. */
-export const STOOLS = [9, 23, 37];
-export const STOOL_TOP = 87;
+/** Where everyone with the café open sits, `y` the seat's top: three stools at the counter, three at the high table. */
+export const BAR_SEATS: Point[] = [87, 112].flatMap((y) => [9, 23, 37].map((x) => ({ x, y })));
+/** The counter, the high table in front of it and their stools: a click anywhere here opens the café's chat. */
+export const BAR_AREA = { x: 0, y: 44, w: 48, h: 82 };
 
-function drawStools(ctx: Ctx) {
-  for (const x of STOOLS) {
-    px(ctx, x - 1, 91, 2, 6, "#2a2630");
-    px(ctx, x - 3, 97, 6, 1, "#2a2630");
-    px(ctx, x - 5, 87, 10, 4, LINE);
-    px(ctx, x - 4, 88, 8, 2, "#7a2d3a");
-    px(ctx, x - 4, 88, 8, 1, "#a04254");
-  }
+function drawStool(ctx: Ctx, x: number, top: number) {
+  px(ctx, x - 1, top + 4, 2, 6, "#2a2630");
+  px(ctx, x - 3, top + 10, 6, 1, "#2a2630");
+  px(ctx, x - 5, top, 10, 4, LINE);
+  px(ctx, x - 4, top + 1, 8, 2, "#7a2d3a");
+  px(ctx, x - 4, top + 1, 8, 1, "#a04254");
+}
+
+function drawBarSeats(ctx: Ctx) {
+  px(ctx, 0, 99, 47, 6, LINE);
+  px(ctx, 0, 100, 46, 2, "#8a6448");
+  px(ctx, 0, 100, 46, 1, "#a07a58");
+  px(ctx, 0, 102, 46, 2, "#5e4232");
+  for (const x of [3, 42]) px(ctx, x, 105, 2, 6, "#2a2630");
+  for (const s of BAR_SEATS) drawStool(ctx, s.x, s.y);
 }
 
 function drawVending(ctx: Ctx, fx: Fixtures) {
@@ -258,7 +267,7 @@ export function buildRoom(
   drawRugs(ctx, lay);
   drawDoor(ctx, lay, th);
   drawWall(ctx, lay.width, th);
-  drawStools(ctx);
+  drawBarSeats(ctx);
   drawVending(ctx, fixtures(lay.width));
   if (lay.height >= 180) drawPlant(ctx, 14, lay.height - 10);
   drawDesks(ctx, lay, agents, seed, props);

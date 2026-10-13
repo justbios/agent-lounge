@@ -1,7 +1,7 @@
 import { CafeLayout } from "@/lib/cafe/layout";
 import { AgentView } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
-import { doorOf, fixtures } from "./room";
+import { BAR_AREA, doorOf, fixtures } from "./room";
 
 export type Hit =
   | { kind: "agent"; agent: number }
@@ -9,7 +9,8 @@ export type Hit =
   | { kind: "board" }
   | { kind: "vending" }
   | { kind: "window" }
-  | { kind: "door" };
+  | { kind: "door" }
+  | { kind: "bar" };
 
 export type FixtureKind = Exclude<Hit["kind"], "agent" | "cat">;
 
@@ -29,6 +30,8 @@ export function hitTest(lay: CafeLayout, views: AgentView[], cat: Point | null, 
   const fx = fixtures(lay.width);
   const m = fx.METER;
   if (inBox(p, 2, 5, 44, 30) || inBox(p, m.x - 1, m.y - 1, m.w + 2, m.h + 2)) return { kind: "board" };
+  const b = BAR_AREA;
+  if (inBox(p, b.x, b.y, b.w, b.h)) return { kind: "bar" };
   const v = fx.VENDING;
   if (inBox(p, v.x - 1, v.y - 1, v.w + 2, v.h + 2)) return { kind: "vending" };
   if (fx.WINDOWS.some((w) => inBox(p, w.x - 1, 4, w.w + 2, 32))) return { kind: "window" };
@@ -44,4 +47,5 @@ export const HIT_HINT: Record<Hit["kind"], string> = {
   vending: "досягнення і декор",
   window: "змінити вид за вікном",
   door: "запросити команду",
+  bar: "груповий чат",
 };

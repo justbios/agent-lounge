@@ -49,6 +49,7 @@ export function fixtureAnchor(lay: CafeLayout, kind: FixtureKind, p: Point): Anc
     const v = fixtures(lay.width).VENDING;
     return anchorAt(lay, v.x + v.w / 2, v.y, v.y + v.h);
   }
+  if (kind === "bar") return anchorAt(lay, 24, 63, 126);
   return anchorAt(lay, p.x, 4, 36);
 }
 

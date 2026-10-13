@@ -39,7 +39,7 @@ const layerOf = (it: ItemDef): Layer => (it.place === "perk" ? "floor" : it.plac
 const floorMemo = new WeakMap<CafeLayout, Box[]>();
 const wallMemo = new Map<number, Box[]>();
 
-/** Desks with their chairs and people, the bar, the vending machine, the door and the corner plant of a tall room. */
+/** Desks with chairs and people, the bar and its high table, the drinks machine, the door, a tall room's plant. */
 function floorBlocks(lay: CafeLayout): Box[] {
   const hit = floorMemo.get(lay);
   if (hit) return hit;
@@ -47,7 +47,7 @@ function floorBlocks(lay: CafeLayout): Box[] {
   const d = doorOf(lay);
   const out: Box[] = [
     ...lay.desks.map((k) => ({ x: k.x - 27, y: k.top - 8, w: 54, h: 56 })),
-    { x: 0, y: 40, w: 49, h: 60 },
+    { x: 0, y: 40, w: 49, h: 86 },
     { x: v.x - 12, y: v.y, w: lay.width - v.x + 12, h: v.h + 4 },
     { x: d.x - 4, y: d.y - 14, w: d.w + 8, h: lay.height - d.y + 14 },
   ];
