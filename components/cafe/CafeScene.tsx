@@ -152,8 +152,10 @@ export default function CafeScene({
       const clock = clockRef.current;
       const busy = agents.map((_, i) => i).filter((i) => agentView(model, tl, lay, i, clock).screen === "work");
       const dt = last ? Math.min(100, now - last) : 0;
-      cat.step(dt, now, busy);
-      cat2?.step(dt, now, busy);
+      const beds = shownRef.current.filter((s) => s.item === "catbed").map((s) => ({ x: s.cx, y: s.bottom }));
+      const freeOf = (other: Cat | null) => beds.filter((b) => b.x !== other?.bed?.x || b.y !== other.bed.y);
+      cat.step(dt, now, busy, freeOf(cat2));
+      cat2?.step(dt, now, busy, freeOf(cat));
       last = now;
       drawFrame(ctx, {
         model,

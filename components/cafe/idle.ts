@@ -1,7 +1,8 @@
+import { drawCupSteam } from "./ambient";
 import { Look } from "./people";
 import { Ctx, LINE, px, rand } from "./pixel";
 
-export type Pastime = "read" | "cards" | "nap" | null;
+export type Pastime = "read" | "cards" | "nap" | "cup" | "can" | null;
 
 const PASTIMES: Pastime[] = [null, "read", "cards", "nap"];
 const SPAN_S = 40;
@@ -20,8 +21,21 @@ function zed(ctx: Ctx, x: number, y: number) {
   px(ctx, x, y + 2, 3, 1, "#cfd8ff");
 }
 
-/** The book or the hand of cards held by someone seated at desk `X`, head top at `T`. */
+/** The book, the hand of cards or the drink held by someone seated at desk `X`, head top at `T`. */
 export function drawPastime(ctx: Ctx, p: Pastime, X: number, T: number, k: Look, t: number, i: number) {
+  if (p === "cup" || p === "can") {
+    const y = T + 5 - (Math.floor(t / 2.5 + i) % 3 === 0 ? 3 : 0);
+    if (p === "cup") {
+      px(ctx, X + 6, y, 4, 4, LINE);
+      px(ctx, X + 7, y + 1, 2, 2, "#ece4d6");
+      drawCupSteam(ctx, X + 7, y - 1, t + i * 0.31);
+    } else {
+      px(ctx, X + 6, y - 1, 3, 5, LINE);
+      px(ctx, X + 7, y, 1, 3, "#ff5d73");
+    }
+    px(ctx, X + 6, y + 3, 1, 1, k.skin);
+    return;
+  }
   if (p === "read") {
     const turn = Math.floor(t / 3 + i) % 5 === 0 ? 1 : 0;
     px(ctx, X + 5, T + 1, 8, 6, LINE);

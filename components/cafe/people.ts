@@ -77,7 +77,7 @@ export interface Pose {
 
 export type SeatMode = "idle" | "work" | "done" | "alert" | "nap";
 
-function styleFrontBack(L: number, T: number, k: Look, back: boolean): [Box[], Rect[]] {
+export function styleFrontBack(L: number, T: number, k: Look, back: boolean): [Box[], Rect[]] {
   switch (k.style) {
     case 0:
       return [

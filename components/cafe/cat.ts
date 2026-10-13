@@ -11,6 +11,7 @@ export interface Coat {
 
 const GINGER: Coat = { fur: "#e8913a", dark: "#b8642a", belly: "#f6d7a8" };
 const PET_MS = 3800;
+const BED_CHANCE = 0.3;
 const HEART = [[1, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [2, 3]];
 
 type Mode = "walk" | "sit" | "nap";
@@ -34,6 +35,7 @@ export class Cat {
   private mode: Mode = "sit";
   private until = 0;
   private petAt = -Infinity;
+  private bedAt: Point | null = null;
   private r: () => number;
 
   constructor(
@@ -47,8 +49,14 @@ export class Cat {
     this.y = lay.walkY[this.band];
   }
 
-  private pickTarget(busy: number[]): { p: Point; band: number } {
+  private pickTarget(busy: number[], beds: Point[]): { p: Point; band: number; bed?: Point } {
     const lay = this.lay;
+    if (beds.length && this.r() < BED_CHANCE) {
+      const bed = beds[Math.floor(this.r() * beds.length)];
+      const gap = (b: number) => Math.abs(lay.walkY[b] - bed.y);
+      const band = lay.walkY.reduce((best, _, b) => (gap(b) < gap(best) ? b : best), 0);
+      return { p: { x: bed.x, y: bed.y + 1 }, band, bed };
+    }
     if (busy.length && this.r() < 0.55) {
       const d = lay.desks[busy[Math.floor(this.r() * busy.length)]];
       const side = this.r() < 0.5 ? -1 : 1;
@@ -66,10 +74,18 @@ export class Cat {
     if (this.dir === "up" || this.dir === "down") this.dir = "right";
   }
 
-  step(dtMs: number, nowMs: number, busy: number[]) {
+  /** The cat bed it is heading for or curled up in. */
+  get bed(): Point | null {
+    return this.bedAt;
+  }
+
+  /** Moves the cat on by `dtMs`; now and then it picks one of the free cat `beds` and naps there a good while. */
+  step(dtMs: number, nowMs: number, busy: number[], beds: Point[] = []) {
+    if (this.bedAt && !beds.some((b) => b.x === this.bedAt?.x && b.y === this.bedAt.y)) this.bedAt = null;
     if (this.mode !== "walk") {
       if (nowMs < this.until) return;
-      const t = this.pickTarget(busy);
+      const t = this.pickTarget(busy, beds);
+      this.bedAt = t.bed ?? null;
       this.path = route(this.lay, { x: this.x, y: this.y }, this.band, t.p, t.band);
       this.len = pathLength(this.path);
       this.dist = 0;
@@ -82,8 +98,9 @@ export class Cat {
     this.y = p.y;
     this.dir = p.dir;
     if (this.dist >= this.len) {
-      this.mode = this.r() < 0.35 ? "nap" : "sit";
-      this.until = nowMs + (this.mode === "nap" ? 9000 + this.r() * 9000 : 2500 + this.r() * 4000);
+      this.mode = this.bedAt || this.r() < 0.35 ? "nap" : "sit";
+      const nap = this.bedAt ? 16_000 + this.r() * 14_000 : 9000 + this.r() * 9000;
+      this.until = nowMs + (this.mode === "nap" ? nap : 2500 + this.r() * 4000);
       if (this.dir === "up" || this.dir === "down") this.dir = this.r() < 0.5 ? "left" : "right";
     }
   }
@@ -112,15 +129,18 @@ export class Cat {
 
   draw(ctx: Ctx, t: number, crown = false, nowMs = t * 1000) {
     this.drawHearts(ctx, nowMs);
+    const inBed = !!this.bedAt && this.mode !== "walk";
     const X = Math.round(this.x);
-    const Y = Math.round(this.y);
+    const Y = Math.round(this.y) - (inBed ? 2 : 0);
     const flip = this.dir === "left";
     const P = (dx: number, dy: number, w: number, h: number, c: string) =>
       px(ctx, flip ? X - dx - w : X + dx, Y + dy, w, h, c);
     const { fur: FUR, dark: FUR_DARK, belly: BELLY } = this.coat;
 
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
-    ctx.fillRect(X - 5, Y - 1, 10, 2);
+    if (!inBed) {
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fillRect(X - 5, Y - 1, 10, 2);
+    }
 
     if (this.mode === "nap") {
       P(-5, -5, 10, 5, LINE);
