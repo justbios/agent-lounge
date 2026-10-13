@@ -1,4 +1,5 @@
 import { TrackId, isTrack } from "./tracks";
+import { Tune, cleanTune } from "./tune";
 
 export const REACTIONS = ["👏", "🔥", "☕", "❤️", "😂", "🎉"] as const;
 
@@ -48,6 +49,8 @@ export function addReaction(list: Reaction[], r: Reaction, now: number): Reactio
 /** The record on the café's jukebox: whoever puts one on, everyone with the sound on hears it. */
 export interface Disc {
   track: TrackId;
+  /** music from a link plays instead of the record; older pages ignore it and keep playing `track` */
+  tune?: Tune;
   by: string;
   at: number;
 }
@@ -57,7 +60,9 @@ export function cleanDisc(p: unknown, now: number): Disc | null {
   if (!p || typeof p !== "object") return null;
   const d = p as Record<string, unknown>;
   if (!isTrack(d.track) || typeof d.at !== "number" || !Number.isFinite(d.at) || d.at <= 0) return null;
-  return { track: d.track, by: text(d.by, 24) ?? "гість", at: Math.min(d.at, now) };
+  const tune = d.tune == null ? null : cleanTune(d.tune);
+  if (d.tune != null && !tune) return null;
+  return { track: d.track, ...(tune && { tune }), by: text(d.by, 24) ?? "гість", at: Math.min(d.at, now) };
 }
 
 export const newerDisc = (d: Disc, than: Disc | null) => !than || d.at > than.at;

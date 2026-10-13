@@ -18,6 +18,7 @@ import {
   newerDisc,
 } from "./social";
 import { TrackId } from "./tracks";
+import { Tune } from "./tune";
 
 const GAP_MS = 350;
 const NONE: Guest[] = [];
@@ -44,8 +45,8 @@ export interface Social {
   room: string | null;
   /** the record on the café's jukebox, once someone has put one on */
   disc: Disc | null;
-  /** puts a record on for everyone in the café */
-  spin: (track: TrackId) => void;
+  /** puts a record on for everyone in the café, or music from a link in its place */
+  spin: (track: TrackId, tune?: Tune | null) => void;
 }
 
 /**
@@ -139,7 +140,11 @@ export function useSocial({
     if (linked) void chan.current?.track(meta.current);
   }, [linked, name, viewer, disc]);
 
-  const spin = useCallback((track: TrackId) => bus.send("juke", { track, by: name, at: Date.now() }), [bus, name]);
+  const spin = useCallback(
+    (track: TrackId, tune?: Tune | null) =>
+      bus.send("juke", { track, ...(tune && { tune }), by: name, at: Date.now() }),
+    [bus, name],
+  );
 
   const guests = on && seen.id === id ? seen.guests : NONE;
   const bar = useMemo(() => (on ? barOf(guests, { id: self, name, viewer }) : NONE), [on, guests, self, name, viewer]);

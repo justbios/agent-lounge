@@ -33,6 +33,7 @@ import AlertsMenu from "./live/AlertsMenu";
 import AchPanel from "./live/AchPanel";
 import ChatPanel from "./live/ChatPanel";
 import JukeboxMenu from "./live/Jukebox";
+import TunePlayer from "./live/TunePlayer";
 import ShopPanel from "./live/ShopPanel";
 import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
@@ -513,6 +514,7 @@ export default function LiveDashboard({
           }
         />
       )}
+      <TunePlayer sound={sound} />
     </>
   );
 }

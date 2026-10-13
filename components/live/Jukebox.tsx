@@ -1,9 +1,79 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Music, Pause, Play } from "lucide-react";
+import { FormEvent, useEffect, useId, useRef, useState } from "react";
+import { Link2, Music, Pause, Play } from "lucide-react";
 import { TRACKS, trackInfo } from "@/lib/live/tracks";
+import { parseTune, tuneSource, tuneSyncs } from "@/lib/live/tune";
 import { CafeSound } from "@/lib/live/useCafeSound";
+
+const NOT_A_LINK = "Це не схоже на посилання з YouTube, YouTube Music чи Spotify.";
+
+/** What the jukebox plays, in a few words: the record's name, or where the link's music comes from. */
+export const playingName = (s: CafeSound) => (s.tune ? tuneSource(s.tune) : trackInfo(s.track).name);
+
+function TuneForm({ sound }: { sound: CafeSound }) {
+  const id = useId();
+  const [url, setUrl] = useState("");
+  const [bad, setBad] = useState(false);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const t = parseTune(url);
+    setBad(!t);
+    if (!t) return;
+    sound.playTune(t);
+    setUrl("");
+  };
+  return (
+    <form className="tune-form" onSubmit={submit}>
+      <label htmlFor={id}>Своя музика з YouTube, YouTube Music або Spotify</label>
+      <div className="key-paste-row">
+        <input
+          id={id}
+          value={url}
+          inputMode="url"
+          autoComplete="off"
+          placeholder="встав посилання на пісню чи плейлист"
+          onChange={(e) => {
+            setUrl(e.target.value);
+            setBad(false);
+          }}
+        />
+        <button className="btn" disabled={!url.trim()}>
+          поставити
+        </button>
+      </div>
+      {bad && <span className="key-paste-bad">{NOT_A_LINK}</span>}
+    </form>
+  );
+}
+
+function TuneRow({ sound }: { sound: CafeSound }) {
+  const t = sound.tune;
+  if (!t) return null;
+  const why = tuneSyncs(t) ? "всі чують з тієї ж секунди" : "кожен слухає з початку";
+  return (
+    <li>
+      <button className={`juke-row picked ${sound.on ? "on" : ""}`} onClick={sound.toggle} aria-pressed={sound.on}>
+        <span className="juke-ic" aria-hidden>
+          <Link2 size={15} />
+        </span>
+        <span className="juke-name">
+          <b>{tuneSource(t)}</b>
+          <small>{sound.by ? `ставить ${sound.by}` : why}</small>
+        </span>
+        {sound.on ? (
+          <span className="juke-eq" aria-hidden>
+            <i />
+            <i />
+            <i />
+          </span>
+        ) : (
+          <Play size={13} className="juke-play" aria-hidden />
+        )}
+      </button>
+    </li>
+  );
+}
 
 /** The jukebox's records: a click plays one, a click on the playing one pauses it. */
 export function JukeboxList({ sound }: { sound: CafeSound }) {
@@ -17,8 +87,9 @@ export function JukeboxList({ sound }: { sound: CafeSound }) {
         </p>
       )}
       <ul className="juke-list">
+        <TuneRow sound={sound} />
         {TRACKS.map((t) => {
-          const picked = sound.track === t.id;
+          const picked = !sound.tune && sound.track === t.id;
           const playing = sound.on && picked;
           return (
             <li key={t.id}>
@@ -49,6 +120,7 @@ export function JukeboxList({ sound }: { sound: CafeSound }) {
           );
         })}
       </ul>
+      {sound.canPick && <TuneForm sound={sound} />}
       <div className="juke-ctl">
         <button className="btn btn-ic" onClick={sound.toggle} title={sound.on ? "пауза" : "грати"}>
           {sound.on ? <Pause size={14} /> : <Play size={14} />}
@@ -90,7 +162,7 @@ export default function JukeboxMenu({ sound }: { sound: CafeSound }) {
         className={`btn btn-ic ${sound.on ? "on" : ""}`}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        title={sound.on ? `грає: ${trackInfo(sound.track).name}` : "музичний автомат"}
+        title={sound.on ? `грає: ${playingName(sound)}` : "музичний автомат"}
       >
         <Music size={14} />
       </button>

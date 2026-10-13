@@ -5,7 +5,6 @@ import { Building2, Gamepad2, Maximize2, MessageCircle, Minimize2, ScrollText, U
 import { CafeModel } from "@/lib/cafe/model";
 import { ItemId, Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
-import { trackInfo } from "@/lib/live/tracks";
 import { CafeState } from "@/lib/live/useCafe";
 import { CafeSound } from "@/lib/live/useCafeSound";
 import { ScenePop } from "../cafe/AgentCard";
@@ -13,7 +12,7 @@ import CafeScene, { Anchor, FixturePick, Placing, SceneAlert } from "../cafe/Caf
 import { SeatReaction } from "../cafe/SceneSocial";
 import { THEMES, THEME_IDS, themeOf } from "../cafe/theme";
 import DoorInvite from "./DoorInvite";
-import { JukeboxList } from "./Jukebox";
+import { JukeboxList, playingName } from "./Jukebox";
 import Presence from "./Presence";
 import SceneMenu, { MenuItem } from "./SceneMenu";
 
@@ -334,7 +333,7 @@ export default function Stage({
           onMachine={(f, anchor) =>
             f.item === "arcade" && !cafe.editable ? onGames() : setPop({ kind: "machine", ...f, anchor })
           }
-          playing={sound.on ? trackInfo(sound.track).name : null}
+          playing={sound.on ? playingName(sound) : null}
           beans={cafe.beans.left}
           pops={pops}
         />
