@@ -1,17 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { BUS_EVENTS, Bus } from "./bus";
 import { roomOf } from "./relayKey";
-import { Guest, Reaction, addReaction, barOf, cleanReaction, guestsOf } from "./social";
+import {
+  Disc,
+  Guest,
+  Reaction,
+  addReaction,
+  barOf,
+  cleanDisc,
+  cleanReaction,
+  discOf,
+  guestsOf,
+  newerDisc,
+} from "./social";
+import { TrackId } from "./tracks";
 
 const GAP_MS = 350;
 const NONE: Guest[] = [];
 
 const newId = () => crypto.randomUUID();
 const newBus = () => new Bus();
+
+type Heard = { id: string | null; disc: Disc | null };
+const take = (id: string | null, d: Disc) => (cur: Heard) =>
+  cur.id === id && !newerDisc(d, cur.disc) ? cur : { id, disc: d };
 
 export interface Social {
   guests: Guest[];
@@ -26,6 +42,10 @@ export interface Social {
   name: string;
   /** the room's channel name once it is live; a two-player game opens its own channel next to it */
   room: string | null;
+  /** the record on the café's jukebox, once someone has put one on */
+  disc: Disc | null;
+  /** puts a record on for everyone in the café */
+  spin: (track: TrackId) => void;
 }
 
 /**
@@ -51,7 +71,10 @@ export function useSocial({
   const [seen, setSeen] = useState<{ id: string | null; guests: Guest[] }>({ id: null, guests: [] });
   const [reactions, setReactions] = useState<Reaction[]>([]);
   const [link, setLink] = useState<{ id: string | null; room: string | null }>({ id: null, room: null });
+  const [heard, setHeard] = useState<Heard>({ id: null, disc: null });
   const sent = useRef(0);
+  const chan = useRef<RealtimeChannel | null>(null);
+  const meta = useRef<Record<string, unknown>>({ name, viewer });
 
   useEffect(
     () =>
@@ -61,6 +84,15 @@ export function useSocial({
         if (x) setReactions((list) => addReaction(list, x, now));
       }),
     [bus],
+  );
+
+  useEffect(
+    () =>
+      bus.on("juke", (p) => {
+        const d = cleanDisc(p, Date.now());
+        if (d) setHeard(take(id, d));
+      }),
+    [bus, id],
   );
 
   useEffect(() => {
@@ -73,18 +105,23 @@ export function useSocial({
       const c = sb.channel(`relay-social:${r}`, { config: { presence: { key: self }, broadcast: { self: false } } });
       ch = c;
       for (const ev of BUS_EVENTS) c.on("broadcast", { event: ev }, ({ payload }) => live && bus.emit(ev, payload));
-      c.on("presence", { event: "sync" }, () => live && setSeen({ id, guests: guestsOf(c.presenceState(), self) })).subscribe(
-        (status) => {
-          if (status !== "SUBSCRIBED") return;
-          c.track({ name, viewer });
-          bus.attach(c);
-          setLink({ id, room: r });
-        },
-      );
+      c.on("presence", { event: "sync" }, () => {
+        if (!live) return;
+        setSeen({ id, guests: guestsOf(c.presenceState(), self) });
+        const d = discOf(c.presenceState(), Date.now());
+        if (d) setHeard(take(id, d));
+      }).subscribe((status) => {
+        if (status !== "SUBSCRIBED") return;
+        chan.current = c;
+        void c.track(meta.current);
+        bus.attach(c);
+        setLink({ id, room: r });
+      });
     });
     return () => {
       live = false;
       bus.attach(null);
+      chan.current = null;
       if (ch) sb.removeChannel(ch);
     };
   }, [enabled, id, key, room, name, viewer, self, bus]);
@@ -97,6 +134,16 @@ export function useSocial({
   };
 
   const on = enabled && !!id;
+  const disc = heard.id === id ? heard.disc : null;
+  const linked = on && link.id === id ? link.room : null;
+
+  useEffect(() => {
+    meta.current = disc ? { name, viewer, disc } : { name, viewer };
+    if (linked) void chan.current?.track(meta.current);
+  }, [linked, name, viewer, disc]);
+
+  const spin = useCallback((track: TrackId) => bus.send("juke", { track, by: name, at: Date.now() }), [bus, name]);
+
   const guests = on && seen.id === id ? seen.guests : NONE;
   const bar = useMemo(() => (on ? barOf(guests, { id: self, name, viewer }) : NONE), [on, guests, self, name, viewer]);
   return {
@@ -107,6 +154,8 @@ export function useSocial({
     bus,
     self,
     name,
-    room: on && link.id === id ? link.room : null,
+    room: linked,
+    disc,
+    spin,
   };
 }

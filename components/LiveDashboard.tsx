@@ -237,7 +237,6 @@ export default function LiveDashboard({
   const tl = useMemo(() => buildTimeline(model), [model]);
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   const working = views.filter((v) => v.screen === "work").length;
-  const sound = useCafeSound(inHouse ? chats.filter((s) => now - s.last < ACTIVE_MS).length : working);
   const spent = model.agents.reduce((sum, a) => sum + (a.tokens ?? 0), 0);
   const viewEvents = useMemo(
     () => (whole ? feed.events : session ? feed.events.filter((e) => e.session === session.id) : []),
@@ -252,6 +251,8 @@ export default function LiveDashboard({
     viewer: viewing,
     enabled: cloud,
   });
+  const busyNow = inHouse ? chats.filter((s) => now - s.last < ACTIVE_MS).length : working;
+  const sound = useCafeSound(busyNow, social, !viewing);
   const [chatOpen, setChatOpen] = useState(false);
   const chat = useChat({
     cloud,

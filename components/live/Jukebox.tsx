@@ -9,14 +9,23 @@ import { CafeSound } from "@/lib/live/useCafeSound";
 export function JukeboxList({ sound }: { sound: CafeSound }) {
   return (
     <div className="juke">
+      {sound.shared && (
+        <p className="juke-hint">
+          {sound.canPick
+            ? "Платівка спільна: її чують усі в кафе, у кого ввімкнено звук."
+            : "Платівку ставить команда кафе, тут її можна лише слухати."}
+        </p>
+      )}
       <ul className="juke-list">
         {TRACKS.map((t) => {
-          const playing = sound.on && sound.track === t.id;
+          const picked = sound.track === t.id;
+          const playing = sound.on && picked;
           return (
             <li key={t.id}>
               <button
-                className={`juke-row ${sound.track === t.id ? "picked" : ""} ${playing ? "on" : ""}`}
-                onClick={() => (playing ? sound.toggle() : sound.play(t.id))}
+                className={`juke-row ${picked ? "picked" : ""} ${playing ? "on" : ""}`}
+                onClick={() => (playing || (picked && !sound.canPick) ? sound.toggle() : sound.play(t.id))}
+                disabled={!sound.canPick && !picked}
                 aria-pressed={playing}
               >
                 <span className="juke-ic" aria-hidden>
@@ -24,7 +33,7 @@ export function JukeboxList({ sound }: { sound: CafeSound }) {
                 </span>
                 <span className="juke-name">
                   <b>{t.name}</b>
-                  <small>{t.mood}</small>
+                  <small>{picked && sound.by ? `ставить ${sound.by}` : t.mood}</small>
                 </span>
                 {playing ? (
                   <span className="juke-eq" aria-hidden>

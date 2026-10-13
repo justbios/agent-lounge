@@ -3400,8 +3400,17 @@ body {
   text-align: left;
   cursor: pointer;
 }
-.juke-row:hover {
+.juke-row:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.05);
+}
+.juke-row:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.juke-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
 }
 .juke-row.picked {
   border-color: var(--border-2);

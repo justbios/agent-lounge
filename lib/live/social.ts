@@ -1,3 +1,5 @@
+import { TrackId, isTrack } from "./tracks";
+
 export const REACTIONS = ["👏", "🔥", "☕", "❤️", "😂", "🎉"] as const;
 
 /** How long a reaction floats over a desk. */
@@ -43,7 +45,34 @@ export function addReaction(list: Reaction[], r: Reaction, now: number): Reactio
   return [...list.filter((x) => now - x.at < REACT_MS), r].slice(-MAX_SHOWN);
 }
 
-type PresenceState = Record<string, { name?: unknown; viewer?: unknown }[]>;
+/** The record on the café's jukebox: whoever puts one on, everyone with the sound on hears it. */
+export interface Disc {
+  track: TrackId;
+  by: string;
+  at: number;
+}
+
+/** A record from the channel; one stamped in the future counts as put on now, so it cannot outlast the next pick. */
+export function cleanDisc(p: unknown, now: number): Disc | null {
+  if (!p || typeof p !== "object") return null;
+  const d = p as Record<string, unknown>;
+  if (!isTrack(d.track) || typeof d.at !== "number" || !Number.isFinite(d.at) || d.at <= 0) return null;
+  return { track: d.track, by: text(d.by, 24) ?? "гість", at: Math.min(d.at, now) };
+}
+
+export const newerDisc = (d: Disc, than: Disc | null) => !than || d.at > than.at;
+
+type PresenceState = Record<string, { name?: unknown; viewer?: unknown; disc?: unknown }[]>;
+
+/** The latest record anyone at the bar carries, so a page opened later plays what the others hear. */
+export function discOf(state: PresenceState, now: number): Disc | null {
+  let best: Disc | null = null;
+  for (const metas of Object.values(state)) {
+    const d = metas.length ? cleanDisc(metas[0].disc, now) : null;
+    if (d && newerDisc(d, best)) best = d;
+  }
+  return best;
+}
 
 /** Everyone at the bar: the others and this tab, marked, in the same order on every screen. */
 export function barOf(guests: Guest[], me: Guest): Guest[] {
