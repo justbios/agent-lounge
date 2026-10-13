@@ -5,7 +5,7 @@ import { drawAmbient, drawBar, drawCupSteam, drawLights } from "./ambient";
 import { Cat } from "./cat";
 import { DecorSet, drawDecor, drawDecorLights } from "./decor";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
-import { Ctx, paint, px, rand, shade } from "./pixel";
+import { Ctx, LINE, paint, px, rand, shade } from "./pixel";
 import { Theme } from "./theme";
 
 export interface FrameInput {
@@ -116,6 +116,20 @@ function drawStation(ctx: Ctx, d: Desk, v: AgentView, color: string, look: Look,
   drawChair(ctx, d.x, d.top, color);
 }
 
+/** Spent tokens pile up as paper beside the desk: a sheet per third of an order of magnitude past ten thousand. */
+function drawPaper(ctx: Ctx, d: Desk, tokens: number, i: number) {
+  if (tokens < 1e4) return;
+  const sheets = Math.max(1, Math.min(14, Math.round((Math.log10(tokens) - 4) * 3)));
+  const x = d.x + 23;
+  const base = d.top + 27;
+  px(ctx, x - 1, base - sheets - 1, 9, sheets + 2, LINE);
+  for (let k = 0; k < sheets; k++) {
+    const dx = rand(i * 31 + k * 7) > 0.7 ? 1 : 0;
+    px(ctx, x + dx, base - 1 - k, 7 - dx, 1, k % 2 ? "#d9d3e6" : "#f1edf8");
+  }
+  px(ctx, x + 1, base - sheets, 4, 1, "#9aa3c7");
+}
+
 function drawWalker(ctx: Ctx, w: Walker, look: Look, lay: CafeLayout, clock: number) {
   const lift = Math.round(w.settle * 4);
   const x = Math.round(w.x);
@@ -151,6 +165,7 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
 
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   views.forEach((v, i) => drawStation(ctx, lay.desks[i], v, model.agents[i].color, looks[i], f, i));
+  model.agents.forEach((a, i) => a.tokens && drawPaper(ctx, lay.desks[i], a.tokens, i));
 
   const sprites: { y: number; draw: () => void }[] = [];
   views.forEach((v, i) => {

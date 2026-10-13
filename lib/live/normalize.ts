@@ -1,5 +1,5 @@
-import { ROSTER_MARK, TITLE_MARK } from "./hookConfig.mjs";
-import { LiveEvent, LiveKind } from "./types";
+import { LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK } from "./hookConfig.mjs";
+import { LimitWindow, Limits, LiveEvent, LiveKind, Usage } from "./types";
 
 type Json = Record<string, unknown>;
 
@@ -158,7 +158,8 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
 
 const MAX_ROSTER = 60;
 
-const MARKS = [ROSTER_MARK, TITLE_MARK];
+const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK];
+const MAX_TOKENS = 1e11;
 
 /** The text after a marker line, up to the next marker; null when the hook sent no such section. */
 function section(text: string, mark: string): string | null {
@@ -186,8 +187,61 @@ function readTitle(sec: string | null): string | undefined {
   }
 }
 
-/** A hook body is the raw JSON, optionally followed by marker lines: the file names in .claude/agents, the chat's name. */
-export function parseHookBody(text: string): { raw: Json; agents: string[] | null; title?: string } | null {
+function firstJson(sec: string | null): Json | null {
+  const line = sec?.split("\n").find((l) => l.trim());
+  if (!line || line.length > 600) return null;
+  try {
+    const v: unknown = JSON.parse(line);
+    return v && typeof v === "object" && !Array.isArray(v) ? (v as Json) : null;
+  } catch {
+    return null;
+  }
+}
+
+function count(v: unknown): number {
+  return typeof v === "number" && Number.isFinite(v) && v >= 0 && v < MAX_TOKENS ? Math.round(v) : 0;
+}
+
+function readUsage(sec: string | null): Usage | undefined {
+  const j = firstJson(sec);
+  if (!j) return undefined;
+  const u = { in: count(j.in), cw: count(j.cw), cr: count(j.cr), out: count(j.out) };
+  return u.in + u.cw + u.cr + u.out > 0 ? u : undefined;
+}
+
+const EPOCH_MIN = 1.6e9;
+const EPOCH_MAX = 4.2e9;
+
+function limitWindow(v: unknown): LimitWindow | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const { pct, reset } = v as Json;
+  if (typeof pct !== "number" || !Number.isFinite(pct) || pct < 0 || pct > 1000) return undefined;
+  if (typeof reset !== "number" || reset < EPOCH_MIN || reset > EPOCH_MAX) return undefined;
+  return { pct: Math.round(pct * 10) / 10, reset: Math.round(reset) };
+}
+
+function readLimits(sec: string | null): Limits | undefined {
+  const j = firstJson(sec);
+  if (!j || typeof j.at !== "number" || j.at < EPOCH_MIN || j.at > EPOCH_MAX) return undefined;
+  const five = limitWindow(j.five);
+  const week = limitWindow(j.week);
+  if (!five && !week) return undefined;
+  return { at: Math.round(j.at), ...(five ? { five } : {}), ...(week ? { week } : {}) };
+}
+
+export interface HookBody {
+  raw: Json;
+  agents: string[] | null;
+  title?: string;
+  usage?: Usage;
+  limits?: Limits;
+}
+
+/**
+ * A hook body is the raw JSON, optionally followed by marker lines: the file names in .claude/agents, the chat's
+ * name, the tokens spent since the last report and the usage limits the status line saw last.
+ */
+export function parseHookBody(text: string): HookBody | null {
   const cuts = MARKS.map((m) => text.indexOf(`\n${m}\n`)).filter((i) => i >= 0);
   const cut = cuts.length ? Math.min(...cuts) : -1;
   let raw: unknown;
@@ -197,9 +251,13 @@ export function parseHookBody(text: string): { raw: Json; agents: string[] | nul
     return null;
   }
   if (!raw || typeof raw !== "object") return null;
-  const title = readTitle(section(text, TITLE_MARK));
+  const extra = {
+    title: readTitle(section(text, TITLE_MARK)),
+    usage: readUsage(section(text, USAGE_MARK)),
+    limits: readLimits(section(text, LIMITS_MARK)),
+  };
   const list = section(text, ROSTER_MARK);
-  if (list == null) return { raw: raw as Json, agents: null, title };
+  if (list == null) return { raw: raw as Json, agents: null, ...extra };
   const agents = list
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -208,7 +266,20 @@ export function parseHookBody(text: string): { raw: Json; agents: string[] | nul
     .filter((n) => /^[\w.-]{1,64}$/.test(n))
     .slice(0, MAX_ROSTER)
     .sort();
-  return { raw: raw as Json, agents, title };
+  return { raw: raw as Json, agents, ...extra };
+}
+
+const SPENDS: ReadonlySet<LiveKind> = new Set(["stop", "sub_stop", "session_end"]);
+
+/** Stamps what rode along with the hook onto its event: the chat's name, tokens on the kinds that report them, limits. */
+export function withExtras(ev: LiveEvent, body: HookBody, member: string | null): LiveEvent {
+  return {
+    ...ev,
+    ...(member ? { member } : {}),
+    ...(body.title ? { title: body.title } : {}),
+    ...(body.usage && SPENDS.has(ev.kind) ? { usage: body.usage } : {}),
+    ...(body.limits && ev.kind !== "roster" ? { limits: body.limits } : {}),
+  };
 }
 
 export function rosterEvent(raw: Json, agents: string[], seq: number, at: number): LiveEvent | null {

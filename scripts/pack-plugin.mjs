@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,6 +32,12 @@ rmSync(out, { force: true });
 execFileSync("zip", ["-X", "-q", "-D", out, "-@"], { cwd: tmp, input: files.map((p) => relative(tmp, p)).join("\n") });
 rmSync(tmp, { recursive: true, force: true });
 
-const sha256 = createHash("sha256").update(readFileSync(out)).digest("hex");
-writeFileSync(join(root, "lib", "live", "pluginPack.json"), JSON.stringify({ sha256, files: files.length }, null, 2) + "\n");
-console.log(`packed ${files.length} files → public/relay-plugin.zip\nsha256 ${sha256}`);
+// the connect phrase downloads the hook script on its own and checks it against this sum
+const script = join(root, "public", "relay.sh");
+copyFileSync(join(root, "plugin", "scripts", "relay.sh"), script);
+
+const hash = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
+const sha256 = hash(out);
+const pack = { sha256, files: files.length, script: hash(script) };
+writeFileSync(join(root, "lib", "live", "pluginPack.json"), JSON.stringify(pack, null, 2) + "\n");
+console.log(`packed ${files.length} files → public/relay-plugin.zip\nsha256 ${sha256}\nrelay.sh ${pack.script}`);

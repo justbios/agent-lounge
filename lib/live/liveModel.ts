@@ -4,6 +4,7 @@ import { AgentDef } from "@/lib/types";
 import { Attention, nextAttention } from "./attention";
 import { sessionLabel } from "./label";
 import { LiveEvent } from "./types";
+import { tokensOf } from "./usage";
 
 export const CLAUDE_COLOR = "#ff9a62";
 export const PALETTE = ["#38bdf8", "#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#a3e635", "#f87171", "#2dd4bf", "#e879f9", "#facc15", "#60a5fa", "#fb7185"];
@@ -128,6 +129,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   const seats: Seat[] = [{ type: "main", busy: true, parent: 0 }];
   const stints: Stint[][] = [[]];
   const notes: Note[][] = [[]];
+  const spent: number[] = [0];
   const bySubagent = new Map<string, number>();
   const pending: Pending[] = [];
   const dispatchReqs: TripRequest[] = [];
@@ -174,6 +176,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     });
     stints.push([]);
     notes.push([]);
+    spent.push(0);
     return i;
   };
 
@@ -195,6 +198,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     const t = e.at - origin;
     const key = `e${e.seq}`;
     const actor = e.agent ? seatFor(e.agent, e.agentType ?? "agent", t, key) : 0;
+    spent[actor] += tokensOf(e.usage);
 
     switch (e.kind) {
       case "prompt":
@@ -261,6 +265,9 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   for (const [n, s] of owner) n.ts = n.tone === "done" ? Math.max(n.ts, s.end) : Math.max(n.ts, s.start);
   for (const ns of notes) ns.sort((a, b) => a.ts - b.ts);
 
+  spent.forEach((n, i) => {
+    if (n > 0) agents[i].tokens = n;
+  });
   return {
     origin,
     seatOf: Object.fromEntries(bySubagent),

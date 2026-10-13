@@ -10,6 +10,28 @@ export type LiveKind =
   | "session_end"
   | "roster";
 
+/** Tokens one report adds: fresh input, cache writes, cache reads and output. */
+export interface Usage {
+  in: number;
+  cw: number;
+  cr: number;
+  out: number;
+}
+
+export interface LimitWindow {
+  /** share of the window already used, 0–100 */
+  pct: number;
+  /** when the window resets, epoch seconds */
+  reset: number;
+}
+
+/** The subscription's usage limits as Claude Code's status line last saw them; `at` is epoch seconds. */
+export interface Limits {
+  at: number;
+  five?: LimitWindow;
+  week?: LimitWindow;
+}
+
 /** One Claude Code hook call, boiled down to what the café shows. */
 export interface LiveEvent {
   seq: number;
@@ -33,5 +55,9 @@ export interface LiveEvent {
   member?: string;
   /** the chat's name in Claude Code, sent with prompts, answers and notifications */
   title?: string;
+  /** answers, finished subagents and closed chats: the tokens spent since the last report */
+  usage?: Usage;
+  /** prompts and answers: the 5-hour and weekly limits, when the status line has seen them */
+  limits?: Limits;
 }
 

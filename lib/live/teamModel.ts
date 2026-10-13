@@ -3,6 +3,7 @@ import { AgentDef } from "@/lib/types";
 import { Attention } from "./attention";
 import { LiveScene, LiveSession, PALETTE, hash } from "./liveModel";
 import { LiveEvent } from "./types";
+import { tokensOf } from "./usage";
 
 const DONE_HOLD_MS = 8000;
 /** a chat that went quiet mid-turn (closed laptop, killed terminal) stops counting as work after this long */
@@ -49,6 +50,7 @@ export function buildTeamModel(events: LiveEvent[], members: string[]): LiveScen
   const notes: Note[][] = members.map(() => []);
   const busy: Set<string>[] = members.map(() => new Set());
   const last: number[] = members.map(() => 0);
+  const spent: number[] = members.map(() => 0);
 
   const open = (i: number, t: number) => {
     const s = stints[i];
@@ -68,6 +70,7 @@ export function buildTeamModel(events: LiveEvent[], members: string[]): LiveScen
     if (i == null) continue;
     const t = e.at - origin;
     last[i] = t;
+    spent[i] += tokensOf(e.usage);
     const key = `e${e.seq}`;
     const who = e.agent ? `${e.agentType ?? "агент"}: ` : "";
     switch (e.kind) {
@@ -102,6 +105,9 @@ export function buildTeamModel(events: LiveEvent[], members: string[]): LiveScen
   }
 
   members.forEach((_, i) => close(i, last[i] + IDLE_MS));
+  spent.forEach((n, i) => {
+    if (n > 0) agents[i].tokens = n;
+  });
   return { origin, seatOf: {}, model: { agents, stints, notes, trips: [], doneHoldMs: DONE_HOLD_MS, seed: TEAM_SEED } };
 }
 

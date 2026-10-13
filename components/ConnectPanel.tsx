@@ -3,7 +3,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Radio, ArrowLeft, Copy, Check, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw, Puzzle } from "lucide-react";
-import { HOOK_URL, cloudHookSettings, cloudHookUrl, hookSettings, pluginSteps } from "@/lib/live/hookConfig.mjs";
+import {
+  HOOK_URL,
+  RELAY_SH,
+  STATUS_LINE,
+  cloudHookSettings,
+  cloudHookUrl,
+  hookSettings,
+  pluginSteps,
+  statusChain,
+} from "@/lib/live/hookConfig.mjs";
+import pack from "@/lib/live/pluginPack.json";
 import { newKey, saveKey, useHosted, useRelayKey } from "@/lib/live/relayKey";
 import { useMe } from "@/lib/live/team";
 import { CafeSwitcher, JoinTeam, MemberName, TeamInvite, useTeamInvite } from "./connect/TeamConnect";
@@ -29,12 +39,20 @@ function Code({ text, wrap }: { text: string; wrap?: boolean }) {
 
 function cloudPrompt(site: string, url: string): string {
   const check = `echo '{"session_id":"relay-check","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"перевірка Relay"}' | curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- '${url}'`;
+  const file = RELAY_SH.replace("$HOME", "~");
   return `Підключи мій Claude Code до Relay — сайту, який показує моїх агентів наживо. Хуки асинхронні й не витрачають токенів.
 
-1. Додай у ~/.claude/settings.json хуки з JSON нижче. Усі інші налаштування й хуки залиш як є. Якщо там уже є хуки, що містять "/api/claude-hook", заміни їх цими. Перед зміною збережи копію файлу як settings.json.bak-relay.
-2. Перевір підключення командою нижче, вона має вивести 204:
+1. Збережи скрипт хуків Relay і звір його суму, вона має бути ${pack.script}:
+mkdir -p ~/.config/relay && curl -fsS ${site}/relay.sh -o ${file} && (shasum -a 256 ${file} || sha256sum ${file})
+Якщо сума інша, зупинись і скажи мені. Скрипт короткий, прочитай його: він пересилає подію хука в кафе, а з транскрипту чату бере лише назву чату й лічильники токенів.
+2. Додай у ~/.claude/settings.json хуки з JSON нижче. Усі інші налаштування й хуки залиш як є. Якщо там уже є хуки, що містять "/api/claude-hook", заміни їх цими. Перед зміною збережи копію файлу як settings.json.bak-relay.
+3. Ліміти підписки (5 годин і тиждень) Claude Code віддає лише статус-рядку. Якщо в settings.json немає "statusLine", додай:
+"statusLine": ${JSON.stringify(STATUS_LINE)}
+Якщо вже є, не замінюй його, а заміни лише команду на цю, підставивши стару:
+${statusChain("<стара команда>")}
+4. Перевір підключення командою нижче, вона має вивести 204:
 ${check}
-3. Скажи мені відкрити ${site} і перемкнутись на «наживо».
+5. Скажи мені відкрити ${site} і перемкнутись на «наживо».
 
 ${JSON.stringify(cloudHookSettings(url), null, 2)}`;
 }
@@ -46,7 +64,8 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
     <>
       <div className="notice">
         <ShieldCheck size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
-        Хук шле сюди лише короткі описи: назву чату, початок питання, назви файлів, опис команди, імена агентів. Вміст файлів і
+        Хук шле сюди лише короткі описи: назву чату, початок питання, назви файлів, опис команди, імена агентів, а ще
+        лічильники токенів і відсотки лімітів підписки. Вміст файлів і
         повний текст відкидаються одразу. Усе лежить під твоїм ключем: бачиш лише ти і ті, кому ти сам даси посилання. Зберігається добу. Хук
         асинхронний, тож не гальмує агентів і не витрачає токенів.
       </div>
@@ -58,14 +77,15 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
         <div className="step-body">
           <div className="step-ttl">Віддай це своєму Claude</div>
           <p className="step-p">
-            Встав у будь-який чат Claude Code. Він сам допише хук у налаштування і перевірить зв&apos;язок, це секунд
-            десять. Нічого завантажувати не треба.
+            Встав у будь-який чат Claude Code. Він збереже короткий скрипт хуків у <code>~/.config/relay</code>,
+            допише хуки й статус-рядок у налаштування і перевірить зв&apos;язок, це з пів хвилини.
           </p>
           <MemberName roomKey={roomKey} />
           <Code text={cloudPrompt(site, url)} wrap />
           <p className="step-p">
             Далі просто працюй, а тут, на вкладці «наживо», за столами сидітимуть твої агенти. Кожен чат на окремій
-            вкладці.
+            вкладці, у кожного агента свої токени. Ліміти підписки приходять зі статус-рядка, а його запускає лише
+            Claude Code у терміналі: десктоп-застосунок статус-рядка не має.
           </p>
         </div>
       </div>
@@ -77,8 +97,9 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
         <div className="step-body">
           <div className="step-ttl">Або плагіном Claude Code</div>
           <p className="step-p">
-            Ті самі хуки, тільки з плагіна: <code>settings.json</code> не змінюється, а посилання на кафе лежить в
-            окремому файлі <code>~/.config/relay/hook-url</code>. Встав по черзі в чат Claude Code:
+            Ті самі хуки, тільки з плагіна: хуки не пишуться в <code>settings.json</code>, а посилання на кафе лежить
+            в окремому файлі <code>~/.config/relay/hook-url</code>. Статус-рядок для лімітів <code>/relay:connect</code>{" "}
+            запропонує додати окремо. Встав по черзі в чат Claude Code:
           </p>
           <Code text={pluginSteps(`${site}/marketplace.json`, url)} wrap />
           <p className="step-p">
@@ -163,7 +184,8 @@ function LocalConnect() {
           <Code text={MANUAL} />
           <p className="step-p">
             <code>npm run setup</code> дописує хук у <code>~/.claude/settings.json</code> (інші налаштування не
-            чіпає, стару версію зберігає як <code>settings.json.bak-relay</code>) і запускає Relay у фоні. Після
+            чіпає, стару версію зберігає як <code>settings.json.bak-relay</code>), кладе скрипт хуків у{" "}
+            <code>~/.config/relay</code> і запускає Relay у фоні. Після
             перезавантаження: <code>npm run up</code>. Зупинити: <code>npm run down</code>, прибрати хук:{" "}
             <code>npm run unhook</code>.
           </p>
@@ -192,7 +214,9 @@ function LocalConnect() {
         <div className="step-body">
           <p className="step-p">
             Блок для <code>~/.claude/settings.json</code>, поряд з іншими ключами. Діє на всі проєкти й нові сесії,
-            включно з desktop-застосунком і worktree.
+            включно з desktop-застосунком і worktree. Хуки запускають скрипт <code>~/.config/relay/relay.sh</code>,
+            його кладе туди <code>npm run hooks</code>. Ліміти підписки бачить лише статус-рядок:{" "}
+            <code>node scripts/install-hooks.mjs --statusline</code>.
           </p>
           <Code text={SETTINGS} />
           <p className="step-p">Перевірка: у кафе з&apos;явиться сесія «demo» з питанням над головою Claude.</p>

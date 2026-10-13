@@ -1,5 +1,5 @@
 #!/bin/sh
-# Saves the café link the hooks post to, then sends one check event.
+# Saves the café link the hooks post to, keeps a copy of the hook script for the status line, sends one check event.
 dir="${XDG_CONFIG_HOME:-$HOME/.config}/relay"
 f="${RELAY_HOOK_FILE:-$dir/hook-url}"
 url="$1"
@@ -14,7 +14,17 @@ printf '%s\n' "$url" > "$f" || exit 1
 chmod 600 "$f"
 echo "status: saved"
 echo "file: $f"
+sh_dir="$HOME/.config/relay"
+mkdir -p "$sh_dir" && cp "$(dirname "$0")/relay.sh" "$sh_dir/relay.sh" && echo "script: $sh_dir/relay.sh"
 code=$(printf '%s' '{"session_id":"relay-check","cwd":"/relay","hook_event_name":"UserPromptSubmit","prompt":"перевірка Relay"}' |
   curl -s -m 8 -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- "$url")
 echo "check: ${code:-000}"
-if grep -qs '/api/claude-hook' "$HOME/.claude/settings.json"; then echo "old-hooks: $HOME/.claude/settings.json"; else echo "old-hooks: none"; fi
+s="$HOME/.claude/settings.json"
+if grep -qs '/api/claude-hook' "$s"; then echo "old-hooks: $s"; else echo "old-hooks: none"; fi
+if grep -qsE 'relay\.sh\\?" (statusline|limits)' "$s"; then
+  echo "statusline: relay"
+elif grep -qs '"statusLine"' "$s"; then
+  echo "statusline: other"
+else
+  echo "statusline: none"
+fi

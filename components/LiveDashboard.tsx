@@ -15,6 +15,7 @@ import { useCafe } from "@/lib/live/useCafe";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
+import { latestLimits, tokenRate } from "@/lib/live/usage";
 import { SceneAlert } from "./cafe/CafeScene";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
@@ -23,6 +24,7 @@ import ChatTabs from "./live/ChatTabs";
 import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
 import EmptyCafe from "./live/EmptyCafe";
+import { LimitsMini } from "./live/Limits";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
 import Stage from "./live/Stage";
@@ -177,6 +179,14 @@ export default function LiveDashboard({
   const tl = useMemo(() => buildTimeline(model), [model]);
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   const working = views.filter((v) => v.screen === "work").length;
+  const spent = model.agents.reduce((sum, a) => sum + (a.tokens ?? 0), 0);
+  const viewEvents = useMemo(
+    () => (whole ? feed.events : session ? feed.events.filter((e) => e.session === session.id) : []),
+    [whole, feed.events, session],
+  );
+  const rate = now ? tokenRate(viewEvents, now) : 0;
+  const limits = useMemo(() => latestLimits(feed.events), [feed.events]);
+  const myLimits = limits.find((l) => l.member === (team.me ?? "")) ?? limits[0] ?? null;
 
   const offline = feed.status === "offline";
   const unplugged = cloud && !roomKey && !viewing;
@@ -191,6 +201,8 @@ export default function LiveDashboard({
         seatsLabel={whole ? "учасників" : "агентів"}
         working={working}
         events={whole ? feed.events.length : (session?.count ?? 0)}
+        tokens={spent}
+        limits={<LimitsMini limits={myLimits} now={now} onOpen={() => setRecapOpen(true)} />}
       >
         <button className="btn" onClick={() => setRecapOpen(true)}>
           <CalendarDays size={14} /> підсумок
@@ -209,6 +221,8 @@ export default function LiveDashboard({
           error={recap.error}
           now={Math.floor(now / 60000) * 60000}
           canReplay={!!session}
+          limits={limits}
+          team={team.on}
           onReplay={() => {
             if (session) setReplay(makeReplay(feed.events, session.id, Date.now()));
             setRecapOpen(false);
@@ -282,6 +296,7 @@ export default function LiveDashboard({
         model={model}
         clock={clock}
         alert={alert}
+        rate={rate}
         cafe={cafe}
         empty={!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
         cloud={cloud}

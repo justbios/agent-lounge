@@ -14,6 +14,7 @@ import { FixtureKind, HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor } from "./people";
 import { buildRoom, doorOf, fixtures } from "./room";
 import { THEMES, Theme } from "./theme";
+import { fmtTokens } from "../live/tokens";
 
 const TYPE_MS_PER_CHAR = 22;
 
@@ -85,6 +86,7 @@ export default function CafeScene({
   decor,
   catName,
   theme = THEMES.cafe,
+  rate = 0,
   onPick,
   pops,
 }: {
@@ -94,6 +96,8 @@ export default function CafeScene({
   decor?: DecorSet;
   catName?: string | null;
   theme?: Theme;
+  /** tokens a minute, shown on the LED strip under the sign */
+  rate?: number;
   /** a fixture was clicked, or null for a click on bare floor */
   onPick?: (pick: FixturePick | null) => void;
   /** popovers the page hangs over the scene, positioned by an {@link Anchor} */
@@ -193,7 +197,7 @@ export default function CafeScene({
   };
   const selIdx = sel == null ? -1 : agents.findIndex((a) => a.id === sel);
 
-  const { SIGN } = fixtures(lay.width);
+  const { SIGN, METER } = fixtures(lay.width);
   const pos = (x: number, y: number): CSSProperties => ({
     left: `${(x / lay.width) * 100}%`,
     top: `${(y / lay.height) * 100}%`,
@@ -219,6 +223,9 @@ export default function CafeScene({
             <span className="cafe-neon-main">RELAY</span>
             <span className="cafe-neon-sub">інтернет-кафе</span>
           </div>
+          <span className={`cafe-meter ${rate > 0 ? "on" : ""}`} style={pos(METER.x + METER.w / 2, METER.y + METER.h / 2)}>
+            {rate > 0 ? `${fmtTokens(rate)} ток/хв` : "0 ток/хв"}
+          </span>
           {agents.map((a, i) => {
             if (talking.has(i)) return null;
             const ask = alert?.kind === "ask" && alert.agent === i;

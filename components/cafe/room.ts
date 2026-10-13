@@ -8,6 +8,8 @@ import { drawWindow } from "./windows";
 export interface Fixtures {
   WINDOWS: { x: number; w: number }[];
   SIGN: { x: number; y: number; w: number; h: number };
+  /** the LED strip under the sign that shows tokens a minute */
+  METER: { x: number; y: number; w: number; h: number };
   CLOCK: { x: number; y: number };
   SCONCES: number[];
   VENDING: { x: number; y: number; w: number; h: number };
@@ -28,6 +30,7 @@ export function fixtures(width: number): Fixtures {
   const fx: Fixtures = {
     WINDOWS: windows,
     SIGN: sign,
+    METER: { x: sign.x + 22, y: 40, w: sign.w - 44, h: 7 },
     CLOCK: { x: width - 18, y: 19 },
     SCONCES: [sign.x - 11, sign.x + sign.w + 11],
     VENDING: { x: width - 32, y: 38, w: 28, h: 54 },
@@ -131,6 +134,14 @@ function drawSconce(ctx: Ctx, x: number, th: Theme) {
   px(ctx, x - 2, 11, 1, 3, hi);
 }
 
+function drawMeter(ctx: Ctx, fx: Fixtures) {
+  const { x, y, w, h } = fx.METER;
+  px(ctx, x - 1, y - 1, w + 2, h + 2, LINE);
+  px(ctx, x, y, w, h, "#06120c");
+  px(ctx, x, y, w, 1, "#0d2418");
+  for (let k = 2; k < w - 1; k += 3) px(ctx, x + k, y + h - 1, 1, 1, "#0b1d14");
+}
+
 function drawClockFace(ctx: Ctx, fx: Fixtures) {
   const CLOCK = fx.CLOCK;
   for (let dy = -8; dy <= 8; dy++) {
@@ -180,6 +191,7 @@ function drawWall(ctx: Ctx, width: number, th: Theme) {
   px(ctx, 0, 48, width, 2, th.baseboard);
   fx.WINDOWS.forEach((w, i) => drawWindow(ctx, w.x, w.w, i, th));
   drawSignBoard(ctx, fx);
+  drawMeter(ctx, fx);
   drawChalkboard(ctx, th);
   fx.SCONCES.forEach((x) => drawSconce(ctx, x, th));
   drawClockFace(ctx, fx);

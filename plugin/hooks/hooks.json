@@ -1,12 +1,12 @@
 {
-  "description": "Forwards hook events and the chat name to the Relay café saved by /relay:connect; silent and async.",
+  "description": "Forwards hook events, the chat name, token counts and the last usage limits to the Relay café saved by /relay:connect; silent and async.",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" roster title",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" roster title limits",
             "async": true,
             "timeout": 5
           }
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\"",
             "async": true,
             "timeout": 5
           }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\"",
             "async": true,
             "timeout": 5
           }
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\"",
             "async": true,
             "timeout": 5
           }
@@ -54,9 +54,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" title usage",
             "async": true,
-            "timeout": 5
+            "timeout": 15
           }
         ]
       }
@@ -66,9 +66,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" title",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" title usage limits",
             "async": true,
-            "timeout": 5
+            "timeout": 15
           }
         ]
       }
@@ -78,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" title",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" title",
             "async": true,
             "timeout": 5
           }
@@ -90,9 +90,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" title usage",
             "async": true,
-            "timeout": 5
+            "timeout": 15
           }
         ]
       }
@@ -102,7 +102,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" roster title",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" roster title",
             "async": true,
             "timeout": 5
           }

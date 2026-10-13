@@ -5,8 +5,9 @@ import { X } from "lucide-react";
 import { Earned } from "@/lib/live/achievements";
 import { CafeState } from "@/lib/live/useCafe";
 import ThemePicker from "./ThemePicker";
+import { fmtTokens } from "./tokens";
 
-const num = (n: number) => n.toLocaleString("uk-UA");
+const num = (n: number) => (n >= 1e6 ? fmtTokens(n) : n.toLocaleString("uk-UA"));
 const dayLabel = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
 
 function Card({ e }: { e: Earned }) {

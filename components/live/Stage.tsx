@@ -71,6 +71,7 @@ export default function Stage({
   model,
   clock,
   alert,
+  rate,
   cafe,
   empty,
   agents,
@@ -86,6 +87,8 @@ export default function Stage({
   model: CafeModel;
   clock: number;
   alert?: SceneAlert;
+  /** tokens a minute over the last quarter hour, for the meter on the wall */
+  rate: number;
   cafe: CafeState;
   empty?: ReactNode;
   agents: ReactNode;
@@ -143,6 +146,7 @@ export default function Stage({
           model={model}
           clock={clock}
           alert={alert}
+          rate={rate}
           decor={cafe.decor}
           catName={cafe.settings.cat_name}
           theme={theme}

@@ -1,5 +1,6 @@
 import { sessionLabel } from "./label";
 import { LiveEvent } from "./types";
+import { tokensOf } from "./usage";
 
 type Counts = Record<string, number>;
 
@@ -17,6 +18,24 @@ export interface HourRow {
   tools_by: Counts;
   projects: Counts;
   mins: Counts;
+  tok_in?: number;
+  tok_cw?: number;
+  tok_cr?: number;
+  tok_out?: number;
+  tok_agents?: Counts;
+  tok_chats?: Counts;
+  tok_members?: Counts;
+}
+
+export interface TokenSum {
+  in: number;
+  cw: number;
+  cr: number;
+  out: number;
+  total: number;
+  agents: [string, number][];
+  chats: [string, number][];
+  members: [string, number][];
 }
 
 export interface Summary {
@@ -33,6 +52,7 @@ export interface Summary {
   projects: [string, number][];
   firstHour: number | null;
   lastHour: number | null;
+  tokens: TokenSum;
 }
 
 const HOUR = 3600 * 1000;
@@ -57,6 +77,16 @@ export function aggregateHourly(events: LiveEvent[]): HourRow[] {
     if (!r) {
       r = { hour: new Date(h).toISOString(), prompts: 0, tools: 0, dispatches: 0, fails: 0, answers: 0, asks: 0, sessions: {}, agents: {}, tools_by: {}, projects: {}, mins: {} };
       rows.set(h, r);
+    }
+    const spent = tokensOf(e.usage);
+    if (e.usage && spent > 0) {
+      r.tok_in = (r.tok_in ?? 0) + e.usage.in;
+      r.tok_cw = (r.tok_cw ?? 0) + e.usage.cw;
+      r.tok_cr = (r.tok_cr ?? 0) + e.usage.cr;
+      r.tok_out = (r.tok_out ?? 0) + e.usage.out;
+      add((r.tok_agents ??= {}), { [e.agent ? (e.agentType ?? "агент") : "Claude"]: spent });
+      add((r.tok_chats ??= {}), { [e.title ?? sessionLabel(e.cwd)]: spent });
+      if (e.member) add((r.tok_members ??= {}), { [e.member]: spent });
     }
     r.sessions[e.session] = 1;
     r.mins[String(new Date(e.at).getUTCMinutes())] = 1;
@@ -87,7 +117,11 @@ export function startOfLocalDay(t: number, daysBack = 0): number {
 }
 
 export function summarize(rows: HourRow[], from: number, to = Infinity): Summary {
-  const s: Summary = { prompts: 0, tools: 0, dispatches: 0, fails: 0, answers: 0, asks: 0, chats: 0, minutes: 0, agents: [], tools_by: [], projects: [], firstHour: null, lastHour: null };
+  const tokens: TokenSum = { in: 0, cw: 0, cr: 0, out: 0, total: 0, agents: [], chats: [], members: [] };
+  const s: Summary = { prompts: 0, tools: 0, dispatches: 0, fails: 0, answers: 0, asks: 0, chats: 0, minutes: 0, agents: [], tools_by: [], projects: [], firstHour: null, lastHour: null, tokens };
+  const byAgent: Counts = {};
+  const byChat: Counts = {};
+  const byMember: Counts = {};
   const sessions: Counts = {};
   const agents: Counts = {};
   const tools: Counts = {};
@@ -106,6 +140,13 @@ export function summarize(rows: HourRow[], from: number, to = Infinity): Summary
     add(agents, r.agents);
     add(tools, r.tools_by);
     add(projects, r.projects);
+    tokens.in += r.tok_in ?? 0;
+    tokens.cw += r.tok_cw ?? 0;
+    tokens.cr += r.tok_cr ?? 0;
+    tokens.out += r.tok_out ?? 0;
+    add(byAgent, r.tok_agents ?? {});
+    add(byChat, r.tok_chats ?? {});
+    add(byMember, r.tok_members ?? {});
     s.firstHour ??= h;
     s.lastHour = h;
   }
@@ -113,6 +154,10 @@ export function summarize(rows: HourRow[], from: number, to = Infinity): Summary
   s.agents = top(agents, 5);
   s.tools_by = top(tools, 6);
   s.projects = top(projects, 4);
+  tokens.total = tokens.in + tokens.cw + tokens.cr + tokens.out;
+  tokens.agents = top(byAgent, 6);
+  tokens.chats = top(byChat, 6);
+  tokens.members = top(byMember, 8);
   return s;
 }
 

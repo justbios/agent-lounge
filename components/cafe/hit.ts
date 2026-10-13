@@ -27,7 +27,8 @@ export function hitTest(lay: CafeLayout, views: AgentView[], cat: Point | null, 
     if (inBox(p, d.x - 24, d.top - 4, 48, 50)) return { kind: "agent", agent: i };
   }
   const fx = fixtures(lay.width);
-  if (inBox(p, 2, 5, 44, 30)) return { kind: "board" };
+  const m = fx.METER;
+  if (inBox(p, 2, 5, 44, 30) || inBox(p, m.x - 1, m.y - 1, m.w + 2, m.h + 2)) return { kind: "board" };
   const v = fx.VENDING;
   if (inBox(p, v.x - 1, v.y - 1, v.w + 2, v.h + 2)) return { kind: "vending" };
   if (fx.WINDOWS.some((w) => inBox(p, w.x - 1, 4, w.w + 2, 32))) return { kind: "window" };

@@ -12,6 +12,8 @@ export interface ProgressDay {
   peak_hour: number;
   night: boolean;
   early: boolean;
+  /** absent from rooms that counted nothing yet */
+  tokens?: number;
 }
 
 export interface CafeSettings {
@@ -31,6 +33,7 @@ export interface Progress {
 export type Decor = "garland" | "trophy" | "owl" | "arcade" | "aquarium" | "goldMachine" | "plant" | "crown" | "extinguisher";
 
 interface Stats {
+  tokens: number;
   prompts: number;
   tools: number;
   dispatches: number;
@@ -76,6 +79,8 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: "streak_7", icon: "📅", title: "Тиждень поспіль", hint: "питання сім днів поспіль", goal: 7, value: (s) => s.streak },
   { id: "streak_30", icon: "🌙", title: "Місяць поспіль", hint: "питання тридцять днів поспіль", goal: 30, value: (s) => s.streak },
   { id: "marathon", icon: "🏃", title: "Марафон", hint: "5 годин роботи за один день", goal: 300, value: (s) => s.minutes },
+  { id: "tokens_1m", icon: "🪙", title: "Мільйон токенів", hint: "Claude і агенти разом витратили мільйон токенів", goal: 1e6, value: (s) => s.tokens },
+  { id: "tokens_1b", icon: "💎", title: "Мільярд токенів", hint: "мільярд токенів за весь час, разом із кешем", goal: 1e9, value: (s) => s.tokens },
   { id: "fails_50", icon: "🧯", title: "Загартований", hint: "50 невдалих викликів інструментів", goal: 50, value: (s) => s.fails, decor: "extinguisher", decorName: "вогнегасник" },
 ];
 
@@ -92,11 +97,12 @@ const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY_MS);
 
 /** Walks the days in order and records the first day each achievement crossed its goal. */
 export function evaluate(p: Progress): Earned[] {
-  const s: Stats = { prompts: 0, tools: 0, dispatches: 0, fails: 0, streak: 0, minutes: 0, peak: 0, night: 0, early: 0, agents: p.agents, toolKinds: p.tools, projects: p.projects };
+  const s: Stats = { tokens: 0, prompts: 0, tools: 0, dispatches: 0, fails: 0, streak: 0, minutes: 0, peak: 0, night: 0, early: 0, agents: p.agents, toolKinds: p.tools, projects: p.projects };
   const day = new Map<string, string>();
   let run = 0;
   let prev: number | null = null;
   for (const d of p.days) {
+    s.tokens += d.tokens ?? 0;
     s.prompts += d.prompts;
     s.tools += d.tools;
     s.dispatches += d.dispatches;
@@ -141,7 +147,7 @@ export function progressFromHourly(rows: HourRow[], room: CafeSettings | null): 
     const hour = new Date(t).getHours();
     let d = days.get(key);
     if (!d) {
-      d = { day: key, prompts: 0, tools: 0, dispatches: 0, fails: 0, answers: 0, minutes: 0, peak_hour: 0, night: false, early: false };
+      d = { day: key, prompts: 0, tools: 0, dispatches: 0, fails: 0, answers: 0, minutes: 0, peak_hour: 0, night: false, early: false, tokens: 0 };
       days.set(key, d);
     }
     d.prompts += r.prompts;
@@ -149,6 +155,7 @@ export function progressFromHourly(rows: HourRow[], room: CafeSettings | null): 
     d.dispatches += r.dispatches;
     d.fails += r.fails;
     d.answers += r.answers;
+    d.tokens = (d.tokens ?? 0) + (r.tok_in ?? 0) + (r.tok_cw ?? 0) + (r.tok_cr ?? 0) + (r.tok_out ?? 0);
     d.minutes += Object.keys(r.mins).length;
     d.peak_hour = Math.max(d.peak_hour, r.dispatches);
     if (r.prompts > 0 && hour < 5) d.night = true;

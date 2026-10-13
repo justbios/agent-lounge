@@ -1,7 +1,8 @@
 "use client";
 
 import { ReactNode } from "react";
-import { Activity, Hash, Users } from "lucide-react";
+import { Activity, Coins, Hash, Users } from "lucide-react";
+import { fmtTokens } from "./tokens";
 
 const ICON = { display: "inline", verticalAlign: "-1px", marginRight: 4 } as const;
 
@@ -12,6 +13,8 @@ export default function StatBar({
   seatsLabel,
   working,
   events,
+  tokens,
+  limits,
   children,
 }: {
   status: string;
@@ -20,6 +23,8 @@ export default function StatBar({
   seatsLabel: string;
   working: number;
   events: number;
+  tokens: number;
+  limits?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -50,6 +55,14 @@ export default function StatBar({
         </span>
         <span className="stat-v">{events}</span>
       </div>
+      <div className="stat" title="токени, які хук порахував за останню добу в цьому чаті чи команді">
+        <span className="stat-k">
+          <Coins size={11} style={ICON} />
+          токенів
+        </span>
+        <span className="stat-v">{tokens > 0 ? fmtTokens(tokens) : "—"}</span>
+      </div>
+      {limits}
       <div className="bar-r">{children}</div>
     </div>
   );

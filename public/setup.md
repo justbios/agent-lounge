@@ -40,12 +40,23 @@ npm run setup
 
 `npm run setup` does two things:
 
-- **`npm run hooks`** merges eight hook entries into `~/.claude/settings.json`, or into `$CLAUDE_CONFIG_DIR/settings.json` when that is set. Every other setting and hook stays untouched, and the previous file is saved as `settings.json.bak-relay`. Running it again is safe.
+- **`npm run hooks`** copies the hook script to `~/.config/relay/relay.sh` and merges eight hook entries that run it into `~/.claude/settings.json`, or into `$CLAUDE_CONFIG_DIR/settings.json` when that is set. Every other setting and hook stays untouched, and the previous file is saved as `settings.json.bak-relay`. Running it again is safe. The script forwards each event and, from the chat's transcript, only the chat's name and token counts.
 - **`npm run up`** builds Relay and starts it in the background on `http://127.0.0.1:3737`, detached from your shell. It survives the end of this session. Its log is `~/relay/data/server.log`.
 
 If port 3737 is busy with something that is not Relay, tell the user and stop. Do not kill a process you did not start.
 
-## 3. Check it
+## 3. Offer the status line
+
+Relay shows how much of the 5-hour and weekly subscription limits is used and when each resets. Claude Code hands those numbers only to a status line, which runs in terminal Claude Code (the desktop app does not run one). Ask the user whether to add it. Only on a yes:
+
+```bash
+cd ~/relay
+node scripts/install-hooks.mjs --statusline
+```
+
+With no status line yet, it adds Relay's, which prints the model, the context and both limits. An existing status line keeps its output; the limits are saved on the side. `npm run unhook` puts it back as it was.
+
+## 4. Check it
 
 ```bash
 echo '{"session_id":"relay-setup-check","cwd":"'"$HOME"'/relay","hook_event_name":"UserPromptSubmit","prompt":"hello, Relay"}' \

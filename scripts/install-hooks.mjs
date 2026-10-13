@@ -1,15 +1,18 @@
 #!/usr/bin/env node
-// Adds (or with --remove takes out) the Relay hooks in the user's Claude Code settings.
-//   node scripts/install-hooks.mjs [--remove] [--dry-run]
+// Adds (or with --remove takes out) the Relay hooks in the user's Claude Code settings, and the hook script they run.
+//   node scripts/install-hooks.mjs [--remove] [--dry-run] [--statusline]
+// --statusline also adds Relay's status line, which saves the subscription limits; an existing one keeps its output.
 // Other hooks and settings are left as they are; the old file is kept next to it as a backup.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { HOOK_EVENTS, hookEntry, isRelayHook } from "../lib/live/hookConfig.mjs";
+import { fileURLToPath } from "node:url";
+import { HOOK_EVENTS, STATUS_LINE, hookEntry, isRelayHook, statusChain } from "../lib/live/hookConfig.mjs";
 
 const args = new Set(process.argv.slice(2));
 const remove = args.has("--remove");
 const dry = args.has("--dry-run");
+const withStatus = args.has("--statusline");
 const dir = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
 const file = path.join(dir, "settings.json");
 
@@ -50,6 +53,25 @@ for (const event of events) {
   touched.push(event);
 }
 
+const status = settings.statusLine;
+const chained = typeof status?.command === "string" ? status.command.match(/relay\.sh" limits; .*\| \( (.*) \)$/) : null;
+let nextStatus = status;
+if (remove && status?.command === STATUS_LINE.command) nextStatus = undefined;
+else if (remove && chained) nextStatus = { ...status, command: chained[1] };
+else if (!remove && withStatus && !status) nextStatus = STATUS_LINE;
+else if (!remove && withStatus && typeof status.command === "string" && !status.command.includes("relay.sh"))
+  nextStatus = { ...status, command: statusChain(status.command) };
+if (nextStatus !== status) touched.push("statusLine");
+
+const script = path.join(os.homedir(), ".config", "relay", "relay.sh");
+const source = fileURLToPath(new URL("../plugin/scripts/relay.sh", import.meta.url));
+const fresh = remove || (fs.existsSync(script) && fs.readFileSync(script, "utf8") === fs.readFileSync(source, "utf8"));
+if (!fresh && !dry) {
+  fs.mkdirSync(path.dirname(script), { recursive: true });
+  fs.copyFileSync(source, script);
+  console.log(`✓ Hook script: ${script}`);
+}
+
 if (!touched.length) {
   console.log(remove ? "✓ No Relay hooks found — nothing to remove." : `✓ Relay hooks already in ${file}`);
   process.exit(0);
@@ -58,6 +80,8 @@ if (!touched.length) {
 const next = { ...settings };
 if (Object.keys(hooks).length) next.hooks = hooks;
 else delete next.hooks;
+if (nextStatus) next.statusLine = nextStatus;
+else delete next.statusLine;
 
 if (dry) {
   console.log(`would ${remove ? "remove Relay hooks from" : "add Relay hooks to"} ${file}: ${touched.join(", ")}`);
@@ -73,3 +97,5 @@ fs.renameSync(tmp, file);
 console.log(`✓ ${remove ? "Removed Relay hooks from" : "Added Relay hooks to"} ${file} (${touched.join(", ")})`);
 if (text) console.log(`  backup: ${file}.bak-relay`);
 if (!remove) console.log("  New Claude Code sessions report to Relay; the desktop app picks the hooks up in open ones too.");
+if (!remove && !withStatus && !status)
+  console.log("  Limits: add Relay's status line with `node scripts/install-hooks.mjs --statusline` (terminal Claude Code only).");
