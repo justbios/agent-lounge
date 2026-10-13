@@ -668,6 +668,14 @@ body {
   padding: 12px 14px;
   margin-bottom: 20px;
 }
+.notice.stale-hooks {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.notice.stale-hooks .btn {
+  flex: none;
+}
 .notice code {
   font-family: var(--mono);
   background: rgba(255, 255, 255, 0.06);

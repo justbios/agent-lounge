@@ -3,11 +3,11 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
-import { CalendarDays, Gamepad2, MessageCircle, Trophy, Volume2, VolumeX } from "lucide-react";
+import { CalendarDays, Gamepad2, MessageCircle, Trophy, Volume2, VolumeX, X } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
-import { staleHooks } from "@/lib/live/hookHealth";
+import { hideStale, staleHooks, useStaleHidden } from "@/lib/live/hookHealth";
 import { LOBBY, houseFloors, useHouseScenes } from "@/lib/live/house";
 import { CLAUDE_COLOR, LiveSession, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
 import { leaveView, useViewRoom } from "@/lib/live/relayKey";
@@ -286,6 +286,7 @@ export default function LiveDashboard({
     .map((r) => ({ ...r, seat: model.agents.findIndex((a) => a.id === r.agent) }))
     .filter((r) => r.seat >= 0);
   const myLimits = limits.find((l) => l.member === (team.me ?? "")) ?? limits[0] ?? null;
+  const staleHidden = useStaleHidden();
   const stale = useMemo(() => !viewing && staleHooks(feed.events, team.me), [viewing, feed.events, team.me]);
 
   const offline = feed.status === "offline";
@@ -339,10 +340,15 @@ export default function LiveDashboard({
         {!viewing && <AlertsMenu cloud={cloud} push={push} />}
       </StatBar>
 
-      {stale && (
+      {stale && !staleHidden && (
         <div className="notice stale-hooks">
-          Підключення Claude Code в тебе старої версії: Relay не бачить лімітів підписки і не всі назви чатів. Онови
-          його тією самою фразою на сторінці <Link href="/connect">підключити Claude</Link>, це пів хвилини.
+          <span>
+            Підключення Claude Code в тебе старої версії: Relay не бачить лімітів підписки і не всі назви чатів. Онови
+            його тією самою фразою на сторінці <Link href="/connect">підключити Claude</Link>, це пів хвилини.
+          </span>
+          <button className="btn btn-ic" onClick={hideStale} aria-label="сховати">
+            <X size={14} />
+          </button>
         </div>
       )}
 
