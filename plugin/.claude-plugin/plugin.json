@@ -1,0 +1,14 @@
+{
+  "name": "relay",
+  "description": "Seats your Claude Code agents in the Relay pixel café: every chat, tool call and handoff live, plus a phone ping when Claude waits on you.",
+  "author": {
+    "name": "justbios"
+  },
+  "homepage": "https://agent-pipeline-viz-one.vercel.app",
+  "keywords": [
+    "hooks",
+    "dashboard",
+    "agents",
+    "visualization"
+  ]
+}

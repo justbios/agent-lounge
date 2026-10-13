@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Radio, ArrowLeft, Copy, Check, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw } from "lucide-react";
-import { HOOK_URL, cloudHookSettings, cloudHookUrl, hookSettings } from "@/lib/live/hookConfig.mjs";
+import { Radio, ArrowLeft, Copy, Check, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw, Puzzle } from "lucide-react";
+import { HOOK_URL, cloudHookSettings, cloudHookUrl, hookSettings, pluginSteps } from "@/lib/live/hookConfig.mjs";
 import { newKey, saveKey, useHosted, useRelayKey } from "@/lib/live/relayKey";
 import { useMe } from "@/lib/live/team";
 import { CafeSwitcher, JoinTeam, MemberName, TeamInvite, useTeamInvite } from "./connect/TeamConnect";
@@ -72,6 +72,23 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
 
       <div className="step">
         <div className="step-n">
+          <Puzzle size={14} />
+        </div>
+        <div className="step-body">
+          <div className="step-ttl">Або плагіном Claude Code</div>
+          <p className="step-p">
+            Ті самі хуки, тільки з плагіна: <code>settings.json</code> не змінюється, а посилання на кафе лежить в
+            окремому файлі <code>~/.config/relay/hook-url</code>. Встав по черзі в чат Claude Code:
+          </p>
+          <Code text={pluginSteps(`${site}/marketplace.json`, url)} wrap />
+          <p className="step-p">
+            Перевірити: <code>/relay:status</code>. Вимкнути: <code>/plugin disable relay</code>.
+          </p>
+        </div>
+      </div>
+
+      <div className="step">
+        <div className="step-n">
           <Smartphone size={14} />
         </div>
         <div className="step-body">
@@ -113,6 +130,8 @@ const MANUAL = `cd ~/relay
 npm install
 npm run setup`;
 const SETTINGS = JSON.stringify(hookSettings(), null, 2);
+const PLUGIN_LOCAL = `claude plugin marketplace add ~/relay
+claude plugin install relay@relay`;
 const TEST = `echo '{"session_id":"test","cwd":"/tmp/demo","hook_event_name":"UserPromptSubmit","prompt":"привіт, Relay"}' \\
   | curl -s -H 'content-type: application/json' --data-binary @- ${HOOK_URL}`;
 
@@ -147,6 +166,23 @@ function LocalConnect() {
             чіпає, стару версію зберігає як <code>settings.json.bak-relay</code>) і запускає Relay у фоні. Після
             перезавантаження: <code>npm run up</code>. Зупинити: <code>npm run down</code>, прибрати хук:{" "}
             <code>npm run unhook</code>.
+          </p>
+        </div>
+      </div>
+
+      <div className="step">
+        <div className="step-n">
+          <Puzzle size={14} />
+        </div>
+        <div className="step-body">
+          <div className="step-ttl">Або плагіном Claude Code</div>
+          <p className="step-p">
+            Плагін лежить у самому репозиторії, тож нічого не качається з мережі. У терміналі:
+          </p>
+          <Code text={PLUGIN_LOCAL} />
+          <p className="step-p">
+            Далі в чаті Claude Code: <code>/relay:connect local</code>. Relay при цьому має працювати:{" "}
+            <code>npm run up</code>.
           </p>
         </div>
       </div>

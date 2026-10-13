@@ -85,6 +85,14 @@ Claude Code hooks ──curl──▶ Vercel /api/claude-hook?k=<ключ> ─�
 вікна й погода в `components/cafe/windows.ts`. Тему обирають у вікні «кафе»; вона зберігається в `relay_rooms.theme`
 поруч з ім'ям кота, тож глядач за посиланням бачить ту саму. Локально тема лежить у `localStorage`.
 
+Плагін Claude Code (`plugin/`) ставить ті самі хуки, але `settings.json` не чіпає: посилання на кафе лежить у
+`~/.config/relay/hook-url` (права 600). Його записує `/relay:connect <посилання>`, а `/relay:status` показує, куди
+йдуть події. Без посилання хук мовчки нічого не шле. Сайт сам роздає маркетплейс: `/plugin marketplace add
+<сайт>/marketplace.json` (`app/marketplace.json/route.ts` віддає архів `public/relay-plugin.zip` з sha256; потрібен
+Claude Code 2.1.224 або новіший). Після змін у `plugin/` перепакуй: `npm run plugin:pack` (той самий вміст дає той
+самий sha256). Локально плагін береться прямо з репозиторію: `claude plugin marketplace add ~/relay`,
+`claude plugin install relay@relay`, а в чаті `/relay:connect local`. Вимкнути: `/plugin disable relay`.
+
 Потрібні ще три змінні: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`
 (ключі: `npx web-push generate-vapid-keys`). Без них сайт працює, просто без пушів.
 
@@ -182,4 +190,4 @@ npm run dev -- --webpack
 - [x] кафе росте: 18 досягнень, 9 речей декору, ім'я кота
 - [x] командне кафе: ім'я в хуку, запрошення, «уся команда», пуші лише про свого Claude
 - [x] теми: нічне кафе, космічна станція, лісовий табір, зимовий вечір
-- [ ] плагін Claude Code
+- [x] плагін Claude Code: `/relay:connect`, `/relay:status`, маркетплейс із самого сайту

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Saves the café link the hooks post to, then sends one check event.
+dir="${XDG_CONFIG_HOME:-$HOME/.config}/relay"
+f="${RELAY_HOOK_FILE:-$dir/hook-url}"
+url="$1"
+[ "$url" = local ] && url="http://127.0.0.1:3737/api/claude-hook"
+if ! printf '%s' "$url" | grep -Eq '^(https://[A-Za-z0-9.-]+(:[0-9]+)?|http://127\.0\.0\.1:[0-9]{2,5})/api/claude-hook(\?k=[A-Za-z0-9_-]{20,128}(&m=[A-Za-z0-9%._~-]{1,200})?)?$'; then
+  echo "status: bad-link"
+  exit 1
+fi
+mkdir -p "$(dirname "$f")" || exit 1
+umask 077
+printf '%s\n' "$url" > "$f" || exit 1
+chmod 600 "$f"
+echo "status: saved"
+echo "file: $f"
+code=$(printf '%s' '{"session_id":"relay-check","cwd":"/relay","hook_event_name":"UserPromptSubmit","prompt":"перевірка Relay"}' |
+  curl -s -m 8 -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- "$url")
+echo "check: ${code:-000}"
+if grep -qs '/api/claude-hook' "$HOME/.claude/settings.json"; then echo "old-hooks: $HOME/.claude/settings.json"; else echo "old-hooks: none"; fi

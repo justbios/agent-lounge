@@ -16,7 +16,8 @@
     "up": "node scripts/live-bg.mjs",
     "down": "node scripts/live-bg.mjs --stop",
     "hooks": "node scripts/install-hooks.mjs",
-    "unhook": "node scripts/install-hooks.mjs --remove"
+    "unhook": "node scripts/install-hooks.mjs --remove",
+    "plugin:pack": "node scripts/pack-plugin.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.109.0",
