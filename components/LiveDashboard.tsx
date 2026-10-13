@@ -39,6 +39,7 @@ import { LimitsMini } from "./live/Limits";
 import Presence from "./live/Presence";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
+import SpeechPick from "./live/SpeechPick";
 import Stage from "./live/Stage";
 import StatBar from "./live/StatBar";
 import TeamBar from "./live/TeamBar";
@@ -283,14 +284,30 @@ export default function LiveDashboard({
         <button className="btn" onClick={() => setRecapOpen(true)}>
           <CalendarDays size={14} /> підсумок
         </button>
-        <button
-          className={`btn btn-ic ${sound.on ? "on" : ""}`}
-          onClick={sound.toggle}
-          aria-pressed={sound.on}
-          title={sound.on ? "вимкнути музику кафе" : "музика кафе: lo-fi і клавіатури, гучніше, коли працюють"}
-        >
-          {sound.on ? <Volume2 size={14} /> : <VolumeX size={14} />}
-        </button>
+        <span className="music">
+          <button
+            className={`btn btn-ic ${sound.on ? "on" : ""}`}
+            onClick={sound.toggle}
+            aria-pressed={sound.on}
+            title={sound.on ? "вимкнути музику кафе" : "музика кафе: lo-fi і клавіатури, гучніше, коли працюють"}
+          >
+            {sound.on ? <Volume2 size={14} /> : <VolumeX size={14} />}
+          </button>
+          {sound.on && (
+            <span className="speed music-vol">
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={sound.vol}
+                aria-label="гучність музики"
+                onChange={(e) => sound.setVol(parseFloat(e.target.value))}
+              />
+            </span>
+          )}
+        </span>
+        <SpeechPick />
         {cafe.progress && (
           <button className="btn" onClick={() => setCafeOpen(true)} title="досягнення і декор кафе">
             <Trophy size={14} /> кафе {earnedCount}/{cafe.earned.length}

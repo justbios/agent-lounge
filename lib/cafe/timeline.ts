@@ -1,5 +1,6 @@
 import { BubbleTone, CafeModel, Note, Trip } from "./model";
 import { CafeLayout, Dir, GIVE_MS, SIT_MS, STAND_MS, WALK_PX_PER_MS, pointAt } from "./layout";
+import { Say } from "@/lib/live/types";
 
 export type ScreenMode = "idle" | "incoming" | "work" | "done";
 
@@ -28,6 +29,8 @@ export interface Bubble {
   x: number;
   y: number;
   text: string;
+  say?: Say;
+  pre?: string;
   tool?: string;
   tone: BubbleTone;
   age: number;
@@ -138,6 +141,8 @@ export function bubbleFor(
     x: desk.x,
     y: desk.top - 3,
     text: n.text,
+    say: n.say,
+    pre: n.pre,
     tool: n.tool,
     tone: n.tone,
     age: clock - n.ts,
@@ -150,7 +155,8 @@ export function bubbleFor(
     if (!tr || clock >= tr.arrive) return null;
     const at = { agent: i, x: w.x, y: w.y - 21, seated: false };
     if (last && last.tone === "done" && clock - last.ts < COMPLETE_HOLD_MS) {
-      return { ...at, key: last.key, text: last.text, tool: last.tool, tone: last.tone, age: clock - last.ts };
+      const { key, text, say, pre, tool, tone } = last;
+      return { ...at, key, text, say, pre, tool, tone, age: clock - last.ts };
     }
     return { ...at, key: tr.key, text: tr.label, tone: "handoff", age: clock - tr.start };
   }

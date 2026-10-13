@@ -2,6 +2,7 @@ import { MockRun } from "@/lib/mockRun";
 import { AgentDef, AgentEvent } from "@/lib/types";
 import { CafeLayout, GIVE_MS, SIT_MS, STAND_MS, WALK_PX_PER_MS, handoffPath, pathLength } from "./layout";
 import { Point } from "@/lib/layout";
+import { Say } from "@/lib/live/types";
 
 export type BubbleTone = "work" | "done" | "handoff" | "error" | "alert";
 
@@ -15,6 +16,10 @@ export interface Note {
   key: string;
   ts: number;
   text: string;
+  /** the same in plain words, for the viewer's language */
+  say?: Say;
+  /** goes before the plain words: whose subagent it is in a team café */
+  pre?: string;
   tool?: string;
   tone: BubbleTone;
 }

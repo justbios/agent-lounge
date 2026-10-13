@@ -1,5 +1,6 @@
 import { CafeLayout } from "@/lib/cafe/layout";
 import { Bubble } from "@/lib/cafe/timeline";
+import { chip, line, speechNow } from "@/lib/live/speech";
 import { AgentDef } from "@/lib/types";
 import { fixtures } from "./room";
 
@@ -114,15 +115,17 @@ function bubble(ctx: CanvasRenderingContext2D, b: Bubble, a: AgentDef, s: number
   const em = Math.round(W * 0.0132);
   const border = Math.max(2, Math.round(W / 480));
   const bg = TONE_BG[b.tone] ?? "#f7f2e6";
-  const shown = b.text.slice(0, Math.min(b.text.length, Math.floor(b.age / TYPE_MS_PER_CHAR) + 1));
+  const sp = speechNow();
+  const said = line(b, sp);
+  const shown = said.slice(0, Math.min(said.length, Math.floor(b.age / TYPE_MS_PER_CHAR) + 1));
 
   ctx.font = font(em);
-  const lines = wrap(ctx, b.text, W * 0.19 - em * 1.2);
+  const lines = wrap(ctx, said, W * 0.19 - em * 1.2);
   const textW = Math.max(...lines.map((l) => ctx.measureText(l).width));
   const hd = em * 0.8;
   ctx.font = font(hd);
   const who = a.name.toLowerCase();
-  const tool = b.tool?.toLowerCase();
+  const tool = chip(b.tool, sp)?.toLowerCase();
   const hdW = hd * 1.05 + ctx.measureText(who).width + (tool ? hd * 0.45 + ctx.measureText(tool).width + hd * 0.7 : 0);
   const w = Math.max(textW, hdW) + em * 1.2;
   const h = em * 0.85 + hd * 1.18 + lines.length * em * 1.2;

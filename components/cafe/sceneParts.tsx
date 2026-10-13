@@ -4,6 +4,7 @@ import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, CafeTimeline, agentView } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
 import { ItemId } from "@/lib/live/interior";
+import { chip, line, useSpeech } from "@/lib/live/speech";
 import { FixtureKind } from "./hit";
 import { doorOf, fixtures } from "./room";
 
@@ -64,16 +65,19 @@ export function agentAnchor(model: CafeModel, tl: CafeTimeline, lay: CafeLayout,
 export const onCat = (c: Point, p: Point) => p.x >= c.x - 9 && p.x < c.x + 9 && p.y >= c.y - 13 && p.y < c.y + 2;
 
 export function CafeBubble({ b, name, color, style }: { b: Bubble; name: string; color: string; style: CSSProperties }) {
-  const shown = Math.min(b.text.length, Math.floor(b.age / TYPE_MS_PER_CHAR) + 1);
+  const sp = useSpeech();
+  const text = line(b, sp);
+  const tool = chip(b.tool, sp);
+  const shown = Math.min(text.length, Math.floor(b.age / TYPE_MS_PER_CHAR) + 1);
   return (
     <div className={`cafe-bubble tone-${b.tone}`} style={{ ...style, "--c": color } as CSSProperties}>
       <div className="cb-hd">
         <span className="cb-who">{name}</span>
-        {b.tool && <span className="cb-tool">{b.tool}</span>}
+        {tool && <span className="cb-tool">{tool}</span>}
       </div>
       <div className="cb-txt">
-        {b.text.slice(0, shown)}
-        <span className="cb-rest">{b.text.slice(shown)}</span>
+        {text.slice(0, shown)}
+        <span className="cb-rest">{text.slice(shown)}</span>
       </div>
     </div>
   );

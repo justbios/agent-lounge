@@ -6,6 +6,7 @@ import { CafeModel } from "@/lib/cafe/model";
 import { AgentView } from "@/lib/cafe/timeline";
 import { LookPick, NAME_MAX } from "@/lib/live/interior";
 import { REACTIONS } from "@/lib/live/social";
+import { chip, line, said, useSpeech } from "@/lib/live/speech";
 import { badge, plural } from "../live/format";
 import { fmtTokens } from "../live/tokens";
 import { PROP_NAMES, propIndex } from "./desk";
@@ -164,8 +165,10 @@ export function AgentCard({
   const notes = model.notes[agent].filter((n) => n.ts <= clock);
   const recent = notes.slice(-LAST).reverse();
   const worked = model.stints[agent].reduce((sum, s) => (s.start > clock ? sum : sum + Math.max(0, Math.min(s.end, clock) - s.start)), 0);
-  const b = asking ? { cls: "rr-ask", text: "чекає на тебе" } : badge(view, !!view.walker?.carrying || (view.walker?.give ?? -1) >= 0);
-  const now = asking ?? (view.screen === "work" || view.walker ? (recent[0]?.text ?? a.work) : null);
+  const sp = useSpeech();
+  const carrying = !!view.walker?.carrying || (view.walker?.give ?? -1) >= 0;
+  const b = asking ? { cls: "rr-ask", text: said("b_ask", sp, "чекає на тебе") } : badge(view, carrying, sp);
+  const now = asking ?? (view.screen === "work" || view.walker ? (recent[0] ? line(recent[0], sp) : a.work) : null);
   return (
     <div className="agent-card">
       <div className="ac-hd">
@@ -178,7 +181,7 @@ export function AgentCard({
       </div>
       <div className="ac-now">
         <span className="ac-k">зараз</span>
-        <span>{now || "нічого не робить, чекає задачу"}</span>
+        <span>{now || said("idle_now", sp, "нічого не робить, чекає задачу")}</span>
       </div>
       <div className="ac-stats">
         <div>
@@ -199,8 +202,8 @@ export function AgentCard({
           {recent.map((n) => (
             <li key={n.key} className={`tone-${n.tone}`}>
               <span className="ac-ago">{since(clock - n.ts)}</span>
-              {n.tool && <span className="ac-tool">{n.tool}</span>}
-              <span className="ac-txt">{n.text}</span>
+              {chip(n.tool, sp) && <span className="ac-tool">{chip(n.tool, sp)}</span>}
+              <span className="ac-txt">{line(n, sp)}</span>
             </li>
           ))}
         </ol>

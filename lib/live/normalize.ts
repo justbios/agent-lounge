@@ -1,4 +1,5 @@
 import { LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK } from "./hookConfig.mjs";
+import { plainTool } from "./plain";
 import { LimitWindow, Limits, LiveEvent, LiveKind, Usage } from "./types";
 
 type Json = Record<string, unknown>;
@@ -99,9 +100,12 @@ function notice(type: string | undefined, message: string | undefined): Partial<
   if (type === "permission_prompt" || /permission/i.test(m)) {
     const what = /permission to use (.+)$/i.exec(m)?.[1];
     const tool = what ? describeTool(what.trim(), {}).tool : undefined;
-    return { tool: "дозвіл", need: "permission", text: tool ? `чекає на дозвіл: ${tool}` : "чекає на дозвіл" };
+    const text = tool ? `чекає на дозвіл: ${tool}` : "чекає на дозвіл";
+    return { tool: "дозвіл", need: "permission", text, say: { a: "wait_perm" } };
   }
-  if (type === "idle_prompt" || !m || /waiting|idle|input/i.test(m)) return { tool: "увага", need: "input", text: "чекає на тебе" };
+  if (type === "idle_prompt" || !m || /waiting|idle|input/i.test(m)) {
+    return { tool: "увага", need: "input", text: "чекає на тебе", say: { a: "wait_you" } };
+  }
   return { tool: "увага", need: "input", text: clip(m) };
 }
 
@@ -136,9 +140,13 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
         const target = str(input.subagent_type) ?? "general-purpose";
         return ev("dispatch", { tool: "agent", target, text: clip(str(input.description) ?? "нове завдання", 40) });
       }
-      return ev("tool", describeTool(toolName, input));
+      return ev("tool", { ...describeTool(toolName, input), say: plainTool(toolName, input) });
     case "PostToolUseFailure":
-      return ev("fail", { tool: describeTool(toolName, input).tool, text: clip(`помилка: ${toolName}`) });
+      return ev("fail", {
+        tool: describeTool(toolName, input).tool,
+        text: clip(`помилка: ${toolName}`),
+        say: { a: "fail" },
+      });
     case "SubagentStart":
       return agent ? ev("sub_start") : null;
     case "SubagentStop":

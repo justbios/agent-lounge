@@ -12,10 +12,10 @@ const CHORDS = [
 ];
 const BASS = [87.31, 82.41, 73.42, 65.41];
 
-function noiseBuffer(ac: BaseAudioContext, seconds: number, fill: (i: number) => number): AudioBuffer {
+function noiseBuffer(ac: BaseAudioContext, seconds: number, fill: () => number): AudioBuffer {
   const buf = ac.createBuffer(1, Math.floor(ac.sampleRate * seconds), ac.sampleRate);
   const d = buf.getChannelData(0);
-  for (let i = 0; i < d.length; i++) d[i] = fill(i);
+  for (let i = 0; i < d.length; i++) d[i] = fill();
   return buf;
 }
 
@@ -24,13 +24,17 @@ export interface Lofi {
 }
 
 /**
- * A lo-fi loop made on the spot: four soft seventh chords, a bass, a muffled kick and hat, vinyl crackle, and keyboard
- * clicks on top. `working` is read every tick: the music grows louder and the typing busier as more agents work.
+ * A lo-fi loop made on the spot: four soft seventh chords, a bass, a muffled kick and hat, and keyboard clicks on top.
+ * `working` and `volume` are read every tick: the music grows louder and the typing busier as more agents work, and
+ * the whole mix follows the listener's volume, 0 to 1.
  */
-export function startLofi(ac: AudioContext, working: () => number): Lofi {
+export function startLofi(ac: AudioContext, working: () => number, volume: () => number): Lofi {
+  const out = ac.createGain();
+  out.gain.value = volume();
+  out.connect(ac.destination);
   const master = ac.createGain();
   master.gain.value = 0;
-  master.connect(ac.destination);
+  master.connect(out);
   const tone = ac.createBiquadFilter();
   tone.type = "lowpass";
   tone.frequency.value = 1500;
@@ -38,22 +42,9 @@ export function startLofi(ac: AudioContext, working: () => number): Lofi {
   tone.connect(master);
   const keys = ac.createGain();
   keys.gain.value = 0;
-  keys.connect(ac.destination);
+  keys.connect(out);
 
   const hiss = noiseBuffer(ac, 1, () => Math.random() * 2 - 1);
-  let pop = 0;
-  const vinyl = noiseBuffer(ac, 4, () => {
-    if (Math.random() < 0.0006) pop = (Math.random() * 2 - 1) * 0.7;
-    pop *= 0.82;
-    return pop + (Math.random() * 2 - 1) * 0.012;
-  });
-  const crackle = ac.createBufferSource();
-  crackle.buffer = vinyl;
-  crackle.loop = true;
-  const crackleGain = ac.createGain();
-  crackleGain.gain.value = 0.5;
-  crackle.connect(crackleGain).connect(tone);
-  crackle.start();
 
   const note = (f: number, t: number, dur: number, gain: number, type: OscillatorType = "triangle") => {
     const o = ac.createOscillator();
@@ -100,6 +91,7 @@ export function startLofi(ac: AudioContext, working: () => number): Lofi {
   const tick = () => {
     const w = Math.min(MAX_WORKERS, Math.max(0, working()));
     const now = ac.currentTime;
+    out.gain.setTargetAtTime(Math.min(1, Math.max(0, volume())), now, 0.05);
     master.gain.setTargetAtTime(0.4 + 0.08 * w, now, 1.2);
     keys.gain.setTargetAtTime(w ? 0.4 + 0.1 * w : 0, now, 0.4);
     while (next < now + AHEAD_S) {
@@ -132,9 +124,7 @@ export function startLofi(ac: AudioContext, working: () => number): Lofi {
   return {
     stop: () => {
       clearInterval(id);
-      master.gain.setTargetAtTime(0, ac.currentTime, 0.1);
-      keys.gain.setTargetAtTime(0, ac.currentTime, 0.1);
-      crackle.stop(ac.currentTime + 0.5);
+      out.gain.setTargetAtTime(0, ac.currentTime, 0.1);
     },
   };
 }

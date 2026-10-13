@@ -80,23 +80,27 @@ export function buildTeamModel(events: LiveEvent[], members: string[]): LiveScen
         notes[i].push({ key, ts: t, text: e.text ?? "нове питання", tool: e.tool, tone: "alert" });
         break;
       case "tool":
-      case "fail":
+      case "fail": {
         busy[i].add(e.session);
         open(i, t);
-        notes[i].push({ key, ts: t, text: `${who}${e.text ?? "працює"}`, tool: e.tool, tone: e.kind === "fail" ? "error" : "work" });
+        const tone = e.kind === "fail" ? "error" : "work";
+        notes[i].push({ key, ts: t, text: `${who}${e.text ?? "працює"}`, say: e.say, pre: who, tool: e.tool, tone });
         break;
-      case "dispatch":
+      }
+      case "dispatch": {
         busy[i].add(e.session);
         open(i, t);
-        notes[i].push({ key, ts: t, text: `доручає ${e.target ?? "агенту"}`, tool: "agent", tone: "work" });
+        const say = { a: "delegate", o: e.target ?? "агенту" };
+        notes[i].push({ key, ts: t, text: `доручає ${say.o}`, say, tool: "agent", tone: "work" });
         break;
+      }
       case "notify":
-        notes[i].push({ key, ts: t, text: e.text ?? "чекає", tool: e.tool, tone: "alert" });
+        notes[i].push({ key, ts: t, text: e.text ?? "чекає", say: e.say, tool: e.tool, tone: "alert" });
         break;
       case "stop":
         if (e.agent) break;
         leave(i, e.session, t);
-        notes[i].push({ key, ts: t, text: "відповів ✓", tone: "done" });
+        notes[i].push({ key, ts: t, text: "відповів ✓", say: { a: "answered" }, tone: "done" });
         break;
       case "session_end":
         leave(i, e.session, t);

@@ -32,6 +32,16 @@ export interface Limits {
   week?: LimitWindow;
 }
 
+/** What an agent is doing in words anyone follows; the page puts it in the viewer's language (`lib/live/speech.ts`). */
+export interface Say {
+  /** the action: "edit", "test", "commit", "task_look", … */
+  a: string;
+  /** what kind of thing it works on: "screen", "test", "db", … */
+  k?: string;
+  /** its name, a search phrase or a site */
+  o?: string;
+}
+
 /** One Claude Code hook call, boiled down to what the café shows. */
 export interface LiveEvent {
   seq: number;
@@ -45,6 +55,7 @@ export interface LiveEvent {
   agentType?: string;
   tool?: string;
   text?: string;
+  say?: Say;
   /** dispatch only: the subagent type being launched */
   target?: string;
   /** roster only: agent names from the project's .claude/agents */

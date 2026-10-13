@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { CLAUDE_COLOR } from "@/lib/live/liveModel";
 import { memberName } from "@/lib/live/teamModel";
+import { useSpeech } from "@/lib/live/speech";
 import { LiveEvent } from "@/lib/live/types";
 import { AgentDef } from "@/lib/types";
 import { clockTime, logText } from "./format";
@@ -28,6 +29,7 @@ export default function EventLog({
     if (session) return events.filter((e) => e.session === session && e.kind !== "roster").slice(-LOG_ROWS);
     return team ? events.filter((e) => e.kind !== "roster").slice(-LOG_ROWS) : NO_EVENTS;
   }, [events, session, team]);
+  const sp = useSpeech();
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -60,7 +62,7 @@ export default function EventLog({
               <span className="log-nm" style={{ color: who.color }}>
                 {who.name}
               </span>
-              <span className="log-msg">{logText(e)}</span>
+              <span className="log-msg">{logText(e, sp)}</span>
             </div>
           );
         })}

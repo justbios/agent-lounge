@@ -1,4 +1,5 @@
 import { AgentView } from "@/lib/cafe/timeline";
+import { Speech, chip, line, said } from "@/lib/live/speech";
 import { LiveEvent } from "@/lib/live/types";
 
 export function ago(ms: number): string {
@@ -13,30 +14,32 @@ export function clockTime(at: number): string {
   return new Date(at).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-export function badge(v: AgentView, carrying: boolean): { cls: string; text: string } {
-  if (v.walker) return { cls: "rr-active", text: carrying ? "несе" : "вертається" };
-  if (v.screen === "work") return { cls: "rr-active", text: "працює" };
-  if (v.screen === "incoming") return { cls: "rr-active", text: "приймає" };
-  if (v.screen === "done") return { cls: "rr-done", text: "готово" };
-  return { cls: "rr-idle", text: "чекає" };
+export function badge(v: AgentView, carrying: boolean, sp: Speech): { cls: string; text: string } {
+  if (v.walker) {
+    return { cls: "rr-active", text: carrying ? said("b_carry", sp, "несе") : said("b_back", sp, "вертається") };
+  }
+  if (v.screen === "work") return { cls: "rr-active", text: said("b_work", sp, "працює") };
+  if (v.screen === "incoming") return { cls: "rr-active", text: said("b_take", sp, "приймає") };
+  if (v.screen === "done") return { cls: "rr-done", text: said("b_done", sp, "готово") };
+  return { cls: "rr-idle", text: said("b_idle", sp, "чекає") };
 }
 
-export function logText(e: LiveEvent): string {
+export function logText(e: LiveEvent, sp: Speech): string {
   switch (e.kind) {
     case "prompt":
-      return `${e.tool ?? "питання"} ${e.text ?? ""}`;
+      return `${chip(e.tool, sp) ?? "питання"} ${e.text ?? ""}`;
     case "dispatch":
       return `→ ${e.target}: ${e.text ?? ""}`;
     case "sub_start":
-      return "старт";
+      return said("l_start", sp, "старт");
     case "sub_stop":
-      return "готово, несе результат";
+      return said("returns", sp, "готово, несе результат");
     case "stop":
-      return "відповів";
+      return said("answered", sp, "відповів");
     case "session_end":
-      return "сесію закрито";
+      return said("closed", sp, "сесію закрито");
     default:
-      return e.text ?? e.kind;
+      return line(e, sp, e.kind);
   }
 }
 

@@ -1,5 +1,6 @@
 import { CafeModel } from "@/lib/cafe/model";
 import { AgentView } from "@/lib/cafe/timeline";
+import { line, said, useSpeech } from "@/lib/live/speech";
 import { SceneAlert } from "../cafe/CafeScene";
 import { badge } from "./format";
 
@@ -10,7 +11,7 @@ export default function AgentList({
   alert,
   rosterCount,
   title = "агенти",
-  askText = "чекає на тебе",
+  askText,
 }: {
   model: CafeModel;
   views: AgentView[];
@@ -20,6 +21,7 @@ export default function AgentList({
   title?: string;
   askText?: string;
 }) {
+  const sp = useSpeech();
   return (
     <div className="card">
       <div className="card-hd">
@@ -33,12 +35,12 @@ export default function AgentList({
           const v = views[i];
           const b =
             alert?.kind === "ask" && alert.agent === i
-              ? { cls: "rr-ask", text: askText }
-              : badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0);
+              ? { cls: "rr-ask", text: askText ?? said("b_ask", sp, "чекає на тебе") }
+              : badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0, sp);
           let last = "";
           for (const n of model.notes[i]) {
             if (n.ts > clock) break;
-            last = n.text;
+            last = line(n, sp);
           }
           return (
             <div className="rr" key={a.id} style={{ ["--c" as string]: a.color } as React.CSSProperties}>

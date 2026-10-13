@@ -4,15 +4,28 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import { startLofi } from "./lofi";
 
 const KEY = "relay.music";
+const VOL_KEY = "relay.music.vol";
+const DEFAULT_VOL = 0.6;
+
+interface Music {
+  on: boolean;
+  vol: number;
+}
+
+const OFF: Music = { on: false, vol: DEFAULT_VOL };
 const listeners = new Set<() => void>();
-let on: boolean | null = null;
+let music: Music | null = null;
 let ac: AudioContext | null = null;
 
-function read(): boolean {
+function read(): Music {
   try {
-    return localStorage.getItem(KEY) === "1";
+    const vol = Number(localStorage.getItem(VOL_KEY));
+    return {
+      on: localStorage.getItem(KEY) === "1",
+      vol: localStorage.getItem(VOL_KEY) !== null && vol >= 0 && vol <= 1 ? vol : DEFAULT_VOL,
+    };
   } catch {
-    return false;
+    return OFF;
   }
 }
 
@@ -21,12 +34,13 @@ function subscribe(cb: () => void) {
   return () => listeners.delete(cb);
 }
 
-const snap = () => (on ??= read());
+const snap = () => (music ??= read());
 
-function setMusic(next: boolean) {
-  on = next;
+function setMusic(next: Partial<Music>) {
+  music = { ...snap(), ...next };
   try {
-    localStorage.setItem(KEY, next ? "1" : "0");
+    localStorage.setItem(KEY, music.on ? "1" : "0");
+    localStorage.setItem(VOL_KEY, String(music.vol));
   } catch {}
   listeners.forEach((l) => l());
 }
@@ -40,19 +54,30 @@ function audio(): AudioContext | null {
 }
 
 /** The café's music: off until switched on, then lo-fi that gets louder and the typing busier as more agents work. */
-export function useCafeSound(working: number): { on: boolean; toggle: () => void } {
-  const enabled = useSyncExternalStore(subscribe, snap, () => false);
+export function useCafeSound(working: number): {
+  on: boolean;
+  vol: number;
+  toggle: () => void;
+  setVol: (v: number) => void;
+} {
+  const { on, vol } = useSyncExternalStore(subscribe, snap, () => OFF);
   const workingRef = useRef(working);
+  const volRef = useRef(vol);
 
   useEffect(() => {
     workingRef.current = working;
-  }, [working]);
+    volRef.current = vol;
+  }, [working, vol]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!on) return;
     const ctx = audio();
     if (!ctx) return;
-    const lofi = startLofi(ctx, () => workingRef.current);
+    const lofi = startLofi(
+      ctx,
+      () => workingRef.current,
+      () => volRef.current,
+    );
     const wake = () => {
       if (ctx.state === "suspended") void ctx.resume();
     };
@@ -61,14 +86,16 @@ export function useCafeSound(working: number): { on: boolean; toggle: () => void
       document.removeEventListener("pointerdown", wake);
       lofi.stop();
     };
-  }, [enabled]);
+  }, [on]);
 
   return {
-    on: enabled,
+    on,
+    vol,
     toggle: () => {
       // Browsers only let audio start inside a click, and the effect runs after it.
-      if (!enabled) audio();
-      setMusic(!enabled);
+      if (!on) audio();
+      setMusic({ on: !on });
     },
+    setVol: (v) => setMusic({ vol: Math.min(1, Math.max(0, v)) }),
   };
 }

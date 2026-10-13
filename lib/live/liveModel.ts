@@ -207,20 +207,21 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
         break;
       case "tool":
         open(actor, t);
-        note(actor, { key, ts: t, text: e.text ?? "працює", tool: e.tool, tone: "work" });
+        note(actor, { key, ts: t, text: e.text ?? "працює", say: e.say, tool: e.tool, tone: "work" });
         break;
       case "fail":
         open(actor, t);
-        note(actor, { key, ts: t, text: e.text ?? "помилка", tool: e.tool, tone: "error" });
+        note(actor, { key, ts: t, text: e.text ?? "помилка", say: e.say, tool: e.tool, tone: "error" });
         break;
       case "notify":
-        note(actor, { key, ts: t, text: e.text ?? "чекає на тебе", tool: e.tool, tone: "alert" });
+        note(actor, { key, ts: t, text: e.text ?? "чекає на тебе", say: e.say, tool: e.tool, tone: "alert" });
         break;
       case "dispatch": {
         open(actor, t);
         const type = e.target ?? "general-purpose";
         pending.push({ from: actor, type, label: e.text ?? "нове завдання", ts: t, used: false });
-        note(actor, { key, ts: t, text: `доручає ${type}`, tool: "agent", tone: "work" });
+        const say = { a: "delegate", o: type };
+        note(actor, { key, ts: t, text: `доручає ${type}`, say, tool: "agent", tone: "work" });
         break;
       }
       case "sub_start":
@@ -231,14 +232,14 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
         open(actor, t);
         close(actor, t);
         seats[actor].busy = false;
-        note(actor, { key, ts: t, text: "готово ✓", tone: "done" });
+        note(actor, { key, ts: t, text: "готово ✓", say: { a: "done" }, tone: "done" });
         const own = stints[actor];
         returns.push({ seat: actor, ts: t, key: `${key}-back`, stint: own[own.length - 1] });
         break;
       }
       case "stop":
         close(0, t);
-        note(0, { key, ts: t, text: "відповів ✓", tone: "done" });
+        note(0, { key, ts: t, text: "відповів ✓", say: { a: "answered" }, tone: "done" });
         break;
       case "session_end":
         stints.forEach((_, i) => close(i, t));
