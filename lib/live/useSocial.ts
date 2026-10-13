@@ -22,6 +22,8 @@ export interface Social {
   /** this tab's presence key, so games can address one player */
   self: string;
   name: string;
+  /** the room's channel name once it is live; a two-player game opens its own channel next to it */
+  room: string | null;
 }
 
 /**
@@ -46,6 +48,7 @@ export function useSocial({
   const [bus] = useState(newBus);
   const [seen, setSeen] = useState<{ id: string | null; guests: Guest[] }>({ id: null, guests: [] });
   const [reactions, setReactions] = useState<Reaction[]>([]);
+  const [link, setLink] = useState<{ id: string | null; room: string | null }>({ id: null, room: null });
   const sent = useRef(0);
 
   useEffect(
@@ -73,6 +76,7 @@ export function useSocial({
           if (status !== "SUBSCRIBED") return;
           c.track({ name, viewer });
           bus.attach(c);
+          setLink({ id, room: r });
         },
       );
     });
@@ -90,5 +94,14 @@ export function useSocial({
     bus.send("react", { id: newId().slice(0, 13), scene, agent, emoji, from: name });
   };
 
-  return { guests: enabled && seen.id === id ? seen.guests : NONE, reactions, react, bus, self, name };
+  const on = enabled && !!id;
+  return {
+    guests: on && seen.id === id ? seen.guests : NONE,
+    reactions,
+    react,
+    bus,
+    self,
+    name,
+    room: on && link.id === id ? link.room : null,
+  };
 }

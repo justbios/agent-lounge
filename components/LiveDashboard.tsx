@@ -265,14 +265,16 @@ export default function LiveDashboard({
       {gamesOpen && (
         <GamesPanel
           scores={games.scores}
+          duels={games.duels}
           ttt={games.ttt}
           guests={social.guests}
+          room={social.room}
           online={cloud}
           me={social.name}
           onClose={() => setGamesOpen(false)}
         />
       )}
-      <InviteToast ttt={games.ttt} onPlay={() => setGamesOpen(true)} />
+      <InviteToast duels={games.duels} onPlay={() => setGamesOpen(true)} />
       {cafe.fresh.length > 0 && !cafeOpen && (
         <AchToast
           fresh={cafe.fresh}

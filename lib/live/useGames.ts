@@ -2,11 +2,12 @@
 
 import { LiveEvent } from "./types";
 import { useBets } from "./useBets";
+import { useDuels } from "./useDuels";
 import { useScores } from "./useScores";
 import { Social } from "./useSocial";
 import { useTicTacToe } from "./useTicTacToe";
 
-/** The café's games in one place: the scoreboard, «Ставки» on the chat on screen, and noughts and crosses. */
+/** The café's games in one place: the scoreboard, «Ставки» on the chat on screen, and the two-player games. */
 export function useGames({
   social,
   cloud,
@@ -31,6 +32,7 @@ export function useGames({
 }) {
   const scores = useScores({ cloud, key, room, open });
   const bets = useBets({ events, scope, social, scores, now, enabled: live && now > 0 });
-  const ttt = useTicTacToe(social, scores, social.guests);
-  return { scores, bets, ttt };
+  const duels = useDuels(social);
+  const ttt = useTicTacToe(duels, social, scores);
+  return { scores, bets, duels, ttt };
 }
