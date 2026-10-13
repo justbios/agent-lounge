@@ -29,5 +29,7 @@ export interface LiveEvent {
   agents?: string[];
   /** notify only: a permission prompt, or Claude idling until you write */
   need?: "permission" | "input";
+  /** team café: whose Claude this is, from the hook URL's &m= */
+  member?: string;
 }
 

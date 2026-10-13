@@ -18,11 +18,13 @@ export interface PushAlert {
   title: string;
   detail?: string;
   label: string;
+  member?: string;
 }
 
 /** Only the moments the user has to act on: a permission prompt, Claude idling for an answer, a finished turn. */
 export function alertFor(e: LiveEvent): PushAlert | null {
-  const label = sessionLabel(e.cwd);
+  const label = e.member ? `${e.member} · ${sessionLabel(e.cwd)}` : sessionLabel(e.cwd);
+  const member = e.member;
   const who = e.agent ? (e.agentType ?? "агент") : "Claude";
   if (e.kind === "notify") {
     const permission = e.need !== "input";
@@ -32,16 +34,18 @@ export function alertFor(e: LiveEvent): PushAlert | null {
       need: permission ? "permission" : "input",
       session: e.session,
       label,
+      member,
       title: permission ? `${who} просить дозвіл` : `${who} чекає на тебе`,
       detail: tool,
     };
   }
-  if (e.kind === "stop" && !e.agent) return { kind: "done", session: e.session, label, title: "Claude відповів" };
+  if (e.kind === "stop" && !e.agent) return { kind: "done", session: e.session, label, member, title: "Claude відповів" };
   return null;
 }
 
 /** A subscriber who wants finished turns gets them right away, so Claude Code's idle reminder a minute later would repeat it. */
 function wants(t: PushTarget, a: PushAlert): boolean {
+  if (t.member && a.member && t.member !== a.member) return false;
   if (a.kind === "done") return t.done;
   if (a.kind === "ask" && a.need === "input") return !t.done;
   return true;

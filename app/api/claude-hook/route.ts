@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import { cloudEnabled, cloudIngest } from "@/lib/live/cloud";
 import { ROOM_KEY } from "@/lib/live/hookConfig.mjs";
+import { cleanMember } from "@/lib/live/member";
 import { normalizeHook, parseHookBody, rosterEvent } from "@/lib/live/normalize";
 import { alertFor, pushEnabled, sendPush } from "@/lib/live/pushServer";
 import { liveEnabled, nextSeq, publish } from "@/lib/live/store";
@@ -10,7 +11,9 @@ export const dynamic = "force-dynamic";
 export const preferredRegion = "fra1";
 
 export async function POST(req: Request) {
-  const roomKey = new URL(req.url).searchParams.get("k");
+  const params = new URL(req.url).searchParams;
+  const roomKey = params.get("k");
+  const member = cleanMember(params.get("m"));
   const body = parseHookBody(await req.text().catch(() => ""));
   if (!body) return new Response(null, { status: 400 });
   const at = Date.now();
@@ -20,7 +23,9 @@ export async function POST(req: Request) {
     const events = [
       body.agents ? rosterEvent(body.raw, body.agents, 0, at) : null,
       normalizeHook(body.raw, 0, at),
-    ].filter((e): e is LiveEvent => e != null);
+    ]
+      .filter((e): e is LiveEvent => e != null)
+      .map((e) => (member ? { ...e, member } : e));
     if (events.length && !(await cloudIngest(roomKey, events))) return new Response(null, { status: 502 });
     const alert = pushEnabled() ? events.map(alertFor).find((a) => a != null) : null;
     if (alert) {

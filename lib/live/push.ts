@@ -44,13 +44,13 @@ async function registration(): Promise<ServiceWorkerRegistration> {
   return (await navigator.serviceWorker.getRegistration("/")) ?? navigator.serviceWorker.register("/sw.js");
 }
 
-async function save(key: string, sub: PushSubscription, done: boolean) {
-  const { error } = await supabase!.rpc("relay_push_subscribe", { p_key: key, p_sub: sub.toJSON(), p_done: done });
+async function save(key: string, sub: PushSubscription, done: boolean, member: string | null) {
+  const { error } = await supabase!.rpc("relay_push_subscribe", { p_key: key, p_sub: sub.toJSON(), p_done: done, p_member: member });
   if (error) throw new Error(error.message);
 }
 
 /** iPhone only delivers web push to a site added to the home screen, so Safari in a tab gets the install hint instead. */
-export async function pushState(key: string | null): Promise<PushState> {
+export async function pushState(key: string | null, member: string | null): Promise<PushState> {
   if (!PUBLIC || !supabase || !key) return "unsupported";
   if (!supported()) return isIos() && !isStandalone() ? "install" : "unsupported";
   if (Notification.permission === "denied") return "denied";
@@ -58,11 +58,11 @@ export async function pushState(key: string | null): Promise<PushState> {
   const sub = await reg.pushManager.getSubscription();
   if (!sub) return "off";
   // Re-file the device under the current key, in case the key changed since it subscribed.
-  await save(key, sub, pushDonePref()).catch(() => {});
+  await save(key, sub, pushDonePref(), member).catch(() => {});
   return "on";
 }
 
-export async function enablePush(key: string, done: boolean): Promise<PushState> {
+export async function enablePush(key: string, done: boolean, member: string | null): Promise<PushState> {
   const perm = await Notification.requestPermission();
   if (perm !== "granted") return perm === "denied" ? "denied" : "off";
   const reg = await registration();
@@ -70,15 +70,15 @@ export async function enablePush(key: string, done: boolean): Promise<PushState>
   const sub =
     (await reg.pushManager.getSubscription()) ??
     (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(PUBLIC) }));
-  await save(key, sub, done);
+  await save(key, sub, done, member);
   saveDonePref(done);
   return "on";
 }
 
-export async function setPushDone(key: string, done: boolean) {
+export async function setPushDone(key: string, done: boolean, member: string | null) {
   const sub = await (await registration()).pushManager.getSubscription();
   saveDonePref(done);
-  if (sub) await save(key, sub, done);
+  if (sub) await save(key, sub, done, member);
 }
 
 export async function disablePush(key: string): Promise<PushState> {

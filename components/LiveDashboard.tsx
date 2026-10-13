@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Users, Activity, Hash, CalendarDays, Trophy } from "lucide-react";
+import { useEffect, useEffectEvent, useMemo, useState } from "react";
+import { CalendarDays, Trophy } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
-import { CLAUDE_COLOR, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
+import { CLAUDE_COLOR, LiveSession, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
 import { leaveView, useViewRoom } from "@/lib/live/relayKey";
+import { setFocus, useTeamView } from "@/lib/live/team";
+import { buildTeamModel, memberOf, teamAlert } from "@/lib/live/teamModel";
 import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
 import { useCafe } from "@/lib/live/useCafe";
@@ -23,6 +25,8 @@ import EventLog from "./live/EventLog";
 import EmptyCafe from "./live/EmptyCafe";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
+import StatBar from "./live/StatBar";
+import TeamBar from "./live/TeamBar";
 import { ago } from "./live/format";
 
 const PICK_KEY = "relay.session";
@@ -108,20 +112,33 @@ export default function LiveDashboard({
   };
   const now = useNow();
   const sessions = useMemo(() => listSessions(feed.events), [feed.events]);
-  const session = (pick && sessions.find((s) => s.id === pick)) || sessions[0] || null;
-  const tabs = sessions.filter((s) => s === session || (!s.ended && now - s.last < RECENT_MS));
-  const push = usePush(roomKey, cloud && !viewing);
-  const waiting = useAlerts(tabs, session?.id ?? null, push.state === "on", choose);
+  const team = useTeamView(feed.events, viewing ? null : roomKey);
+  const pool = team.focus != null ? sessions.filter((s) => memberOf(s) === team.focus) : sessions;
+  const session = (pick && sessions.find((s) => s.id === pick)) || pool[0] || null;
+  const recent = (s: LiveSession) => s === session || (!s.ended && now - s.last < RECENT_MS);
+  const mine = (s: LiveSession) => !team.me || !s.member || s.member === team.me;
+  const tabs = pool.filter(recent);
+  const push = usePush(roomKey, cloud && !viewing, team.me);
+  const openChat = (id: string) => {
+    const s = sessions.find((x) => x.id === id);
+    if (team.on && s) setFocus(memberOf(s));
+    choose(id);
+  };
+  const waiting = useAlerts(sessions.filter((s) => recent(s) && mine(s)), session?.id ?? null, push.state === "on", openChat);
+  const flagged = new Set([...waiting, ...sessions.filter((s) => s.attn && !mine(s)).map((s) => s.id)]);
+  const focusOn = (m: string | null) => {
+    setFocus(m);
+    const first = m == null ? null : sessions.find((s) => memberOf(s) === m);
+    if (first) choose(first.id);
+  };
 
+  const onSwMessage = useEffectEvent((id: string) => openChat(id));
   useEffect(() => {
     const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
     if (!sw) return;
     const onMsg = (e: MessageEvent) => {
       const d = e.data as { relay?: string; session?: string } | null;
-      if (d?.relay === "open-chat" && d.session) {
-        setPick(d.session);
-        savePick(d.session);
-      }
+      if (d?.relay === "open-chat" && d.session) onSwMessage(d.session);
     };
     sw.addEventListener("message", onMsg);
     return () => sw.removeEventListener("message", onMsg);
@@ -142,13 +159,16 @@ export default function LiveDashboard({
   const playing = !!(replay && rp && !rp.over && replay.session === session?.id);
   const replayEvents = useMemo(() => (replay ? replay.events.slice(0, shown) : null), [replay, shown]);
 
+  const whole = team.all && !playing;
   const scene = useMemo(() => {
     if (playing && replay && replayEvents) return buildLiveModel(replayEvents, replay.session, roster);
+    if (whole) return buildTeamModel(feed.events, team.members);
     return session ? buildLiveModel(feed.events, session.id, roster) : null;
-  }, [playing, replay, replayEvents, feed.events, session, roster]);
+  }, [playing, replay, replayEvents, whole, feed.events, team.members, session, roster]);
   const model = scene?.model ?? EMPTY;
-  const attn = playing ? null : session?.attn;
-  const alertSeat = attn ? (attn.agent ? scene?.seatOf[attn.agent] : 0) : undefined;
+  const teamAttn = whole ? teamAlert(sessions, team.members) : null;
+  const attn = playing ? null : whole ? teamAttn?.attn : session?.attn;
+  const alertSeat = whole ? teamAttn?.seat : attn ? (attn.agent ? scene?.seatOf[attn.agent] : 0) : undefined;
   const alert: SceneAlert | undefined =
     attn && alertSeat != null ? { agent: alertSeat, kind: attn.kind, text: attn.text } : undefined;
   const clock = !scene || !now ? 0 : playing && rp ? rp.vnow - scene.origin : now - scene.origin;
@@ -163,45 +183,24 @@ export default function LiveDashboard({
 
   return (
     <>
-      <div className="statbar live-bar">
-        <span className={`live-pill ${feed.status === "open" ? "on" : offline ? "off" : ""}`}>
-          <span className={`feed-dot feed-${feed.status}`} />
-          {pill}
-        </span>
-        <span className="stat-sep" />
-        <div className="stat">
-          <span className="stat-k">
-            <Users size={11} style={{ display: "inline", verticalAlign: "-1px", marginRight: 4 }} />
-            агентів
-          </span>
-          <span className="stat-v">{model.agents.length}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-k">
-            <Activity size={11} style={{ display: "inline", verticalAlign: "-1px", marginRight: 4 }} />
-            зараз працюють
-          </span>
-          <span className="stat-v">{working}</span>
-        </div>
-        <div className="stat">
-          <span className="stat-k">
-            <Hash size={11} style={{ display: "inline", verticalAlign: "-1px", marginRight: 4 }} />
-            подій
-          </span>
-          <span className="stat-v">{session?.count ?? 0}</span>
-        </div>
-        <div className="bar-r">
-          <button className="btn" onClick={() => setRecapOpen(true)}>
-            <CalendarDays size={14} /> підсумок
+      <StatBar
+        status={feed.status}
+        pill={pill}
+        seats={model.agents.length}
+        seatsLabel={whole ? "учасників" : "агентів"}
+        working={working}
+        events={whole ? feed.events.length : (session?.count ?? 0)}
+      >
+        <button className="btn" onClick={() => setRecapOpen(true)}>
+          <CalendarDays size={14} /> підсумок
+        </button>
+        {cafe.progress && (
+          <button className="btn" onClick={() => setCafeOpen(true)} title="досягнення і декор кафе">
+            <Trophy size={14} /> кафе {earnedCount}/{cafe.earned.length}
           </button>
-          {cafe.progress && (
-            <button className="btn" onClick={() => setCafeOpen(true)} title="досягнення і декор кафе">
-              <Trophy size={14} /> кафе {earnedCount}/{cafe.earned.length}
-            </button>
-          )}
-          {!viewing && <AlertsMenu cloud={cloud} push={push} />}
-        </div>
-      </div>
+        )}
+        {!viewing && <AlertsMenu cloud={cloud} push={push} />}
+      </StatBar>
 
       {recapOpen && (
         <RecapPanel
@@ -240,11 +239,31 @@ export default function LiveDashboard({
         </div>
       )}
 
-      {tabs.length > 0 && <ChatTabs tabs={tabs} current={session} waiting={waiting} now={now} onPick={choose} />}
+      {team.on && (
+        <TeamBar
+          members={team.members}
+          colors={team.colors}
+          focus={team.focus}
+          me={team.me}
+          sessions={sessions}
+          now={now}
+          onFocus={focusOn}
+        />
+      )}
+      {tabs.length > 0 && (
+        <ChatTabs
+          tabs={tabs}
+          current={whole ? null : session}
+          waiting={flagged}
+          now={now}
+          onPick={openChat}
+          colors={team.all ? team.colorOf : undefined}
+        />
+      )}
 
       <section className="card stage-card">
         <div className="card-hd">
-          <span className="card-ttl">{session ? session.label : "інтернет-кафе"}</span>
+          <span className="card-ttl">{whole ? "уся команда" : session ? session.label : "інтернет-кафе"}</span>
           {replay && replay.session === session?.id ? (
             <ReplayBar
               replay={replay}
@@ -254,7 +273,9 @@ export default function LiveDashboard({
               onAgain={() => setReplay({ ...replay, startedAt: Date.now() })}
             />
           ) : (
-            <span className="muted-sm">{session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}</span>
+            <span className="muted-sm">
+              {whole ? `${team.members.length} за столами` : session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}
+            </span>
           )}
         </div>
         <div className="stage-pad stage-rel">
@@ -264,8 +285,22 @@ export default function LiveDashboard({
       </section>
 
       <div className="grid-2">
-        <EventLog events={feed.events} session={session?.id ?? null} agents={model.agents} seatOf={scene?.seatOf} />
-        <AgentList model={model} views={views} clock={clock} alert={alert} rosterCount={roster.length} />
+        <EventLog
+          events={feed.events}
+          session={whole ? null : (session?.id ?? null)}
+          agents={model.agents}
+          seatOf={scene?.seatOf}
+          team={whole ? team.colorOf : undefined}
+        />
+        <AgentList
+          model={model}
+          views={views}
+          clock={clock}
+          alert={alert}
+          rosterCount={whole ? 0 : roster.length}
+          title={whole ? "команда" : "агенти"}
+          askText={whole && teamAttn && team.members[teamAttn.seat] !== team.me ? "чекає" : undefined}
+        />
       </div>
 
       <p className="foot">

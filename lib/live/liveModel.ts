@@ -6,7 +6,7 @@ import { sessionLabel } from "./label";
 import { LiveEvent } from "./types";
 
 export const CLAUDE_COLOR = "#ff9a62";
-const PALETTE = ["#38bdf8", "#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#a3e635", "#f87171", "#2dd4bf", "#e879f9", "#facc15", "#60a5fa", "#fb7185"];
+export const PALETTE = ["#38bdf8", "#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#a3e635", "#f87171", "#2dd4bf", "#e879f9", "#facc15", "#60a5fa", "#fb7185"];
 const DONE_HOLD_MS = 8000;
 const MIN_WORK_MS = 1400;
 const LIVE_PACE = 1.6;
@@ -22,6 +22,8 @@ export interface LiveSession {
   /** the latest thing the user actually typed, to tell chats in the same folder apart */
   ask?: string;
   attn: Attention | null;
+  /** team café: the teammate whose Claude this chat is */
+  member?: string;
 }
 
 /** The palette colour a subagent type usually gets in the café, for places outside the scene such as the day card. */
@@ -29,7 +31,7 @@ export function agentColor(type: string): string {
   return PALETTE[hash(type) % PALETTE.length];
 }
 
-function hash(s: string): number {
+export function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
@@ -53,6 +55,7 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
         ended: e.kind === "session_end",
         ask: e.kind === "prompt" && e.tool === "питання" ? e.text : undefined,
         attn: nextAttention(null, e),
+        member: e.member,
       });
       continue;
     }
@@ -60,6 +63,7 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
     s.last = e.at;
     s.count += 1;
     if (e.kind === "session_end") s.ended = true;
+    if (!s.member && e.member) s.member = e.member;
     if (e.kind === "prompt" && e.tool === "питання") s.ask = e.text;
     if (!s.cwd && e.cwd) {
       s.cwd = e.cwd;
@@ -69,8 +73,9 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
   const list = [...map.values()].filter((s) => !(s.ended && !worked.has(s.id))).sort((a, b) => b.last - a.last);
   const seen = new Map<string, number>();
   for (const s of [...list].sort((a, b) => a.first - b.first)) {
-    const n = (seen.get(s.label) ?? 0) + 1;
-    seen.set(s.label, n);
+    const k = `${s.member ?? ""}|${s.label}`;
+    const n = (seen.get(k) ?? 0) + 1;
+    seen.set(k, n);
     if (n > 1) s.label = `${s.label} #${n}`;
   }
   return list;

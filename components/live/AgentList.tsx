@@ -9,17 +9,21 @@ export default function AgentList({
   clock,
   alert,
   rosterCount,
+  title = "агенти",
+  askText = "чекає на тебе",
 }: {
   model: CafeModel;
   views: AgentView[];
   clock: number;
   alert?: SceneAlert;
   rosterCount: number;
+  title?: string;
+  askText?: string;
 }) {
   return (
     <div className="card">
       <div className="card-hd">
-        <span className="card-ttl">агенти</span>
+        <span className="card-ttl">{title}</span>
         <span className="muted-sm">
           {model.agents.length} за столами{rosterCount ? ` · ${rosterCount} з .claude/agents` : ""}
         </span>
@@ -29,7 +33,7 @@ export default function AgentList({
           const v = views[i];
           const b =
             alert?.kind === "ask" && alert.agent === i
-              ? { cls: "rr-ask", text: "чекає на тебе" }
+              ? { cls: "rr-ask", text: askText }
               : badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0);
           let last = "";
           for (const n of model.notes[i]) {

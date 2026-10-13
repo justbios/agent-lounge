@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { CLAUDE_COLOR } from "@/lib/live/liveModel";
+import { memberName } from "@/lib/live/teamModel";
 import { LiveEvent } from "@/lib/live/types";
 import { AgentDef } from "@/lib/types";
 import { clockTime, logText } from "./format";
@@ -14,16 +15,19 @@ export default function EventLog({
   session,
   agents,
   seatOf,
+  team,
 }: {
   events: LiveEvent[];
   session: string | null;
   agents: AgentDef[];
   seatOf?: Record<string, number>;
+  /** whole-team view: every teammate's events, named by teammate */
+  team?: Record<string, string>;
 }) {
-  const log = useMemo(
-    () => (session ? events.filter((e) => e.session === session && e.kind !== "roster").slice(-LOG_ROWS) : NO_EVENTS),
-    [events, session],
-  );
+  const log = useMemo(() => {
+    if (session) return events.filter((e) => e.session === session && e.kind !== "roster").slice(-LOG_ROWS);
+    return team ? events.filter((e) => e.kind !== "roster").slice(-LOG_ROWS) : NO_EVENTS;
+  }, [events, session, team]);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -31,6 +35,10 @@ export default function EventLog({
   }, [log.length]);
 
   const nameOf = (e: LiveEvent) => {
+    if (team) {
+      const m = e.member ?? "";
+      return { name: e.agent ? `${memberName(m)} · ${e.agentType ?? "агент"}` : memberName(m), color: team[m] ?? CLAUDE_COLOR };
+    }
     if (!e.agent) return { name: "Claude", color: CLAUDE_COLOR };
     const a = agents[seatOf?.[e.agent] ?? -1];
     return { name: a?.name ?? e.agentType ?? "агент", color: a?.color ?? "#9a94b8" };

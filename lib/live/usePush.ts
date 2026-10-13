@@ -13,7 +13,8 @@ export interface PushControl {
   test: () => void;
 }
 
-export function usePush(key: string | null, enabled: boolean): PushControl {
+/** `member` files this device under one teammate, so in a team café only their own Claude rings it. */
+export function usePush(key: string | null, enabled: boolean, member: string | null = null): PushControl {
   const [found, setFound] = useState<{ key: string | null; state: PushState } | null>(null);
   const [override, setOverride] = useState<PushState | null>(null);
   const [done, setDoneState] = useState(() => typeof window !== "undefined" && pushDonePref());
@@ -23,13 +24,13 @@ export function usePush(key: string | null, enabled: boolean): PushControl {
   useEffect(() => {
     if (!enabled) return;
     let live = true;
-    pushState(key)
+    pushState(key, member)
       .then((s) => live && setFound({ key, state: s }))
       .catch(() => live && setFound({ key, state: "unsupported" }));
     return () => {
       live = false;
     };
-  }, [key, enabled]);
+  }, [key, enabled, member]);
 
   const state = !enabled ? null : (override ?? (found?.key === key ? found.state : null));
 
@@ -53,13 +54,13 @@ export function usePush(key: string | null, enabled: boolean): PushControl {
     toggle: () =>
       key &&
       run(async () => {
-        const next = state === "on" ? await disablePush(key) : await enablePush(key, done);
+        const next = state === "on" ? await disablePush(key) : await enablePush(key, done, member);
         setOverride(next);
         if (next === "on") setNote("готово: пуші йтимуть на цей пристрій");
       }),
     setDone: (d) => {
       setDoneState(d);
-      if (key && state === "on") void run(() => setPushDone(key, d));
+      if (key && state === "on") void run(() => setPushDone(key, d, member));
     },
     test: () =>
       key &&

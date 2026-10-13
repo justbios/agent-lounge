@@ -1775,3 +1775,86 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- team café ---------- */
+.team-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.team-pill {
+  --c: #7c5cff;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.team-pill.on {
+  border-color: var(--c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent);
+}
+.team-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--c) 45%, #3a3550);
+}
+.team-dot.busy {
+  background: var(--c);
+  box-shadow: 0 0 8px var(--c);
+}
+.team-n,
+.team-me {
+  font-size: 11px;
+  color: var(--muted);
+}
+.team-me {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.team-pill .chat-flag {
+  margin-left: 0;
+}
+.chat-tab-mb {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.team-me-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 10px;
+}
+.team-name {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+}
+.cafe-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.team-actions {
+  margin-top: 6px;
+}

@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { Radio, ArrowLeft, Copy, Check, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw } from "lucide-react";
 import { HOOK_URL, cloudHookSettings, cloudHookUrl, hookSettings } from "@/lib/live/hookConfig.mjs";
 import { newKey, saveKey, useHosted, useRelayKey } from "@/lib/live/relayKey";
+import { useMe } from "@/lib/live/team";
+import { CafeSwitcher, JoinTeam, MemberName, TeamInvite, useTeamInvite } from "./connect/TeamConnect";
 
 function Code({ text, wrap }: { text: string; wrap?: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -38,13 +40,14 @@ ${JSON.stringify(cloudHookSettings(url), null, 2)}`;
 }
 
 function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
-  const url = cloudHookUrl(site, roomKey);
+  const me = useMe(roomKey);
+  const url = cloudHookUrl(site, roomKey, me);
   return (
     <>
       <div className="notice">
         <ShieldCheck size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
         Хук шле сюди лише короткі описи: початок питання, назви файлів, опис команди, імена агентів. Вміст файлів і
-        повний текст відкидаються одразу. Усе лежить під твоїм особистим ключем: бачиш лише ти, зберігається добу. Хук
+        повний текст відкидаються одразу. Усе лежить під твоїм ключем: бачиш лише ти і ті, кому ти сам даси посилання. Зберігається добу. Хук
         асинхронний, тож не гальмує агентів і не витрачає токенів.
       </div>
 
@@ -58,6 +61,7 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
             Встав у будь-який чат Claude Code. Він сам допише хук у налаштування і перевірить зв&apos;язок, це секунд
             десять. Нічого завантажувати не треба.
           </p>
+          <MemberName roomKey={roomKey} />
           <Code text={cloudPrompt(site, url)} wrap />
           <p className="step-p">
             Далі просто працюй, а тут, на вкладці «наживо», за столами сидітимуть твої агенти. Кожен чат на окремій
@@ -84,6 +88,8 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
           </p>
         </div>
       </div>
+
+      <TeamInvite site={site} roomKey={roomKey} />
 
       <details className="step-more">
         <summary className="step-ttl">Новий ключ або відключення</summary>
@@ -164,10 +170,11 @@ function LocalConnect() {
 export default function ConnectPanel() {
   const hosted = useHosted();
   const roomKey = useRelayKey();
+  const invite = useTeamInvite();
 
   useEffect(() => {
-    if (hosted && !roomKey) saveKey(newKey());
-  }, [hosted, roomKey]);
+    if (hosted && !roomKey && !invite) saveKey(newKey());
+  }, [hosted, roomKey, invite]);
 
   return (
     <div className="connect-wrap">
@@ -189,7 +196,13 @@ export default function ConnectPanel() {
       </div>
 
       {hosted === false && <LocalConnect />}
-      {hosted && roomKey && <CloudConnect site={location.origin} roomKey={roomKey} />}
+      {hosted && invite && <JoinTeam teamKey={invite} current={roomKey} />}
+      {hosted && roomKey && !invite && (
+        <>
+          <CafeSwitcher current={roomKey} />
+          <CloudConnect site={location.origin} roomKey={roomKey} />
+        </>
+      )}
     </div>
   );
 }

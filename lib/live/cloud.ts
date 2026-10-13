@@ -26,6 +26,8 @@ export async function cloudIngest(roomKey: string, events: LiveEvent[]): Promise
 export interface PushTarget {
   sub: { endpoint: string; keys: { p256dh: string; auth: string } };
   done: boolean;
+  /** the teammate this device belongs to; null rings for everyone's Claude */
+  member?: string | null;
 }
 
 /** The room's live push subscriptions, plus the last question asked in this chat to put in the notification. */
