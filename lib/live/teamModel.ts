@@ -1,13 +1,11 @@
 import { Note, Stint } from "@/lib/cafe/model";
 import { AgentDef } from "@/lib/types";
 import { Attention } from "./attention";
-import { LiveScene, LiveSession, PALETTE, hash, stopNote } from "./liveModel";
+import { LiveScene, LiveSession, PALETTE, QUIET_MS, hash, hushStints, stopNote } from "./liveModel";
 import { LiveEvent } from "./types";
 import { tokensOf } from "./usage";
 
 const DONE_HOLD_MS = 8000;
-/** a chat that went quiet mid-turn (closed laptop, killed terminal) stops counting as work after this long */
-const IDLE_MS = 5 * 60 * 1000;
 const TEAM_SEED = 2718;
 export const NO_NAME = "без імені";
 
@@ -108,7 +106,7 @@ export function buildTeamModel(events: LiveEvent[], members: string[]): LiveScen
     }
   }
 
-  members.forEach((_, i) => close(i, last[i] + IDLE_MS));
+  hushStints(stints, (i) => last[i] + QUIET_MS);
   spent.forEach((n, i) => {
     if (n > 0) agents[i].tokens = n;
   });

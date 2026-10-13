@@ -11,6 +11,16 @@ export const PALETTE = ["#38bdf8", "#34d399", "#a78bfa", "#fbbf24", "#f472b6", "
 const DONE_HOLD_MS = 8000;
 const MIN_WORK_MS = 1400;
 const LIVE_PACE = 1.6;
+/** a chat that went quiet mid-turn (Esc, Ctrl+C, a closed laptop) stops counting as work after this long */
+export const QUIET_MS = 5 * 60 * 1000;
+
+/** Ends every stint still open at `at`, marked as gone quiet rather than finished. */
+export function hushStints(stints: Stint[][], at: (i: number) => number) {
+  stints.forEach((s, i) => {
+    const open = s[s.length - 1];
+    if (open && !Number.isFinite(open.end)) Object.assign(open, { end: Math.max(at(i), open.start + 1), quiet: true });
+  });
+}
 
 export interface LiveSession {
   id: string;
@@ -252,6 +262,9 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
         break;
     }
   }
+
+  const hush = (evs[evs.length - 1]?.at ?? origin) - origin + QUIET_MS;
+  hushStints(stints, () => hush);
 
   const lay = cafeLayout(agents.length, seed);
   const going = scheduleTrips(dispatchReqs, lay, LIVE_PACE);

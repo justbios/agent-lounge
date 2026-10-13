@@ -108,7 +108,7 @@ export function agentView(m: CafeModel, tl: CafeTimeline, lay: CafeLayout, i: nu
 
   let progress = screen === "done" ? 1 : 0;
   if (working) {
-    progress = Number.isFinite(working.end)
+    progress = Number.isFinite(working.end) && !working.quiet
       ? (clock - working.start) / Math.max(1, working.end - working.start)
       : ((clock - working.start) % LOOP_PROGRESS_MS) / LOOP_PROGRESS_MS;
   }

@@ -10,6 +10,8 @@ export interface Stint {
   start: number;
   /** Infinity while the agent is still working */
   end: number;
+  /** `end` is when a chat gone quiet stops counting as work, not a finish: the screen keeps looping till then */
+  quiet?: boolean;
 }
 
 export interface Note {
