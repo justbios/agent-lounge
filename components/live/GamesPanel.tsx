@@ -8,9 +8,11 @@ import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import CatchCups from "../games/CatchCups";
+import Dendy from "../games/Dendy";
 import Duels from "../games/Duels";
 
 const TOP = 5;
+const DENDY_HINT = "Ігрова приставка в кафе: вільні ігри, які автори дозволили поширювати, або своя гра з диска (.nes).";
 
 function Leaders({ rows, game, by, me }: { rows: ScoreRow[]; game: Game; by: "wins" | "best"; me: string }) {
   const list = rows
@@ -85,6 +87,13 @@ export default function GamesPanel({
           </button>
         </div>
         {!scores.canRecord && <p className="alerts-hint">За посиланням для перегляду грати можна, але рахунок не пишеться.</p>}
+
+        <Section
+          title="Денді"
+          hint={DENDY_HINT}
+        >
+          <Dendy />
+        </Section>
 
         <Section
           title="Удвох"

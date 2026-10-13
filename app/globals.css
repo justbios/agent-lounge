@@ -3690,3 +3690,71 @@ body {
     width: auto;
   }
 }
+
+/* ---------- dendy ---------- */
+.dendy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dendy-games {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dendy-games .btn {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  height: auto;
+  padding: 8px 12px;
+}
+.dendy-games small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.dendy-row,
+.dendy-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.dendy-ttl {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dendy-screen {
+  width: 100%;
+  max-width: 512px;
+  aspect-ratio: 256 / 240;
+  margin: 0 auto;
+  background: #000;
+  border: 2px solid var(--border-2);
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.6);
+}
+.dendy-screen canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+.dendy-help p {
+  margin: 0 0 2px;
+}
+.dendy-credits {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.dendy-credits a {
+  color: inherit;
+}
