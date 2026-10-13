@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Pixelify_Sans } from "next/font/google";
 import "./globals.css";
+import "./pixel.css";
 
 const pixel = Pixelify_Sans({ subsets: ["latin", "cyrillic"], variable: "--font-pixel" });
 

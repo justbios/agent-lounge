@@ -1,0 +1,122 @@
+/* The page around the café wears the café's look: square corners, 2 px rims, hard step shadows, the pixel font. */
+
+:root {
+  --px-drop: rgba(0, 0, 0, 0.6);
+  --px-hi: rgba(255, 255, 255, 0.07);
+  --px-lo: rgba(0, 0, 0, 0.3);
+}
+
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+.btn,
+.preset,
+.copybtn,
+.limits-mini,
+.team-pill,
+.theme-opt,
+.live,
+.live-pill,
+.level-pill,
+.juke-row,
+.viewseg,
+.speech-pick,
+input:not([type="range"], [type="checkbox"], [type="radio"]),
+select,
+textarea {
+  border-width: 2px;
+}
+
+.btn,
+.preset,
+.copybtn,
+.limits-mini,
+.team-pill,
+.theme-opt,
+.level-pill,
+.viewseg,
+.speech-pick {
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset -2px -2px 0 var(--px-lo),
+    inset 2px 2px 0 var(--px-hi);
+}
+.btn {
+  transition: background 0.1s, border-color 0.1s, transform 0.05s;
+}
+.btn:active:not(:disabled),
+.team-pill:active,
+.theme-opt:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: inset 2px 2px 0 var(--px-lo);
+}
+.btn-primary {
+  background: #8b6dff;
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset -2px -2px 0 rgba(10, 10, 18, 0.35),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.35);
+}
+.btn-primary:hover {
+  background: #9c82ff;
+}
+.btn-ic.on,
+.viewseg button.on {
+  background: #8b6dff;
+  color: #0a0a12;
+}
+
+.btn,
+.preset,
+.copybtn,
+.limits-mini,
+.team-pill,
+.live,
+.live-pill,
+.level-pill,
+.brand-name,
+.card-ttl,
+.recap-ttl,
+.share-ttl,
+.stat-v,
+.scene-menu-row,
+.viewseg button,
+.speech-pick select,
+.theme-opt b,
+.juke-row b {
+  font-family: var(--font-pixel), var(--mono);
+  letter-spacing: 0.02em;
+}
+.card-ttl,
+.limits-mini,
+.limits-mini * {
+  text-transform: none;
+}
+
+.card,
+.statbar,
+.recap,
+.recap-stat,
+.alerts-pop,
+.scene-pop {
+  border-width: 2px;
+  box-shadow: 4px 4px 0 var(--px-drop);
+}
+.scene-pop {
+  border-left-width: 4px;
+}
+.recap,
+.alerts-pop {
+  box-shadow:
+    4px 4px 0 var(--px-drop),
+    0 24px 60px rgba(0, 0, 0, 0.45);
+}
+.brand-badge {
+  box-shadow: 3px 3px 0 var(--px-drop);
+}
+.drawer-body .card {
+  box-shadow: none;
+}
