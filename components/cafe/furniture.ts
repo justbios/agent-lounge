@@ -1,6 +1,7 @@
 import { ItemId } from "@/lib/live/interior";
 import { drawAquarium, drawArcade, drawOwl } from "./decor";
 import { Ctx, LINE, glow, px, shade } from "./pixel";
+import { RARE_DRAW, rareLight } from "./rare";
 import { drawPlant } from "./room";
 
 type Draw = (ctx: Ctx, L: number, B: number, t: number) => void;
@@ -273,6 +274,7 @@ const DRAW: Record<ItemId, Draw> = {
   aquarium: (ctx, L, B, t) => drawAquarium(ctx, t, L, B),
   plant: (ctx, L, B) => drawPlant(ctx, L + 7, B),
   owl: (ctx, L, B, t) => drawOwl(ctx, t, L, B),
+  ...RARE_DRAW,
 };
 
 /** One piece of furniture with its foot in the middle of `cx` at `bottom`. */
@@ -282,6 +284,7 @@ export function drawItem(ctx: Ctx, id: ItemId, w: number, cx: number, bottom: nu
 
 /** The light the warm pieces give off, drawn after the room is dimmed. */
 export function itemLight(ctx: Ctx, id: ItemId, cx: number, bottom: number, t: number) {
+  if (rareLight(ctx, id, cx, bottom, t)) return;
   if (id === "candle") glow(ctx, cx, bottom - 9, 7, "#ffb15e", 0.16 + (Math.floor(t * 7) % 3) * 0.02);
   else if (id === "lamp") glow(ctx, cx, bottom - 20, 18, "#ffd9a0", 0.16);
   else if (id === "jukebox") glow(ctx, cx, bottom - 16, 16, JUKE[Math.floor(t * 2) % 4], 0.12);

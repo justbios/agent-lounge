@@ -2939,6 +2939,16 @@ body {
   border-radius: 10px;
   background: var(--panel-2);
 }
+.shop-item.rare {
+  border-color: rgba(232, 184, 48, 0.55);
+  background: linear-gradient(135deg, rgba(232, 184, 48, 0.12), transparent 60%), var(--panel-2);
+}
+.shop-rare-hd {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e8b830;
+}
 .shop-item canvas {
   flex: none;
   width: 48px;

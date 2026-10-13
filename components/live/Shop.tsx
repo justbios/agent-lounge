@@ -89,6 +89,60 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
     setBad(!ok);
   };
 
+  const row = (it: ItemDef) => {
+    const have = stock.get(it.id) ?? 0;
+    const perk = it.place === "perk";
+    const got = (perk || !!it.rare) && cafe.interior.owned.includes(it.id);
+    return (
+      <li key={it.id} className={`shop-item ${it.rare ? "rare" : ""}`}>
+        <Preview it={it} />
+        <div className="shop-body">
+          <b>{it.name}</b>
+          <span className="muted-sm">
+            {WHERE[it.place]} · ☕ {it.price.toLocaleString("uk-UA")}
+          </span>
+          {cafe.editable && (!got || (!perk && have > 0)) && (
+            <div className="shop-acts">
+              {!got && (
+                <button
+                  className="btn"
+                  disabled={cafe.beans.left < it.price || busy != null}
+                  onClick={() => void buy(it.id)}
+                >
+                  {busy === it.id ? "купую…" : "купити"}
+                </button>
+              )}
+              {!perk && have > 0 && (
+                <button className="btn" onClick={() => onPlace(it.id)}>
+                  поставити{have > 1 ? ` (${have})` : ""}
+                </button>
+              )}
+            </div>
+          )}
+          {cafe.editable && got && it.id === "neon" && (
+            <NameField
+              label="напис на вивісці"
+              value={cafe.interior.sign ?? ""}
+              max={SIGN_MAX}
+              placeholder="інтернет-кафе"
+              onSave={(sign) => cafe.setNames({ sign })}
+            />
+          )}
+          {cafe.editable && got && it.id === "cat2" && (
+            <NameField
+              label="ім'я другого кота"
+              value={cafe.interior.cat2Name ?? ""}
+              max={24}
+              placeholder="сірий кіт без імені"
+              onSave={(cat2Name) => cafe.setNames({ cat2Name })}
+            />
+          )}
+          {got && (!cafe.editable || (!perk && have === 0)) && <span className="muted-sm">уже в кафе</span>}
+        </div>
+      </li>
+    );
+  };
+
   return (
     <section className="shop">
       <p className="alerts-hint">
@@ -101,55 +155,9 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
           : " Купує й ставить власник кафе."}
       </p>
       {bad && <p className="key-paste-bad">Не вдалося купити, спробуй ще раз.</p>}
-      <ul className="shop-grid">
-        {SHOP.map((it) => {
-          const have = stock.get(it.id) ?? 0;
-          const perk = it.place === "perk";
-          const got = perk && have > 0;
-          return (
-            <li key={it.id} className="shop-item">
-              <Preview it={it} />
-              <div className="shop-body">
-                <b>{it.name}</b>
-                <span className="muted-sm">
-                  {WHERE[it.place]} · ☕ {it.price}
-                </span>
-                {cafe.editable && !got && (
-                  <div className="shop-acts">
-                    <button className="btn" disabled={cafe.beans.left < it.price || busy != null} onClick={() => void buy(it.id)}>
-                      {busy === it.id ? "купую…" : "купити"}
-                    </button>
-                    {!perk && have > 0 && (
-                      <button className="btn" onClick={() => onPlace(it.id)}>
-                        поставити{have > 1 ? ` (${have})` : ""}
-                      </button>
-                    )}
-                  </div>
-                )}
-                {cafe.editable && got && it.id === "neon" && (
-                  <NameField
-                    label="напис на вивісці"
-                    value={cafe.interior.sign ?? ""}
-                    max={SIGN_MAX}
-                    placeholder="інтернет-кафе"
-                    onSave={(sign) => cafe.setNames({ sign })}
-                  />
-                )}
-                {cafe.editable && got && it.id === "cat2" && (
-                  <NameField
-                    label="ім'я другого кота"
-                    value={cafe.interior.cat2Name ?? ""}
-                    max={24}
-                    placeholder="сірий кіт без імені"
-                    onSave={(cat2Name) => cafe.setNames({ cat2Name })}
-                  />
-                )}
-                {!cafe.editable && got && <span className="muted-sm">уже в кафе</span>}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <ul className="shop-grid">{SHOP.filter((it) => !it.rare).map(row)}</ul>
+      <h3 className="shop-rare-hd">✦ Рідкісне: по одному на кафе</h3>
+      <ul className="shop-grid">{SHOP.filter((it) => it.rare).map(row)}</ul>
     </section>
   );
 }

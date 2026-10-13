@@ -21,6 +21,10 @@ export const ITEMS = [
   { id: "jukebox", name: "музичний автомат", price: 600, place: "floor", w: 16, h: 26 },
   { id: "neon", name: "неонова вивіска зі своїм написом", price: 500, place: "perk", w: 22, h: 10 },
   { id: "cat2", name: "другий кіт", price: 700, place: "perk", w: 14, h: 11 },
+  { id: "goldcat", name: "золотий кіт-манекі", price: 1500, place: "sill", w: 7, h: 11, rare: true },
+  { id: "disco", name: "диско-куля", price: 2000, place: "wall", w: 11, h: 13, rare: true },
+  { id: "piano", name: "піаніно", price: 3000, place: "floor", w: 24, h: 22, rare: true },
+  { id: "fireplace", name: "камін", price: 4500, place: "floor", w: 24, h: 24, rare: true },
 ] as const;
 
 /** Earned decor that can be moved like bought furniture; it starts where it always stood. */
@@ -41,6 +45,8 @@ export interface ItemDef {
   w: number;
   h: number;
   decor?: Decor;
+  /** one per café, for a few days of work */
+  rare?: boolean;
 }
 
 const BY_ID = new Map<string, ItemDef>([...ITEMS, ...DECOR_PIECES].map((i) => [i.id, i]));

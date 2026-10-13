@@ -224,7 +224,8 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
   const fit = (next: Interior) => save({ interior: next });
   const buy = async (item: ItemId) => {
     const it = itemOf(item);
-    if (!it || !editable || beans.left < it.price || (it.place === "perk" && interior.owned.includes(item))) return false;
+    const one = it?.place === "perk" || it?.rare;
+    if (!it || !editable || beans.left < it.price || (one && interior.owned.includes(item))) return false;
     return fit({ ...interior, owned: [...interior.owned, item], paid: [...(interior.paid ?? []), item] });
   };
   const place = (p: Placed) => {
