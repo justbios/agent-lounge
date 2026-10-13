@@ -24,6 +24,11 @@ export interface LiveSession {
   attn: Attention | null;
 }
 
+/** The palette colour a subagent type usually gets in the café, for places outside the scene such as the day card. */
+export function agentColor(type: string): string {
+  return PALETTE[hash(type) % PALETTE.length];
+}
+
 function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);

@@ -26,6 +26,7 @@ interface Job {
 
 let scenes = 0;
 let pending: Pending | null = null;
+let stills: ((c: HTMLCanvasElement) => void)[] = [];
 let job: Job | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
@@ -67,8 +68,20 @@ export function recordClip(seconds: number): Promise<Clip> {
   });
 }
 
+/** The next composed frame — pixel scene plus sign, names and bubbles — for a share card. */
+export function captureStill(): Promise<HTMLCanvasElement> {
+  if (!scenes) return Promise.reject(new Error("no scene"));
+  return new Promise((resolve) => stills.push(resolve));
+}
+
 export function clipWanted(): boolean {
-  return pending != null || job != null;
+  return pending != null || job != null || stills.length > 0;
+}
+
+function compose(source: HTMLCanvasElement, overlay: OverlayInput, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  drawOverlay(ctx, overlay, SCALE);
 }
 
 function start(source: HTMLCanvasElement, p: Pending): Job | null {
@@ -106,9 +119,15 @@ export function clipFrame(source: HTMLCanvasElement, overlay: OverlayInput) {
     pending = null;
     job = start(source, p);
   }
-  if (!job) return;
-  const { ctx, canvas } = job;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-  drawOverlay(ctx, overlay, SCALE);
+  if (stills.length) {
+    const canvas = document.createElement("canvas");
+    canvas.width = source.width * SCALE;
+    canvas.height = source.height * SCALE;
+    const ctx = canvas.getContext("2d");
+    if (ctx) compose(source, { ...overlay, watermark: "" }, canvas, ctx);
+    const waiting = stills;
+    stills = [];
+    waiting.forEach((r) => r(canvas));
+  }
+  if (job) compose(source, overlay, job.canvas, job.ctx);
 }

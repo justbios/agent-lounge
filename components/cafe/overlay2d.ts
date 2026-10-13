@@ -193,5 +193,5 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, o: OverlayInput, s: n
   neon(ctx, o, s, k);
   names(ctx, o, s, W, talking);
   for (const b of o.bubbles) bubble(ctx, b, o.agents[b.agent], s, W);
-  watermark(ctx, o.watermark, W, H);
+  if (o.watermark) watermark(ctx, o.watermark, W, H);
 }

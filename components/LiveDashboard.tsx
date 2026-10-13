@@ -1,28 +1,30 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Users, Activity, Hash } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Users, Activity, Hash, CalendarDays } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
 import { CLAUDE_COLOR, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
-import { leaveView } from "@/lib/live/relayKey";
-import { LiveEvent } from "@/lib/live/types";
+import { leaveView, useViewRoom } from "@/lib/live/relayKey";
+import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
+import { useRecap } from "@/lib/live/useRecap";
 import CafeScene, { SceneAlert } from "./cafe/CafeScene";
 import AlertsMenu from "./live/AlertsMenu";
 import ChatTabs from "./live/ChatTabs";
-import KeyPaste from "./live/KeyPaste";
-import { ago, badge, clockTime, logText } from "./live/format";
+import AgentList from "./live/AgentList";
+import EventLog from "./live/EventLog";
+import EmptyCafe from "./live/EmptyCafe";
+import RecapPanel from "./live/RecapPanel";
+import ReplayBar from "./live/ReplayBar";
+import { ago } from "./live/format";
 
-const LOG_ROWS = 120;
 const PICK_KEY = "relay.session";
 const RECENT_MS = 6 * 60 * 60 * 1000;
 const NONE: string[] = [];
-const NO_EVENTS: LiveEvent[] = [];
 
 const EMPTY: CafeModel = {
   agents: [{ id: "main", name: "Claude", role: "головна сесія", color: CLAUDE_COLOR, icon: "bot", look: 2 }],
@@ -125,37 +127,29 @@ export default function LiveDashboard({
   const disk = useRoster(cloud ? undefined : session?.cwd);
   const roster = sent ?? disk;
 
-  const scene = useMemo(
-    () => (session ? buildLiveModel(feed.events, session.id, roster) : null),
-    [feed.events, session, roster],
-  );
+  const viewRoom = useViewRoom();
+  const [recapOpen, setRecapOpen] = useState(false);
+  const recap = useRecap({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events }, recapOpen);
+  const [replay, setReplay] = useState<Replay | null>(null);
+  const rp = replay && now ? replayAt(replay, now) : null;
+  const shown = rp?.shown ?? 0;
+  const playing = !!(replay && rp && !rp.over && replay.session === session?.id);
+  const replayEvents = useMemo(() => (replay ? replay.events.slice(0, shown) : null), [replay, shown]);
+
+  const scene = useMemo(() => {
+    if (playing && replay && replayEvents) return buildLiveModel(replayEvents, replay.session, roster);
+    return session ? buildLiveModel(feed.events, session.id, roster) : null;
+  }, [playing, replay, replayEvents, feed.events, session, roster]);
   const model = scene?.model ?? EMPTY;
-  const attn = session?.attn;
+  const attn = playing ? null : session?.attn;
   const alertSeat = attn ? (attn.agent ? scene?.seatOf[attn.agent] : 0) : undefined;
   const alert: SceneAlert | undefined =
     attn && alertSeat != null ? { agent: alertSeat, kind: attn.kind, text: attn.text } : undefined;
-  const clock = scene && now ? now - scene.origin : 0;
+  const clock = !scene || !now ? 0 : playing && rp ? rp.vnow - scene.origin : now - scene.origin;
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model]);
   const tl = useMemo(() => buildTimeline(model), [model]);
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   const working = views.filter((v) => v.screen === "work").length;
-
-  const log = useMemo(
-    () =>
-      session ? feed.events.filter((e) => e.session === session.id && e.kind !== "roster").slice(-LOG_ROWS) : NO_EVENTS,
-    [feed.events, session],
-  );
-  const logRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = logRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [log.length]);
-
-  const nameOf = (e: LiveEvent) => {
-    if (!e.agent) return { name: "Claude", color: CLAUDE_COLOR };
-    const a = model.agents[scene?.seatOf[e.agent] ?? -1];
-    return { name: a?.name ?? e.agentType ?? "агент", color: a?.color ?? "#9a94b8" };
-  };
 
   const offline = feed.status === "offline";
   const unplugged = cloud && !roomKey && !viewing;
@@ -190,8 +184,27 @@ export default function LiveDashboard({
           </span>
           <span className="stat-v">{session?.count ?? 0}</span>
         </div>
-        {!viewing && <AlertsMenu cloud={cloud} push={push} />}
+        <div className="bar-r">
+          <button className="btn" onClick={() => setRecapOpen(true)}>
+            <CalendarDays size={14} /> підсумок
+          </button>
+          {!viewing && <AlertsMenu cloud={cloud} push={push} />}
+        </div>
       </div>
+
+      {recapOpen && (
+        <RecapPanel
+          rows={recap.rows}
+          error={recap.error}
+          now={Math.floor(now / 60000) * 60000}
+          canReplay={!!session}
+          onReplay={() => {
+            if (session) setReplay(makeReplay(feed.events, session.id, Date.now()));
+            setRecapOpen(false);
+          }}
+          onClose={() => setRecapOpen(false)}
+        />
+      )}
 
       {viewing && (
         <div className="view-banner">
@@ -209,104 +222,27 @@ export default function LiveDashboard({
       <section className="card stage-card">
         <div className="card-hd">
           <span className="card-ttl">{session ? session.label : "інтернет-кафе"}</span>
-          <span className="muted-sm">{session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}</span>
+          {replay && replay.session === session?.id ? (
+            <ReplayBar
+              replay={replay}
+              playing={playing}
+              shown={shown}
+              onStop={() => setReplay(null)}
+              onAgain={() => setReplay({ ...replay, startedAt: Date.now() })}
+            />
+          ) : (
+            <span className="muted-sm">{session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}</span>
+          )}
         </div>
         <div className="stage-pad stage-rel">
           <CafeScene model={model} clock={clock} alert={alert} />
-          {!session && (
-            <div className="cafe-wait">
-              <b>
-                {viewing ? "У цьому кафе зараз тихо" : unplugged ? "Твій Claude ще не підключений" : offline ? pill : "Чекаю на твого Claude…"}
-              </b>
-              {viewing ? (
-                <>Щойно власник щось попросить у Claude Code, агенти сядуть за столи.</>
-              ) : cloud ? (
-                unplugged ? (
-                  <>
-                    Одна фраза своєму Claude Code, і тут сядуть твої агенти: <Link href="/connect">підключити Claude</Link>.
-                    <KeyPaste />
-                  </>
-                ) : (
-                  <>
-                    Щойно Claude Code в будь-якому чаті щось зробить, агенти сядуть за столи. Хук ще не стоїть? Дивись{" "}
-                    <Link href="/connect">підключити Claude</Link>.
-                  </>
-                )
-              ) : offline ? (
-                <>
-                  Наживо показує агентів з Relay на твоєму комп&apos;ютері. Ще не стоїть? Віддай одну фразу своєму
-                  Claude: <Link href="/connect">підключити Claude</Link>. Вже стоїть: <code>npm run up</code> у папці
-                  Relay і відкрий <a href="http://127.0.0.1:3737">127.0.0.1:3737</a>.
-                </>
-              ) : (
-                <>
-                  Сервер слухає. Щойно Claude Code в будь-якій сесії щось зробить, агенти сядуть за столи. Хук ще не
-                  стоїть? Дивись <Link href="/connect">підключити Claude</Link>.
-                </>
-              )}
-            </div>
-          )}
+          {!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
         </div>
       </section>
 
       <div className="grid-2">
-        <div className="card">
-          <div className="card-hd">
-            <span className="card-ttl">потік подій</span>
-            <span className="muted-sm">{log.length ? `останні ${log.length}` : "порожньо"}</span>
-          </div>
-          <div className="log" ref={logRef}>
-            {log.map((e) => {
-              const who = nameOf(e);
-              return (
-                <div className="log-row" key={e.seq}>
-                  <span className="log-time">{clockTime(e.at)}</span>
-                  <span className="log-dot" style={{ background: who.color }} />
-                  <span className="log-nm" style={{ color: who.color }}>
-                    {who.name}
-                  </span>
-                  <span className="log-msg">{logText(e)}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-hd">
-            <span className="card-ttl">агенти</span>
-            <span className="muted-sm">
-              {model.agents.length} за столами{roster.length ? ` · ${roster.length} з .claude/agents` : ""}
-            </span>
-          </div>
-          <div className="roster">
-            {model.agents.map((a, i) => {
-              const v = views[i];
-              const b =
-                alert?.kind === "ask" && alert.agent === i
-                  ? { cls: "rr-ask", text: "чекає на тебе" }
-                  : badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0);
-              const notes = model.notes[i];
-              let last = "";
-              for (const n of notes) {
-                if (n.ts > clock) break;
-                last = n.text;
-              }
-              return (
-                <div className="rr" key={a.id} style={{ ["--c" as string]: a.color } as React.CSSProperties}>
-                  <span className="rr-ic" style={{ fontSize: 12, fontWeight: 600 }}>
-                    {a.name.slice(0, 1).toUpperCase()}
-                  </span>
-                  <div className="rr-main">
-                    <div className="rr-nm">{a.name}</div>
-                    <div className="rr-note">{last || a.role}</div>
-                  </div>
-                  <span className={`rr-badge ${b.cls}`}>{b.text}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <EventLog events={feed.events} session={session?.id ?? null} agents={model.agents} seatOf={scene?.seatOf} />
+        <AgentList model={model} views={views} clock={clock} alert={alert} rosterCount={roster.length} />
       </div>
 
       <p className="foot">

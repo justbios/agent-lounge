@@ -1234,7 +1234,12 @@ body {
 }
 .alerts {
   position: relative;
+}
+.bar-r {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .alerts-btn.on {
   color: #ffe7a3;
@@ -1328,7 +1333,7 @@ body {
   color: #ffb4b4;
 }
 @media (max-width: 640px) {
-  .alerts {
+  .bar-r {
     margin-left: 0;
   }
   .alerts-pop {
@@ -1340,9 +1345,6 @@ body {
 /* ---------- share: clip + view link ---------- */
 .alerts-pop[hidden] {
   display: none;
-}
-.share {
-  margin-left: 0;
 }
 .share-sec {
   display: flex;
@@ -1427,4 +1429,186 @@ body {
   background: rgba(124, 92, 255, 0.1);
   border: 1px solid rgba(124, 92, 255, 0.3);
   border-radius: 12px;
+}
+
+/* ---------- day recap + replay ---------- */
+.recap-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 16px;
+  overflow-y: auto;
+  background: rgba(3, 4, 8, 0.72);
+  backdrop-filter: blur(4px);
+}
+.recap {
+  width: min(760px, 100%);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border-2);
+  border-radius: 16px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+.recap-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.recap-ttl {
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 22px;
+}
+.recap-x {
+  width: 36px;
+  justify-content: center;
+  padding: 0;
+}
+.recap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.recap-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.recap-stat b {
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 30px;
+  color: #ff9a62;
+}
+.recap-stat:last-child b {
+  color: #ffd25a;
+}
+.recap-stat span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.recap-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  height: 120px;
+}
+.recap-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.recap-col {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.recap-col span {
+  width: 100%;
+  min-height: 2px;
+  background: #7c5cff;
+}
+.recap-day.on .recap-col span {
+  background: #ff9a62;
+}
+.recap-dl {
+  font-size: 11px;
+  color: var(--dim);
+}
+.recap-day.on .recap-dl {
+  color: var(--text);
+}
+.recap-cols {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.recap-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.recap-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 60px 28px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.recap-bar-k {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.recap-bar-track {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.recap-bar-track span {
+  display: block;
+  height: 100%;
+  background: var(--c);
+}
+.recap-bar-n {
+  text-align: right;
+  color: var(--muted);
+}
+.recap-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.recap-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.recap-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.recap-card img {
+  width: min(360px, 100%);
+  border-radius: 10px;
+  border: 1px solid var(--border-2);
+}
+.replay-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #ffd9b8;
+}
+.replay-bar .btn {
+  height: 26px;
+  padding: 0 8px;
+}
+.replay-dot {
+  background: #ff9a62;
+  box-shadow: 0 0 8px #ff9a62;
+  animation: ping 1.2s ease-out infinite;
+}
+@media (max-width: 640px) {
+  .recap-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .recap-cols {
+    grid-template-columns: 1fr;
+  }
 }
