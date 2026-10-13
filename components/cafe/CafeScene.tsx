@@ -5,14 +5,17 @@ import { CafeLayout, cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, CafeTimeline, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
+import { Guest } from "@/lib/live/social";
 import { AgentCard, ScenePop } from "./AgentCard";
 import { Cat } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
 import { DecorSet } from "./decor";
 import { drawFrame } from "./frame";
+import { GuestSeat, seatGuests } from "./guests";
 import { FixtureKind, HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor } from "./people";
 import { buildRoom, doorOf, fixtures } from "./room";
+import { GuestTags, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
 import { fmtTokens } from "../live/tokens";
 
@@ -87,6 +90,9 @@ export default function CafeScene({
   catName,
   theme = THEMES.cafe,
   rate = 0,
+  guests,
+  reactions,
+  onReact,
   onPick,
   pops,
 }: {
@@ -98,6 +104,11 @@ export default function CafeScene({
   theme?: Theme;
   /** tokens a minute, shown on the LED strip under the sign */
   rate?: number;
+  /** others who have this café open right now */
+  guests?: Guest[];
+  reactions?: SeatReaction[];
+  /** shows reaction buttons in the agent card */
+  onReact?: (agent: number, emoji: string) => void;
   /** a fixture was clicked, or null for a click on bare floor */
   onPick?: (pick: FixturePick | null) => void;
   /** popovers the page hangs over the scene, positioned by an {@link Anchor} */
@@ -110,6 +121,8 @@ export default function CafeScene({
   const alertRef = useRef(alert);
   const decorRef = useRef(decor);
   const catNameRef = useRef(catName);
+  const seats = useMemo(() => seatGuests(guests ?? []), [guests]);
+  const seatsRef = useRef<GuestSeat[]>(seats);
   const agents = model.agents;
   const lay = useMemo(() => cafeLayout(agents.length, model.seed), [agents.length, model.seed]);
   const cat = useMemo(() => new Cat(lay, model.seed), [lay, model.seed]);
@@ -120,7 +133,8 @@ export default function CafeScene({
     alertRef.current = alert;
     decorRef.current = decor;
     catNameRef.current = catName;
-  }, [clock, alert, decor, catName]);
+    seatsRef.current = seats;
+  }, [clock, alert, decor, catName, seats]);
 
   useEffect(() => sceneMounted(), []);
 
@@ -137,7 +151,8 @@ export default function CafeScene({
       const busy = agents.map((_, i) => i).filter((i) => agentView(model, tl, lay, i, clock).screen === "work");
       cat.step(last ? Math.min(100, now - last) : 0, now, busy);
       last = now;
-      drawFrame(ctx, { model, lay, tl, looks, room, clock, t: now / 1000, cat, alert: alertRef.current, decor: decorRef.current, theme });
+      const t = now / 1000;
+      drawFrame(ctx, { model, lay, tl, looks, room, clock, t, cat, alert: alertRef.current, decor: decorRef.current, theme, guests: seatsRef.current });
       const p = cat.pos;
       const label = catRef.current;
       if (label) {
@@ -206,6 +221,10 @@ export default function CafeScene({
     .map((_, i) => bubbleFor(model, tl, lay, i, agentView(model, tl, lay, i, clock), clock))
     .filter((b): b is Bubble => b != null);
   const talking = new Set(bubbles.filter((b) => b.seated).map((b) => b.agent));
+  const reactAt = (i: number) => {
+    const w = agentView(model, tl, lay, i, clock).walker;
+    return w ? { x: w.x, y: w.y - 24 } : { x: lay.desks[i].x, y: lay.desks[i].top - 6 };
+  };
 
   return (
     <div className="cafe-wrap" style={{ "--ar": lay.width / lay.height } as CSSProperties}>
@@ -240,6 +259,8 @@ export default function CafeScene({
               </span>
             );
           })}
+          <GuestTags seats={seats} pos={pos} />
+          {reactions && <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />}
           {catName && (
             <span ref={catRef} className="cafe-cat">
               {catName}
@@ -270,6 +291,7 @@ export default function CafeScene({
               agent={selIdx}
               clock={clock}
               asking={alert?.kind === "ask" && alert.agent === selIdx ? alert.text : undefined}
+              onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
             />
           </ScenePop>
         )}

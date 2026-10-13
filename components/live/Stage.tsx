@@ -3,11 +3,14 @@
 import { ReactNode, useEffect, useEffectEvent, useState } from "react";
 import { Maximize2, Minimize2, ScrollText, Users, X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
+import { Guest } from "@/lib/live/social";
 import { CafeState } from "@/lib/live/useCafe";
 import { ScenePop } from "../cafe/AgentCard";
 import CafeScene, { Anchor, FixturePick, SceneAlert } from "../cafe/CafeScene";
+import { SeatReaction } from "../cafe/SceneSocial";
 import { THEMES, THEME_IDS, themeOf } from "../cafe/theme";
 import DoorInvite from "./DoorInvite";
+import Presence from "./Presence";
 
 type Pop = { kind: "door"; anchor: Anchor } | { kind: "note"; anchor: Anchor; text: string; id: number };
 type Side = "agents" | "log";
@@ -72,6 +75,9 @@ export default function Stage({
   clock,
   alert,
   rate,
+  guests,
+  reactions,
+  onReact,
   cafe,
   empty,
   agents,
@@ -89,6 +95,9 @@ export default function Stage({
   alert?: SceneAlert;
   /** tokens a minute over the last quarter hour, for the meter on the wall */
   rate: number;
+  guests: Guest[];
+  reactions: SeatReaction[];
+  onReact: (agent: number, emoji: string) => void;
   cafe: CafeState;
   empty?: ReactNode;
   agents: ReactNode;
@@ -130,6 +139,7 @@ export default function Stage({
         <span className="card-ttl">{title}</span>
         <div className="stage-tools">
           {sub}
+          <Presence guests={guests} />
           <button className={`btn btn-ic ${drawer === "agents" ? "on" : ""}`} onClick={() => flip("agents")} title="агенти">
             <Users size={14} />
           </button>
@@ -147,6 +157,9 @@ export default function Stage({
           clock={clock}
           alert={alert}
           rate={rate}
+          guests={guests}
+          reactions={reactions}
+          onReact={onReact}
           decor={cafe.decor}
           catName={cafe.settings.cat_name}
           theme={theme}

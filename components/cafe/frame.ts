@@ -4,6 +4,7 @@ import { AgentView, CafeTimeline, Walker, agentView } from "@/lib/cafe/timeline"
 import { drawAmbient, drawBar, drawCupSteam, drawLights } from "./ambient";
 import { Cat } from "./cat";
 import { DecorSet, drawDecor, drawDecorLights } from "./decor";
+import { GuestSeat, drawGuests } from "./guests";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
 import { Ctx, LINE, paint, px, rand, shade } from "./pixel";
 import { Theme } from "./theme";
@@ -22,6 +23,8 @@ export interface FrameInput {
   alert?: { agent: number; kind: "ask" | "done" };
   decor?: DecorSet;
   theme?: Theme;
+  /** people who have the café open elsewhere, on the bar stools */
+  guests?: GuestSeat[];
 }
 
 const NO_DECOR: DecorSet = new Set();
@@ -161,6 +164,7 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   ctx.drawImage(f.room, 0, 0);
   drawAmbient(ctx, t, lay.width, f.theme);
   drawBar(ctx, t, decor.has("goldMachine"));
+  if (f.guests) drawGuests(ctx, f.guests, t);
   drawDecor(ctx, lay, decor, t);
 
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));

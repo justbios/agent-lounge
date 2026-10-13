@@ -4,6 +4,7 @@ import { CSSProperties, ReactNode, useEffect, useEffectEvent } from "react";
 import { X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { AgentView } from "@/lib/cafe/timeline";
+import { REACTIONS } from "@/lib/live/social";
 import { badge, plural } from "../live/format";
 import { fmtTokens } from "../live/tokens";
 
@@ -65,12 +66,14 @@ export function AgentCard({
   agent,
   clock,
   asking,
+  onReact,
 }: {
   model: CafeModel;
   view: AgentView;
   agent: number;
   clock: number;
   asking?: string;
+  onReact?: (emoji: string) => void;
 }) {
   const a = model.agents[agent];
   const notes = model.notes[agent].filter((n) => n.ts <= clock);
@@ -116,6 +119,15 @@ export function AgentCard({
             </li>
           ))}
         </ol>
+      )}
+      {onReact && (
+        <div className="ac-react" role="group" aria-label="кинути реакцію">
+          {REACTIONS.map((e) => (
+            <button key={e} onClick={() => onReact(e)} title="усі в кафе побачать над столом">
+              {e}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );

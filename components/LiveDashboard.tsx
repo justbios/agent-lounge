@@ -15,6 +15,8 @@ import { useCafe } from "@/lib/live/useCafe";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
+import { REACT_MS } from "@/lib/live/social";
+import { useSocial } from "@/lib/live/useSocial";
 import { latestLimits, tokenRate } from "@/lib/live/usage";
 import { SceneAlert } from "./cafe/CafeScene";
 import AchToast from "./live/AchToast";
@@ -186,6 +188,18 @@ export default function LiveDashboard({
   );
   const rate = now ? tokenRate(viewEvents, now) : 0;
   const limits = useMemo(() => latestLimits(feed.events), [feed.events]);
+  const social = useSocial({
+    key: viewing ? null : roomKey,
+    room: viewing ? viewRoom : null,
+    name: team.me ?? (viewing ? "глядач" : "без імені"),
+    viewer: viewing,
+    enabled: cloud,
+  });
+  const sceneId = whole ? "team" : (session?.id ?? "");
+  const reactions = social.reactions
+    .filter((r) => r.scene === sceneId && now - r.at < REACT_MS)
+    .map((r) => ({ ...r, seat: model.agents.findIndex((a) => a.id === r.agent) }))
+    .filter((r) => r.seat >= 0);
   const myLimits = limits.find((l) => l.member === (team.me ?? "")) ?? limits[0] ?? null;
 
   const offline = feed.status === "offline";
@@ -297,6 +311,9 @@ export default function LiveDashboard({
         clock={clock}
         alert={alert}
         rate={rate}
+        guests={social.guests}
+        reactions={reactions}
+        onReact={(i, emoji) => social.react(sceneId, model.agents[i].id, emoji)}
         cafe={cafe}
         empty={!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
         cloud={cloud}
@@ -339,8 +356,9 @@ export default function LiveDashboard({
           </>
         )}{" "}
         Головний Claude сидить за першим столом. Доручаючи задачу, він несе її субагенту, а той, закінчивши, приносить
-        результат назад. Сцена клікабельна: агент покаже картку, кіт дасться погладити, дошка відкриє підсумок, автомат
-        досягнення, вікно змінить вид, двері запросять команду.
+        результат назад. Сцена клікабельна: агент покаже картку, з якої можна кинути йому реакцію, кіт дасться погладити,
+        дошка відкриє підсумок, автомат досягнення, вікно змінить вид, двері запросять команду.
+        {cloud && " Хто ще відкрив це кафе, сидить біля бару."}
       </p>
     </>
   );

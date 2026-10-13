@@ -197,8 +197,12 @@ function drawWall(ctx: Ctx, width: number, th: Theme) {
   drawClockFace(ctx, fx);
 }
 
+/** Bar stools along the counter; guests watching the café sit here. */
+export const STOOLS = [9, 23, 37];
+export const STOOL_TOP = 87;
+
 function drawStools(ctx: Ctx) {
-  for (const x of [9, 23, 37]) {
+  for (const x of STOOLS) {
     px(ctx, x - 1, 91, 2, 6, "#2a2630");
     px(ctx, x - 3, 97, 6, 1, "#2a2630");
     px(ctx, x - 5, 87, 10, 4, LINE);
