@@ -1,4 +1,4 @@
-import { ROSTER_MARK } from "./hookConfig.mjs";
+import { ROSTER_MARK, TITLE_MARK } from "./hookConfig.mjs";
 import { LiveEvent, LiveKind } from "./types";
 
 type Json = Record<string, unknown>;
@@ -158,9 +158,38 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
 
 const MAX_ROSTER = 60;
 
-/** A hook body is the raw JSON, optionally followed by a marker line and the file names in .claude/agents. */
-export function parseHookBody(text: string): { raw: Json; agents: string[] | null } | null {
-  const cut = text.indexOf(`\n${ROSTER_MARK}\n`);
+const MARKS = [ROSTER_MARK, TITLE_MARK];
+
+/** The text after a marker line, up to the next marker; null when the hook sent no such section. */
+function section(text: string, mark: string): string | null {
+  const at = text.indexOf(`\n${mark}\n`);
+  if (at < 0) return null;
+  const rest = text.slice(at + mark.length + 2);
+  const ends = MARKS.map((m) => `\n${rest}`.indexOf(`\n${m}\n`)).filter((i) => i >= 0);
+  return ends.length ? rest.slice(0, Math.max(0, Math.min(...ends) - 1)) : rest;
+}
+
+/** A chat's name as Claude Code keeps it, trimmed to something a tab can show. */
+export function cleanTitle(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const t = raw.normalize("NFC").replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim();
+  return t ? clip(t, 80) : undefined;
+}
+
+function readTitle(sec: string | null): string | undefined {
+  const m = sec ? /"customTitle":("(?:[^"\\]|\\.)*")/.exec(sec) : null;
+  if (!m) return undefined;
+  try {
+    return cleanTitle(JSON.parse(m[1]));
+  } catch {
+    return undefined;
+  }
+}
+
+/** A hook body is the raw JSON, optionally followed by marker lines: the file names in .claude/agents, the chat's name. */
+export function parseHookBody(text: string): { raw: Json; agents: string[] | null; title?: string } | null {
+  const cuts = MARKS.map((m) => text.indexOf(`\n${m}\n`)).filter((i) => i >= 0);
+  const cut = cuts.length ? Math.min(...cuts) : -1;
   let raw: unknown;
   try {
     raw = JSON.parse(cut < 0 ? text : text.slice(0, cut));
@@ -168,9 +197,10 @@ export function parseHookBody(text: string): { raw: Json; agents: string[] | nul
     return null;
   }
   if (!raw || typeof raw !== "object") return null;
-  if (cut < 0) return { raw: raw as Json, agents: null };
-  const agents = text
-    .slice(cut + ROSTER_MARK.length + 2)
+  const title = readTitle(section(text, TITLE_MARK));
+  const list = section(text, ROSTER_MARK);
+  if (list == null) return { raw: raw as Json, agents: null, title };
+  const agents = list
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l.endsWith(".md") && !l.startsWith(".") && !/^readme\.md$/i.test(l))
@@ -178,7 +208,7 @@ export function parseHookBody(text: string): { raw: Json; agents: string[] | nul
     .filter((n) => /^[\w.-]{1,64}$/.test(n))
     .slice(0, MAX_ROSTER)
     .sort();
-  return { raw: raw as Json, agents };
+  return { raw: raw as Json, agents, title };
 }
 
 export function rosterEvent(raw: Json, agents: string[], seq: number, at: number): LiveEvent | null {

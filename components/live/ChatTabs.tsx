@@ -31,7 +31,7 @@ export default function ChatTabs({
             key={s.id}
             className={`chat-tab ${s === current ? "on" : ""} ${w ? `attn-${w.kind}` : ""}`}
             onClick={() => onPick(s.id)}
-            title={s.cwd}
+            title={s.title ? `${s.project} · ${s.cwd ?? ""}` : s.cwd}
           >
             <span className="chat-tab-hd">
               <span className={`chat-dot ${now - s.last < ACTIVE_MS ? "busy" : ""}`} />

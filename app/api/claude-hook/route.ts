@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       normalizeHook(body.raw, 0, at),
     ]
       .filter((e): e is LiveEvent => e != null)
-      .map((e) => (member ? { ...e, member } : e));
+      .map((e) => ({ ...e, ...(member ? { member } : {}), ...(body.title ? { title: body.title } : {}) }));
     if (events.length && !(await cloudIngest(roomKey, events))) return new Response(null, { status: 502 });
     const alert = pushEnabled() ? events.map(alertFor).find((a) => a != null) : null;
     if (alert) {
@@ -37,6 +37,6 @@ export async function POST(req: Request) {
 
   if (!liveEnabled()) return new Response(null, { status: 404 });
   const ev = normalizeHook(body.raw, nextSeq(), at);
-  if (ev) publish(ev);
+  if (ev) publish(body.title ? { ...ev, title: body.title } : ev);
   return new Response(null, { status: 204 });
 }

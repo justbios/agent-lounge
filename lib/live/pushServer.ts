@@ -23,7 +23,8 @@ export interface PushAlert {
 
 /** Only the moments the user has to act on: a permission prompt, Claude idling for an answer, a finished turn. */
 export function alertFor(e: LiveEvent): PushAlert | null {
-  const label = e.member ? `${e.member} · ${sessionLabel(e.cwd)}` : sessionLabel(e.cwd);
+  const chat = e.title ?? sessionLabel(e.cwd);
+  const label = e.member ? `${e.member} · ${chat}` : chat;
   const member = e.member;
   const who = e.agent ? (e.agentType ?? "агент") : "Claude";
   if (e.kind === "notify") {

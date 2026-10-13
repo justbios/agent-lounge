@@ -1,12 +1,12 @@
 {
-  "description": "Forwards hook events to the Relay café saved by /relay:connect; silent and async.",
+  "description": "Forwards hook events and the chat name to the Relay café saved by /relay:connect; silent and async.",
   "hooks": {
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" roster",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" roster title",
             "async": true,
             "timeout": 5
           }
@@ -66,7 +66,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" title",
             "async": true,
             "timeout": 5
           }
@@ -78,7 +78,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\"",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" title",
             "async": true,
             "timeout": 5
           }
@@ -102,7 +102,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" roster",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/send.sh\" roster title",
             "async": true,
             "timeout": 5
           }

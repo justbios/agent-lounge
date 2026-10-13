@@ -13,7 +13,10 @@ const LIVE_PACE = 1.6;
 
 export interface LiveSession {
   id: string;
+  /** the chat's name in Claude Code when the hook sent one, else the project folder */
   label: string;
+  project: string;
+  title?: string;
   cwd?: string;
   first: number;
   last: number;
@@ -47,7 +50,9 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
     if (!s) {
       map.set(e.session, {
         id: e.session,
-        label: sessionLabel(e.cwd),
+        label: "",
+        project: sessionLabel(e.cwd),
+        title: e.title,
         cwd: e.cwd,
         first: e.at,
         last: e.at,
@@ -64,12 +69,14 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
     s.count += 1;
     if (e.kind === "session_end") s.ended = true;
     if (!s.member && e.member) s.member = e.member;
+    if (e.title) s.title = e.title;
     if (e.kind === "prompt" && e.tool === "питання") s.ask = e.text;
     if (!s.cwd && e.cwd) {
       s.cwd = e.cwd;
-      s.label = sessionLabel(e.cwd);
+      s.project = sessionLabel(e.cwd);
     }
   }
+  for (const s of map.values()) s.label = s.title ?? s.project;
   const list = [...map.values()].filter((s) => !(s.ended && !worked.has(s.id))).sort((a, b) => b.last - a.last);
   const seen = new Map<string, number>();
   for (const s of [...list].sort((a, b) => a.first - b.first)) {

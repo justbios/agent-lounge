@@ -31,5 +31,7 @@ export interface LiveEvent {
   need?: "permission" | "input";
   /** team café: whose Claude this is, from the hook URL's &m= */
   member?: string;
+  /** the chat's name in Claude Code, sent with prompts, answers and notifications */
+  title?: string;
 }
 

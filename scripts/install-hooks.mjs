@@ -5,7 +5,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { HOOK_ENTRY, HOOK_EVENTS, isRelayHook } from "../lib/live/hookConfig.mjs";
+import { HOOK_EVENTS, hookEntry, isRelayHook } from "../lib/live/hookConfig.mjs";
 
 const args = new Set(process.argv.slice(2));
 const remove = args.has("--remove");
@@ -38,13 +38,13 @@ for (const event of events) {
   const groups = Array.isArray(hooks[event]) ? hooks[event] : [];
   const relay = groups.flatMap((g) => (g.hooks ?? []).filter(isRelayHook));
   const want = !remove && HOOK_EVENTS.includes(event);
-  if (want && relay.length === 1 && same(relay[0], HOOK_ENTRY)) continue;
+  if (want && relay.length === 1 && same(relay[0], hookEntry(event))) continue;
   if (!want && relay.length === 0) continue;
 
   const kept = groups
     .map((g) => ({ ...g, hooks: (g.hooks ?? []).filter((h) => !isRelayHook(h)) }))
     .filter((g, i) => g.hooks.length > 0 || (groups[i].hooks ?? []).length === 0);
-  if (want) kept.push({ hooks: [HOOK_ENTRY] });
+  if (want) kept.push({ hooks: [hookEntry(event)] });
   if (kept.length) hooks[event] = kept;
   else delete hooks[event];
   touched.push(event);
