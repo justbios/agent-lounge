@@ -169,7 +169,15 @@ export function cleanInterior(v: unknown): Interior {
 
 export const owns = (i: Interior, id: ItemId) => i.owned.includes(id);
 
-export const BEAN_RULES = { prompt: 3, dispatch: 5, answer: 1, minute: 1, toolsPerBean: 4, achievement: 30 } as const;
+export const BEAN_RULES = {
+  prompt: 3,
+  dispatch: 5,
+  answer: 1,
+  minute: 1,
+  toolsPerBean: 4,
+  achievement: 30,
+  firstOfDay: 100,
+} as const;
 
 /** When every café's beans started over from zero: only work after this hour earns them. */
 export const BEANS_FROM = "2026-10-13T18:00:00Z";
@@ -183,12 +191,15 @@ export interface BeanWork {
   minutes: number;
 }
 
-/** Coffee beans the café has earned since the restart: what Claude did, plus each achievement reached since. */
-export function beansEarned(w: BeanWork | null, achievements: number): number {
+/**
+ * Coffee beans the café has earned since the restart: what Claude did, each achievement reached since, and a bonus for
+ * the first question of every day it worked.
+ */
+export function beansEarned(w: BeanWork | null, achievements: number, days: number): number {
   if (!w) return 0;
   const r = BEAN_RULES;
   const work = w.prompts * r.prompt + w.dispatches * r.dispatch + w.answers * r.answer + w.minutes * r.minute;
-  return achievements * r.achievement + work + Math.floor(w.tools / r.toolsPerBean);
+  return achievements * r.achievement + days * r.firstOfDay + work + Math.floor(w.tools / r.toolsPerBean);
 }
 
 export const beansSpent = (i: Interior): number => (i.paid ?? []).reduce((s, id) => s + (itemOf(id)?.price ?? 0), 0);

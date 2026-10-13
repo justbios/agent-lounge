@@ -94,7 +94,8 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
       <p className="alerts-hint">
         Рахунок зерен почався заново {since}: їх дає лише робота відтоді, а куплене раніше лишилось у кафе. Кавові зерна
         дає робота Claude: питання {r.prompt}, доручення агенту {r.dispatch}, відповідь {r.answer}, хвилина в
-        роботі {r.minute}, кожні {r.toolsPerBean} дії інструментами ще одна, досягнення {r.achievement}.
+        роботі {r.minute}, кожні {r.toolsPerBean} дії інструментами ще одна, досягнення {r.achievement}, а перше
+        питання дня ще {r.firstOfDay}.
         {cafe.editable
           ? " Поставлене, і зароблений декор теж, можна перетягнути або клацнути, щоб перемістити чи прибрати."
           : " Купує й ставить власник кафе."}

@@ -121,6 +121,17 @@ function workSince(hours: HourRow[], since: string): BeanWork {
   return w;
 }
 
+/**
+ * The days since the restart with at least one question. The restart day counts only when the work since the restart
+ * holds more questions than the later days, as its earlier hours earn nothing.
+ */
+function daysAsked(p: Progress | null, w: BeanWork | null): number {
+  if (!p || !w) return 0;
+  const after = p.days.filter((d) => d.day > FROM_DAY && d.prompts > 0);
+  const later = after.reduce((s, d) => s + d.prompts, 0);
+  return after.length + (w.prompts > later ? 1 : 0);
+}
+
 /** Lifetime progress, the decor it unlocks and the café's own settings: from Relay in the cloud, from memory and this browser locally. */
 export function useCafe({ cloud, key, room, events, viewing }: CafeSource): CafeState {
   const id = viewing ? (room ? `v:${room}` : "") : key ? `k:${key}` : "";
@@ -206,7 +217,8 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
   );
 
   const interior = useMemo(() => cleanInterior(settings.interior), [settings.interior]);
-  const earnedBeans = beansEarned(work, done.filter((e) => e.day && e.day > FROM_DAY).length);
+  const reached = done.filter((e) => e.day && e.day > FROM_DAY).length;
+  const earnedBeans = beansEarned(work, reached, daysAsked(progress, work));
   const spent = beansSpent(interior);
   const beans = { earned: earnedBeans, spent, left: earnedBeans - spent };
   const fit = (next: Interior) => save({ interior: next });
