@@ -9,7 +9,10 @@ export interface Coat {
   belly: string;
 }
 
+export type PetKind = "cat" | "dog";
+
 const GINGER: Coat = { fur: "#e8913a", dark: "#b8642a", belly: "#f6d7a8" };
+export const DOG: Coat = { fur: "#e6d5b8", dark: "#8a5a34", belly: "#fff6e6" };
 const PET_MS = 3800;
 const BED_CHANCE = 0.3;
 const HEART = [[1, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [2, 3]];
@@ -23,7 +26,7 @@ function drawCrown(P: Paint, dx: number, dy: number) {
   P(dx + 2, dy, 1, 1, "#ff4fa3");
 }
 
-/** The café cat: wanders the aisles, drops by whoever is busiest, naps where it likes. */
+/** The café pet, a cat or a dog: wanders the aisles, drops by whoever is busiest, naps where it likes. */
 export class Cat {
   private path: Point[] = [];
   private len = 0;
@@ -42,6 +45,7 @@ export class Cat {
     private lay: CafeLayout,
     seed: number,
     private coat: Coat = GINGER,
+    private kind: PetKind = "cat",
   ) {
     this.r = rng(seed * 7 + 3);
     this.band = Math.floor(this.r() * lay.walkY.length);
@@ -127,6 +131,22 @@ export class Cat {
     ctx.globalAlpha = 1;
   }
 
+  private drawDogBits(P: Paint, t: number, hy: number, sit: boolean, walking: boolean) {
+    const { dark, belly } = this.coat;
+    P(6, hy + 2, 2, 3, LINE);
+    P(6, hy + 3, 1, 1, belly);
+    P(2, hy, 2, 1, dark);
+    P(2, hy + 1, 1, 3, dark);
+    P(5, hy + 1, 1, 1, LINE);
+    const wag = Math.round(Math.sin(t * (walking ? 16 : 10)));
+    if (sit) {
+      P(-6 + wag, -2, 2, 1, dark);
+      return;
+    }
+    P(-5, -6, 1, 1, dark);
+    P(-6 + wag, -8, 1, 2, dark);
+  }
+
   draw(ctx: Ctx, t: number, crown = false, nowMs = t * 1000) {
     this.drawHearts(ctx, nowMs);
     const inBed = !!this.bedAt && this.mode !== "walk";
@@ -136,6 +156,7 @@ export class Cat {
     const P = (dx: number, dy: number, w: number, h: number, c: string) =>
       px(ctx, flip ? X - dx - w : X + dx, Y + dy, w, h, c);
     const { fur: FUR, dark: FUR_DARK, belly: BELLY } = this.coat;
+    const dog = this.kind === "dog";
 
     if (!inBed) {
       ctx.fillStyle = "rgba(0,0,0,0.3)";
@@ -149,6 +170,10 @@ export class Cat {
       P(2, -6, 4, 4, LINE);
       P(2, -5, 3, 3, FUR);
       P(-6, -2, 3, 2, FUR_DARK);
+      if (dog) {
+        P(6, -4, 1, 2, LINE);
+        P(2, -5, 1, 2, FUR_DARK);
+      }
       if (crown) drawCrown(P, 1, -7);
       const z = (t * 0.7) % 1;
       ctx.globalAlpha = 1 - z;
@@ -165,18 +190,22 @@ export class Cat {
     P(-3, sit ? -5 : -4, 6, sit ? 5 : 3, FUR);
     P(-3, sit ? -3 : -3, 6, 1, FUR_DARK);
     P(0, -2, 3, 1, BELLY);
-    P(2, sit ? -9 : -8, 5, 5, LINE);
-    P(3, sit ? -8 : -7, 3, 3, FUR);
-    P(3, sit ? -10 : -9, 1, 2, FUR);
-    P(5, sit ? -10 : -9, 1, 2, FUR);
-    P(5, sit ? -7 : -6, 1, 1, LINE);
+    const hy = sit ? -9 : -8;
+    P(2, hy, 5, 5, LINE);
+    P(3, hy + 1, 3, 3, FUR);
     if (!sit) {
       P(-3 + leg, -1, 1, 1, FUR_DARK);
       P(2 - leg, -1, 1, 1, FUR_DARK);
     }
-    const swish = Math.round(Math.sin(t * (walking ? 6 : 2.4)) * 1.5);
-    P(-6, (sit ? -4 : -5) + swish, 2, 1, FUR_DARK);
-    P(-7, (sit ? -5 : -6) + swish, 1, 2, FUR_DARK);
-    if (crown) drawCrown(P, 2, sit ? -11 : -10);
+    if (dog) this.drawDogBits(P, t, hy, sit, walking);
+    else {
+      P(3, hy - 1, 1, 2, FUR);
+      P(5, hy - 1, 1, 2, FUR);
+      P(5, hy + 2, 1, 1, LINE);
+      const swish = Math.round(Math.sin(t * (walking ? 6 : 2.4)) * 1.5);
+      P(-6, (sit ? -4 : -5) + swish, 2, 1, FUR_DARK);
+      P(-7, (sit ? -5 : -6) + swish, 1, 2, FUR_DARK);
+    }
+    if (crown) drawCrown(P, 2, hy - 2);
   }
 }

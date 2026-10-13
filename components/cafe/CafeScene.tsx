@@ -8,7 +8,7 @@ import { Point } from "@/lib/layout";
 import { BRAND, EMPTY_INTERIOR, Interior, ItemId, LookPick, Placed, itemOf, owns, titleFit } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { AgentCard, ScenePop } from "./AgentCard";
-import { Cat } from "./cat";
+import { Cat, DOG } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
 import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
@@ -28,6 +28,13 @@ export type { Anchor, FixturePick, Placing, SceneAlert } from "./sceneParts";
 
 const NO_DECOR: DecorSet = new Set();
 const SIGN_TEXT = "інтернет-кафе";
+const MACHINES: ItemId[] = ["jukebox", "arcade"];
+const JUKE_HINT = ["музичний автомат: вибрати мелодію", "клацни, щоб вибрати мелодію, або перетягни"];
+const ARCADE_HINT = ["ігровий автомат: пограти", "клацни, щоб пограти, або перетягни"];
+const DOG_HINT = "погладити песика";
+const sceneLabel = (pet: string) =>
+  "Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу. " +
+  `Клікни агента, ${pet}, дошку, автомат, вікно чи двері.`;
 
 interface Drag {
   s: Standing;
@@ -56,7 +63,7 @@ export default function CafeScene({
   onPlacing,
   onPlace,
   onFurniture,
-  onJukebox,
+  onMachine,
   playing,
   beans,
 }: {
@@ -89,8 +96,8 @@ export default function CafeScene({
   onPlace?: (p: Placed) => void;
   /** a piece of furniture was clicked */
   onFurniture?: (piece: { pid: string; item: ItemId }, anchor: Anchor) => void;
-  /** a jukebox was clicked: anyone may pick the music, only the owner moves it */
-  onJukebox?: (piece: { pid: string; item: ItemId }, anchor: Anchor) => void;
+  /** a jukebox or an arcade was clicked: anyone may use it, only the owner moves it */
+  onMachine?: (piece: { pid: string; item: ItemId }, anchor: Anchor) => void;
   /** the record this page plays, shown over the jukebox */
   playing?: string | null;
   /** coffee beans left, a sack over the counter that opens the shop */
@@ -113,7 +120,11 @@ export default function CafeScene({
   const seatsRef = useRef<GuestSeat[]>(seats);
   const agents = model.agents;
   const lay = useMemo(() => cafeLayout(agents.length, model.seed), [agents.length, model.seed]);
-  const cat = useMemo(() => new Cat(lay, model.seed), [lay, model.seed]);
+  const dog = interior.pet === "dog";
+  const cat = useMemo(
+    () => (dog ? new Cat(lay, model.seed, DOG, "dog") : new Cat(lay, model.seed)),
+    [dog, lay, model.seed],
+  );
   const cat2 = useMemo(() => (hasCat2 ? new Cat(lay, model.seed + 101, CAT2) : null), [hasCat2, lay, model.seed]);
   const tl = useMemo(() => buildTimeline(model), [model]);
   const phase = usePhase();
@@ -226,9 +237,9 @@ export default function CafeScene({
     return s ? { ...base, ...s, ok: true } : { ...base, cx: p.x, bottom: p.y + it.h / 2, ok: false };
   };
   const pieceAt = (p: Point) => (onFurniture && !hitAt(p) ? standingAt(shown, p) : null);
-  const jukeAt = (p: Point) => {
-    const s = onJukebox && !hitAt(p) ? standingAt(shown, p) : null;
-    return s?.item === "jukebox" ? s : null;
+  const machineAt = (p: Point) => {
+    const s = onMachine && !hitAt(p) ? standingAt(shown, p) : null;
+    return s && MACHINES.includes(s.item) ? s : null;
   };
 
   const down = (e: PointerEvent<HTMLCanvasElement>) => {
@@ -254,9 +265,10 @@ export default function CafeScene({
       return;
     }
     const h = hitAt(p);
-    if (jukeAt(p)) {
+    const m = machineAt(p);
+    if (m) {
       el.style.cursor = "pointer";
-      el.title = onPlacing ? "клацни, щоб вибрати мелодію, або перетягни" : "музичний автомат: вибрати мелодію";
+      el.title = m.item === "arcade" ? ARCADE_HINT[onPlacing ? 1 : 0] : JUKE_HINT[onPlacing ? 1 : 0];
       return;
     }
     if (!h && pieceAt(p)) {
@@ -266,7 +278,8 @@ export default function CafeScene({
     }
     const c2 = !h && cat2 && onCat(cat2.pos, p);
     el.style.cursor = h || c2 ? "pointer" : "";
-    el.title = c2 ? HIT_HINT.cat : !h ? "" : h.kind === "agent" ? `${nameOf(h.agent)}: ${HIT_HINT.agent}` : HIT_HINT[h.kind];
+    const hint = !h ? "" : h.kind === "agent" ? `${nameOf(h.agent)}: ${HIT_HINT.agent}` : HIT_HINT[h.kind];
+    el.title = c2 ? HIT_HINT.cat : h?.kind === "cat" && dog ? DOG_HINT : hint;
   };
   const up = (e: PointerEvent<HTMLCanvasElement>) => {
     const d = dragRef.current;
@@ -302,9 +315,9 @@ export default function CafeScene({
       return;
     }
     setSel(null);
-    const j = jukeAt(p);
-    if (j) {
-      onJukebox!({ pid: j.pid, item: j.item }, anchorAt(lay, j.cx, j.bottom - j.h, j.bottom));
+    const m = machineAt(p);
+    if (m) {
+      onMachine!({ pid: m.pid, item: m.item }, anchorAt(lay, m.cx, m.bottom - m.h, m.bottom));
       return;
     }
     const f = pieceAt(p);
@@ -351,7 +364,7 @@ export default function CafeScene({
           onPointerLeave={() => {
             if (!dragRef.current?.on) ghostRef.current = null;
           }}
-          aria-label="Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу. Клікни агента, кота, дошку, автомат, вікно чи двері."
+          aria-label={sceneLabel(dog ? "песика" : "кота")}
         />
         <div className="cafe-overlay" aria-hidden>
           <div className={`cafe-neon ${closed ? "off" : ""}`} style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>

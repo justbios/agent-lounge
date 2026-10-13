@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useEffectEvent, useState } from "react";
-import { Building2, Gamepad2, Maximize2, Minimize2, ScrollText, Users, X } from "lucide-react";
+import { Building2, Gamepad2, Maximize2, MessageCircle, Minimize2, ScrollText, Users, X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { ItemId, Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
@@ -15,11 +15,12 @@ import { THEMES, THEME_IDS, themeOf } from "../cafe/theme";
 import DoorInvite from "./DoorInvite";
 import { JukeboxList } from "./Jukebox";
 import Presence from "./Presence";
+import SceneMenu, { MenuItem } from "./SceneMenu";
 
 type Pop =
   | { kind: "door"; anchor: Anchor }
   | { kind: "furniture"; anchor: Anchor; pid: string; item: ItemId }
-  | { kind: "jukebox"; anchor: Anchor; pid: string; item: ItemId }
+  | { kind: "machine"; anchor: Anchor; pid: string; item: ItemId }
   | { kind: "note"; anchor: Anchor; text: string; id: number };
 
 const TOP: Anchor = { x: 0.5, y: 0.08, below: true };
@@ -108,7 +109,6 @@ export default function Stage({
   rate,
   guests,
   bar,
-  chatTool,
   chatUnread,
   onChat,
   reactions,
@@ -139,8 +139,6 @@ export default function Stage({
   guests: Guest[];
   /** everyone at the bar, this tab included */
   bar: Guest[];
-  /** the chat button for the toolbar, when the café has a chat */
-  chatTool?: ReactNode;
   chatUnread: number;
   /** a click on the bar; without it the bar only says the chat lives in the hosted café */
   onChat?: () => void;
@@ -189,6 +187,12 @@ export default function Stage({
     setPop(pop?.kind === "door" ? null : { kind: "door", anchor: p.anchor });
   };
   const flip = (s: Side) => setDrawer(drawer === s ? null : s);
+  const menu: MenuItem[] = [
+    ...(onChat ? [{ icon: <MessageCircle size={14} />, label: "чат кафе", onClick: onChat, badge: chatUnread }] : []),
+    { icon: <Gamepad2 size={14} />, label: "ігри", onClick: onGames },
+    { icon: <Users size={14} />, label: "агенти", onClick: () => flip("agents") },
+    { icon: <ScrollText size={14} />, label: "журнал подій", onClick: () => flip("log") },
+  ];
   const place = async (p: Placed) => {
     onPlacing(null);
     if (!(await cafe.place(p))) note(TOP, "не вдалося поставити, спробуй ще раз");
@@ -226,11 +230,32 @@ export default function Stage({
           </div>
         </div>
       </ScenePop>
-    ) : pop?.kind === "jukebox" ? (
-      <ScenePop anchor={pop.anchor} label="музичний автомат" onClose={() => setPop(null)}>
+    ) : pop?.kind === "machine" ? (
+      <ScenePop
+        anchor={pop.anchor}
+        label={pop.item === "arcade" ? "ігровий автомат" : "музичний автомат"}
+        onClose={() => setPop(null)}
+      >
         <div className="juke-pop">
-          <b>Музичний автомат</b>
-          <JukeboxList sound={sound} />
+          {pop.item === "arcade" ? (
+            <>
+              <b>Ігровий автомат</b>
+              <button
+                className="btn"
+                onClick={() => {
+                  setPop(null);
+                  onGames();
+                }}
+              >
+                <Gamepad2 size={14} /> грати
+              </button>
+            </>
+          ) : (
+            <>
+              <b>Музичний автомат</b>
+              <JukeboxList sound={sound} />
+            </>
+          )}
           {cafe.editable && (
             <div className="juke-own">
               <button
@@ -280,16 +305,7 @@ export default function Stage({
         <div className="stage-tools">
           {sub}
           <Presence guests={guests} />
-          {chatTool}
-          <button className="btn btn-ic" onClick={onGames} title="ігри">
-            <Gamepad2 size={14} />
-          </button>
-          <button className={`btn btn-ic ${drawer === "agents" ? "on" : ""}`} onClick={() => flip("agents")} title="агенти">
-            <Users size={14} />
-          </button>
-          <button className={`btn btn-ic ${drawer === "log" ? "on" : ""}`} onClick={() => flip("log")} title="журнал подій">
-            <ScrollText size={14} />
-          </button>
+          <SceneMenu items={menu} />
           <button className="btn btn-ic" onClick={toggleFull} title={full ? "вийти з повного екрана" : "на весь екран"}>
             {full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </button>
@@ -315,7 +331,9 @@ export default function Stage({
           onPlacing={cafe.editable ? onPlacing : undefined}
           onPlace={place}
           onFurniture={cafe.editable ? (f, anchor) => setPop({ kind: "furniture", ...f, anchor }) : undefined}
-          onJukebox={(f, anchor) => setPop({ kind: "jukebox", ...f, anchor })}
+          onMachine={(f, anchor) =>
+            f.item === "arcade" && !cafe.editable ? onGames() : setPop({ kind: "machine", ...f, anchor })
+          }
           playing={sound.on ? trackInfo(sound.track).name : null}
           beans={cafe.beans.left}
           pops={pops}

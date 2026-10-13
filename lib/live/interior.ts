@@ -87,6 +87,8 @@ export interface Interior {
   cat2Name?: string;
   /** the café's own name, on the sign and the roof instead of RELAY */
   title?: string;
+  /** the café keeps a dog instead of the ginger cat */
+  pet?: "dog";
 }
 
 export const EMPTY_INTERIOR: Interior = { owned: [], placed: [], looks: {} };
@@ -170,6 +172,7 @@ export function cleanInterior(v: unknown): Interior {
   if (sign) out.sign = sign;
   if (cat2Name) out.cat2Name = cat2Name;
   if (title) out.title = title;
+  if (o.pet === "dog") out.pet = "dog";
   return out;
 }
 

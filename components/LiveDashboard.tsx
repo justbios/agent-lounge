@@ -43,6 +43,7 @@ import House, { ACTIVE_MS } from "./live/House";
 import InviteToast from "./live/InviteToast";
 import { LimitsMini } from "./live/Limits";
 import Presence from "./live/Presence";
+import SceneMenu from "./live/SceneMenu";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
 import SpeechPick from "./live/SpeechPick";
@@ -261,16 +262,6 @@ export default function LiveDashboard({
     social,
     open: chatOpen,
   });
-  const chatTool = chat.on && (
-    <button
-      className={`btn btn-ic btn-dot ${chatOpen ? "on" : ""}`}
-      onClick={() => setChatOpen(!chatOpen)}
-      title="чат кафе"
-    >
-      <MessageCircle size={14} />
-      {chat.unread > 0 && <b>{chat.unread}</b>}
-    </button>
-  );
   const sceneId = whole ? "team" : (session?.id ?? "");
   const [gamesOpen, setGamesOpen] = useState(false);
   const games = useGames({
@@ -433,10 +424,21 @@ export default function LiveDashboard({
           tools={
             <>
               <Presence guests={social.guests} />
-              {chatTool}
-              <button className="btn btn-ic" onClick={() => setGamesOpen(true)} title="ігри">
-                <Gamepad2 size={14} />
-              </button>
+              <SceneMenu
+                items={[
+                  ...(chat.on
+                    ? [
+                        {
+                          icon: <MessageCircle size={14} />,
+                          label: "чат кафе",
+                          onClick: () => setChatOpen(true),
+                          badge: chat.unread,
+                        },
+                      ]
+                    : []),
+                  { icon: <Gamepad2 size={14} />, label: "ігри", onClick: () => setGamesOpen(true) },
+                ]}
+              />
             </>
           }
           onOpen={(id) => zoom("hall", () => (id === LOBBY ? setFocus(null) : openChat(id)))}
@@ -465,7 +467,6 @@ export default function LiveDashboard({
           rate={rate}
           guests={social.guests}
           bar={social.bar}
-          chatTool={chatTool}
           chatUnread={chat.unread}
           onChat={chat.on ? () => setChatOpen(true) : undefined}
           reactions={reactions}
@@ -512,26 +513,6 @@ export default function LiveDashboard({
           }
         />
       )}
-
-      <p className="foot">
-        {cloud ? (
-          <>
-            Наживо: хук Claude Code шле сюди короткі описи дій під твоїм особистим ключем. Бачиш їх лише ти, зберігаються
-            добу, і хук не витрачає токенів.
-          </>
-        ) : (
-          <>
-            Наживо: кожну дію твого Claude Code хук шле на локальний Relay (<code>127.0.0.1:3737</code>). Події не
-            виходять з цього комп&apos;ютера, і хук не витрачає токенів.
-          </>
-        )}{" "}
-        Головний Claude сидить за першим столом. Доручаючи задачу, він несе її субагенту, а той, закінчивши, приносить
-        результат назад. Сцена клікабельна: агент покаже картку, з якої можна кинути йому реакцію, кіт дасться погладити,
-        дошка відкриє підсумок, автомат із напоями й мішечок зерен над стійкою — кав&apos;ярню, вікно змінить вид, двері
-        запросять команду.
-        {cloud && " Усі, хто відкрив це кафе, і ти теж, сидять біля бару, а клік по бару відкриває груповий чат."}
-        {houseOn && " Інші чати живуть у сусідніх залах: кнопка з будиночком угорі віддаляє до всього будинку."}
-      </p>
     </>
   );
 }

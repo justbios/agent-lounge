@@ -93,8 +93,8 @@ export interface CafeState {
   place: (p: Placed) => Promise<boolean>;
   stow: (pid: string) => Promise<boolean>;
   setLook: (agent: string, pick: LookPick | null) => Promise<boolean>;
-  /** the neon sign's own line, the second cat's name and the café's name */
-  setNames: (patch: Pick<Interior, "sign" | "cat2Name" | "title">) => Promise<boolean>;
+  /** the neon sign's own line, the second cat's name, the café's name and whether its pet is a dog */
+  setNames: (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) => Promise<boolean>;
 }
 
 interface Remote {
@@ -239,7 +239,7 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
     else delete looks[agent];
     return fit({ ...interior, looks });
   };
-  const setNames = (patch: Pick<Interior, "sign" | "cat2Name" | "title">) =>
+  const setNames = (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) =>
     fit(cleanInterior({ ...interior, ...patch }));
 
   return {

@@ -1635,6 +1635,9 @@ body {
 .theme-opt:disabled:not(.on) {
   opacity: 0.6;
 }
+.theme-grid.pet-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
 .theme-swatch {
   position: relative;
   height: 44px;
@@ -3590,4 +3593,39 @@ body {
 }
 .team-key-act .btn svg {
   color: inherit;
+}
+.scene-menu-pop {
+  width: 200px;
+  gap: 2px;
+  padding: 6px;
+}
+.scene-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.scene-menu-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.scene-menu-row span {
+  flex: 1;
+}
+.scene-menu-row b {
+  min-width: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  text-align: center;
+  color: #fff;
+  background: #ff4f6d;
+  border-radius: 999px;
 }

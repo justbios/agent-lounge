@@ -55,7 +55,47 @@ function NameForm({
   );
 }
 
-/** Furniture for coffee beans, and the café's own look: the view, its name, the cat's name. */
+const PETS = [
+  { id: "cat", name: "🐈 кіт", hint: "рудий, муркоче, спить на лежаку" },
+  { id: "dog", name: "🐕 песик", hint: "кремовий, вуха висячі, виляє хвостом" },
+] as const;
+
+function PetPicker({ cafe }: { cafe: CafeState }) {
+  const current = cafe.interior.pet ?? "cat";
+  const [busy, setBusy] = useState(false);
+  const [bad, setBad] = useState(false);
+  const pick = async (id: (typeof PETS)[number]["id"]) => {
+    if (id === current || busy) return;
+    setBusy(true);
+    setBad(false);
+    const ok = await cafe.setNames({ pet: id === "dog" ? "dog" : undefined });
+    setBusy(false);
+    setBad(!ok);
+  };
+  return (
+    <div className="theme-pick">
+      <span className="theme-pick-ttl">Улюбленець кафе</span>
+      <div className="theme-grid pet-grid" role="radiogroup" aria-label="улюбленець кафе">
+        {PETS.map((p) => (
+          <button
+            key={p.id}
+            role="radio"
+            aria-checked={p.id === current}
+            className={`theme-opt ${p.id === current ? "on" : ""}`}
+            disabled={busy}
+            onClick={() => pick(p.id)}
+          >
+            <b>{p.name}</b>
+            <span className="ach-hint">{p.hint}</span>
+          </button>
+        ))}
+      </div>
+      {bad && <span className="key-paste-bad">Не вдалося змінити, спробуй ще раз.</span>}
+    </div>
+  );
+}
+
+/** Furniture for coffee beans, and the café's own look: the view, its name, the pet and its name. */
 export default function ShopPanel({
   cafe,
   onClose,
@@ -66,6 +106,7 @@ export default function ShopPanel({
   onPlace: (item: ItemId) => void;
 }) {
   const b = cafe.beans;
+  const dog = cafe.interior.pet === "dog";
   return (
     <Sheet
       label="кав'ярня"
@@ -97,14 +138,15 @@ export default function ShopPanel({
             onSave={(v) => cafe.setNames({ title: v || undefined })}
           />
         )}
+        {cafe.editable && <PetPicker cafe={cafe} />}
         {cafe.editable && (
           <NameForm
             id="cat-name"
-            label="Ім'я кота"
+            label={dog ? "Ім'я песика" : "Ім'я кота"}
             value={cafe.settings.cat_name ?? ""}
             max={24}
-            placeholder="рудий кіт без імені"
-            done="Готово, ім'я вже над котом."
+            placeholder={dog ? "песик без імені" : "рудий кіт без імені"}
+            done={`Готово, ім'я вже над ${dog ? "песиком" : "котом"}.`}
             onSave={(v) => cafe.save({ cat_name: v || null })}
           />
         )}
