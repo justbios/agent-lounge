@@ -1,5 +1,8 @@
 export type ThemeId = "cafe" | "space" | "forest" | "winter";
 
+/** The real time of day outside the windows. */
+export type Phase = "dawn" | "day" | "dusk" | "night";
+
 export interface Theme {
   id: ThemeId;
   name: string;
@@ -29,6 +32,8 @@ export interface Theme {
   windowGlow: string;
   dim: string;
   warm: string;
+  /** set by {@link themeAt} in daylight.ts; a theme as written is night */
+  light?: Phase;
 }
 
 export const THEMES: Record<ThemeId, Theme> = {

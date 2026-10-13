@@ -3142,3 +3142,28 @@ body {
     gap: 6px;
   }
 }
+
+/* ---------- night: the café closes ---------- */
+.cafe-neon.off .cafe-neon-main {
+  color: #4a5560;
+  text-shadow: none;
+  animation: none;
+}
+.cafe-neon.off .cafe-neon-sub {
+  color: #8a7f9a;
+  text-shadow: none;
+  animation: none;
+}
+.cafe-closed {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 1px 4px;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: clamp(6px, 1.1cqw, 11px);
+  letter-spacing: 0.08em;
+  color: #ffd9d9;
+  background: #7a1f2e;
+  border: 1px solid #2a0a10;
+  border-radius: 2px;
+  white-space: nowrap;
+}

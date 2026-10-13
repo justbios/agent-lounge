@@ -10,7 +10,7 @@ import MiniCafe from "../cafe/MiniCafe";
 import { Theme } from "../cafe/theme";
 import { ago, plural } from "./format";
 
-const ACTIVE_MS = 90 * 1000;
+export const ACTIVE_MS = 90 * 1000;
 export const ZOOM_NAME = "hall-zoom";
 
 interface Look {

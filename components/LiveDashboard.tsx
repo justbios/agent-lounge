@@ -2,7 +2,7 @@
 
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
-import { CalendarDays, Gamepad2, Trophy } from "lucide-react";
+import { CalendarDays, Gamepad2, Trophy, Volume2, VolumeX } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
@@ -14,6 +14,7 @@ import { buildTeamModel, memberOf, teamAlert } from "@/lib/live/teamModel";
 import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
 import { useCafe } from "@/lib/live/useCafe";
+import { useCafeSound } from "@/lib/live/useCafeSound";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
@@ -32,7 +33,7 @@ import EventLog from "./live/EventLog";
 import BetStrip from "./live/BetStrip";
 import EmptyCafe from "./live/EmptyCafe";
 import GamesPanel from "./live/GamesPanel";
-import House from "./live/House";
+import House, { ACTIVE_MS } from "./live/House";
 import InviteToast from "./live/InviteToast";
 import { LimitsMini } from "./live/Limits";
 import Presence from "./live/Presence";
@@ -229,6 +230,7 @@ export default function LiveDashboard({
   const tl = useMemo(() => buildTimeline(model), [model]);
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   const working = views.filter((v) => v.screen === "work").length;
+  const sound = useCafeSound(inHouse ? chats.filter((s) => now - s.last < ACTIVE_MS).length : working);
   const spent = model.agents.reduce((sum, a) => sum + (a.tokens ?? 0), 0);
   const viewEvents = useMemo(
     () => (whole ? feed.events : session ? feed.events.filter((e) => e.session === session.id) : []),
@@ -280,6 +282,14 @@ export default function LiveDashboard({
       >
         <button className="btn" onClick={() => setRecapOpen(true)}>
           <CalendarDays size={14} /> підсумок
+        </button>
+        <button
+          className={`btn btn-ic ${sound.on ? "on" : ""}`}
+          onClick={sound.toggle}
+          aria-pressed={sound.on}
+          title={sound.on ? "вимкнути музику кафе" : "музика кафе: lo-fi і клавіатури, гучніше, коли працюють"}
+        >
+          {sound.on ? <Volume2 size={14} /> : <VolumeX size={14} />}
         </button>
         {cafe.progress && (
           <button className="btn" onClick={() => setCafeOpen(true)} title="досягнення і декор кафе">

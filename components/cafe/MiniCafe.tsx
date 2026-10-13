@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
-import { buildTimeline } from "@/lib/cafe/timeline";
+import { agentView, buildTimeline } from "@/lib/cafe/timeline";
 import { Interior } from "@/lib/live/interior";
+import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
 import { drawFrame } from "./frame";
 import { lookFor, pickedLook } from "./people";
@@ -36,6 +37,8 @@ export default function MiniCafe({
   const alertRef = useRef(alert);
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model.agents.length, model.seed]);
   const tl = useMemo(() => buildTimeline(model), [model]);
+  const phase = usePhase();
+  const th = useMemo(() => themeAt(theme, phase), [theme, phase]);
 
   useEffect(() => {
     alertRef.current = alert;
@@ -46,28 +49,34 @@ export default function MiniCafe({
     if (!ctx) return;
     const looks = interior.looks;
     const faces = model.agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(looks[a.id])));
-    const room = buildRoom(lay, model.agents, model.seed, theme, model.agents.map((a) => looks[a.id]?.prop));
+    const room = buildRoom(lay, model.agents, model.seed, th, model.agents.map((a) => looks[a.id]?.prop));
     const furniture = standing(lay, interior.placed, decor ?? NO_DECOR);
     const draw = () => {
       const a = alertRef.current;
+      const clock = Date.now() - origin;
+      const busy = model.agents.some((_, i) => {
+        const v = agentView(model, tl, lay, i, clock);
+        return v.screen === "work" || v.walker;
+      });
       drawFrame(ctx, {
         model,
         lay,
         tl,
         looks: faces,
         room,
-        clock: Date.now() - origin,
+        clock,
         t: performance.now() / 1000,
         alert: a ?? undefined,
         decor,
-        theme,
+        theme: th,
         furniture,
+        closed: phase === "night" && a?.kind !== "ask" && !busy,
       });
     };
     draw();
     const id = setInterval(draw, FRAME_MS);
     return () => clearInterval(id);
-  }, [model, lay, tl, origin, theme, decor, interior]);
+  }, [model, lay, tl, origin, th, phase, decor, interior]);
 
   return <canvas ref={ref} width={lay.width} height={lay.height} aria-hidden />;
 }

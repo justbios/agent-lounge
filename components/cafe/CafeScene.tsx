@@ -10,6 +10,7 @@ import { Guest } from "@/lib/live/social";
 import { AgentCard, ScenePop } from "./AgentCard";
 import { Cat } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
+import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
 import { Ghost, drawFrame } from "./frame";
 import { CAT2 } from "./furniture";
@@ -17,7 +18,7 @@ import { GuestSeat, seatGuests } from "./guests";
 import { HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
-import { buildRoom, fixtures } from "./room";
+import { buildRoom, doorOf, fixtures } from "./room";
 import { Anchor, CafeBubble, FixturePick, Placing, SceneAlert, agentAnchor, anchorAt, fixtureAnchor, onCat } from "./sceneParts";
 import { GuestTags, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
@@ -102,6 +103,11 @@ export default function CafeScene({
   const cat = useMemo(() => new Cat(lay, model.seed), [lay, model.seed]);
   const cat2 = useMemo(() => (hasCat2 ? new Cat(lay, model.seed + 101, CAT2) : null), [hasCat2, lay, model.seed]);
   const tl = useMemo(() => buildTimeline(model), [model]);
+  const phase = usePhase();
+  const th = useMemo(() => themeAt(theme, phase), [theme, phase]);
+  const views = agents.map((_, i) => agentView(model, tl, lay, i, clock));
+  const closed = phase === "night" && alert?.kind !== "ask" && !views.some((v) => v.screen === "work" || v.walker);
+  const closedRef = useRef(closed);
   const stand = useMemo(() => standing(lay, interior.placed, decor ?? NO_DECOR), [lay, interior.placed, decor]);
   const shown = useMemo(() => (placing ? stand.filter((s) => s.pid !== placing.pid) : stand), [stand, placing]);
   const shownRef = useRef<Standing[]>(shown);
@@ -114,9 +120,10 @@ export default function CafeScene({
     alertRef.current = alert;
     decorRef.current = decor;
     namesRef.current = { cat: catName, cat2: cat2Name, sign };
+    closedRef.current = closed;
     seatsRef.current = seats;
     shownRef.current = shown;
-  }, [clock, alert, decor, catName, cat2Name, sign, seats, shown]);
+  }, [clock, alert, decor, catName, cat2Name, sign, seats, shown, closed]);
 
   useEffect(() => {
     if (placing) return;
@@ -133,7 +140,7 @@ export default function CafeScene({
     const faces = agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(looks[a.id])));
     const props = agents.map((a) => looks[a.id]?.prop);
     const named = agents.map((a) => ({ ...a, name: looks[a.id]?.name ?? a.name }));
-    const room = buildRoom(lay, agents, model.seed, theme, props);
+    const room = buildRoom(lay, agents, model.seed, th, props);
     const pin = (el: HTMLElement | null, p: Point) => {
       if (!el) return;
       el.style.left = `${(p.x / lay.width) * 100}%`;
@@ -160,10 +167,11 @@ export default function CafeScene({
         cat2,
         alert: alertRef.current,
         decor: decorRef.current,
-        theme,
+        theme: th,
         guests: seatsRef.current,
         furniture: shownRef.current,
         ghost: ghostRef.current,
+        closed: closedRef.current,
       });
       pin(catRef.current, cat.pos);
       if (cat2) pin(cat2Ref.current, cat2.pos);
@@ -183,7 +191,7 @@ export default function CafeScene({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [model, agents, lay, tl, cat, cat2, theme, looks]);
+  }, [model, agents, lay, tl, cat, cat2, th, looks]);
 
   const nameOf = (i: number) => looks[agents[i].id]?.name ?? agents[i].name;
   const pointAt = (e: MouseEvent | PointerEvent): Point => {
@@ -191,8 +199,8 @@ export default function CafeScene({
     return { x: ((e.clientX - r.left) / r.width) * lay.width, y: ((e.clientY - r.top) / r.height) * lay.height };
   };
   const hitAt = (p: Point): Hit | null => {
-    const views = agents.map((_, i) => agentView(model, tl, lay, i, clockRef.current));
-    return hitTest(lay, views, cat.pos, p);
+    const at = agents.map((_, i) => agentView(model, tl, lay, i, clockRef.current));
+    return hitTest(lay, at, cat.pos, p);
   };
   const ghostAt = (pl: Placing, p: Point): Ghost | null => {
     const it = itemOf(pl.item);
@@ -289,8 +297,9 @@ export default function CafeScene({
     top: `${(y / lay.height) * 100}%`,
   });
   const bubbles = agents
-    .map((_, i) => bubbleFor(model, tl, lay, i, agentView(model, tl, lay, i, clock), clock))
+    .map((_, i) => bubbleFor(model, tl, lay, i, views[i], clock))
     .filter((b): b is Bubble => b != null);
+  const door = doorOf(lay);
   const talking = new Set(bubbles.filter((b) => b.seated).map((b) => b.agent));
   const reactAt = (i: number) => {
     const w = agentView(model, tl, lay, i, clock).walker;
@@ -315,10 +324,15 @@ export default function CafeScene({
           aria-label="Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу. Клікни агента, кота, дошку, автомат, вікно чи двері."
         />
         <div className="cafe-overlay" aria-hidden>
-          <div className="cafe-neon" style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
+          <div className={`cafe-neon ${closed ? "off" : ""}`} style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
             <span className="cafe-neon-main">RELAY</span>
-            <span className="cafe-neon-sub">{sign ?? SIGN_TEXT}</span>
+            <span className="cafe-neon-sub">{closed ? "зачинено до ранку" : (sign ?? SIGN_TEXT)}</span>
           </div>
+          {closed && (
+            <span className="cafe-closed" style={pos(door.x + door.w / 2, door.y - 3)}>
+              зачинено
+            </span>
+          )}
           <span className={`cafe-meter ${rate > 0 ? "on" : ""}`} style={pos(METER.x + METER.w / 2, METER.y + METER.h / 2)}>
             {rate > 0 ? `${fmtTokens(rate)} ток/хв` : "0 ток/хв"}
           </span>

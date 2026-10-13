@@ -75,7 +75,7 @@ export interface Pose {
   carrying: boolean;
 }
 
-export type SeatMode = "idle" | "work" | "done" | "alert";
+export type SeatMode = "idle" | "work" | "done" | "alert" | "nap";
 
 function styleFrontBack(L: number, T: number, k: Look, back: boolean): [Box[], Rect[]] {
   switch (k.style) {
@@ -216,7 +216,7 @@ export function drawPerson(ctx: Ctx, x: number, feetY: number, k: Look, pose: Po
 export function drawSeated(ctx: Ctx, X: number, headTop: number, k: Look, mode: SeatMode, tick: number) {
   const L = X - 5;
   const bob = mode === "work" ? (tick >> 2) & 1 : 0;
-  const T = headTop + bob + (mode === "done" ? 1 : mode === "alert" ? -1 : 0);
+  const T = headTop + bob + (mode === "done" ? 1 : mode === "nap" ? 3 : mode === "alert" ? -1 : 0);
   const up = mode === "work" ? tick & 1 : -1;
   const elbowL = T + 9 - (up === 0 ? 1 : 0);
   const elbowR = T + 9 - (up === 1 ? 1 : 0);

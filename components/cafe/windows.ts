@@ -1,19 +1,39 @@
 import { Ctx, LINE, px, rand } from "./pixel";
 import type { Fixtures } from "./room";
-import { Theme } from "./theme";
+import { Phase, Theme } from "./theme";
 
 const IY = 7;
 const IH = 25;
 
+const BUILDINGS: Record<Phase, [string, string]> = {
+  night: ["#0a0c20", "#0d1029"],
+  dawn: ["#2a2748", "#322d55"],
+  day: ["#43567a", "#4f6388"],
+  dusk: ["#221f40", "#2a2549"],
+};
+/** how many windows are lit, as the share left dark */
+const DARK: Record<Phase, number> = { night: 0.62, dusk: 0.66, dawn: 0.84, day: 0.55 };
+const PINES: Record<Phase, [string, string]> = {
+  night: ["#07120d", "#0a1a12"],
+  dawn: ["#132219", "#182a1f"],
+  day: ["#2e5a3a", "#386b45"],
+  dusk: ["#0f1d15", "#14251b"],
+};
+
 function city(ctx: Ctx, ix: number, iw: number, seed: number, th: Theme) {
+  const light = th.light ?? "night";
+  const [b0, b1] = BUILDINGS[light];
   for (let bx = ix, b = 0; bx < ix + iw; b++) {
     const bw = Math.min(5 + Math.floor(rand(seed * 31 + b) * 7), ix + iw - bx);
     const bh = 7 + Math.floor(rand(seed * 17 + b * 3) * 12);
     const top = IY + IH - bh;
-    px(ctx, bx, top, bw, bh, b % 2 ? "#0a0c20" : "#0d1029");
+    px(ctx, bx, top, bw, bh, b % 2 ? b0 : b1);
     for (let wy = top + 2; wy < IY + IH - 1; wy += 3) {
       for (let wx = bx + 1; wx < bx + bw - 1; wx += 2) {
-        if (rand(wx * 3.1 + wy * 7.7 + seed) > 0.62) px(ctx, wx, wy, 1, 1, rand(wx + wy) > 0.8 ? "#7fd4ff" : "#ffd27a");
+        if (rand(wx * 3.1 + wy * 7.7 + seed) <= DARK[light]) continue;
+        const r = rand(wx + wy);
+        const glass = light === "day" ? (r > 0.5 ? "#9db6d4" : "#7f97b8") : r > 0.8 ? "#7fd4ff" : "#ffd27a";
+        px(ctx, wx, wy, 1, 1, glass);
       }
     }
     if (th.snowCaps) px(ctx, bx, top, bw, 1, "#e6ecff");
@@ -51,16 +71,33 @@ function planet(ctx: Ctx, ix: number, iw: number, seed: number) {
   for (let k = 0; k < 10; k++) px(ctx, ix + Math.floor(rand(seed * 90 + k) * iw), IY + 14 + Math.floor(rand(seed * 40 + k) * 10), 1, 1, "#3a2f6b");
 }
 
-function pines(ctx: Ctx, ix: number, iw: number, seed: number) {
+function pines(ctx: Ctx, ix: number, iw: number, seed: number, light: Phase) {
+  const [p0, p1] = PINES[light];
   for (let bx = ix - 3, b = 0; bx < ix + iw; b++) {
     const h = 9 + Math.floor(rand(seed * 23 + b) * 9);
-    const c = b % 2 ? "#07120d" : "#0a1a12";
+    const c = b % 2 ? p0 : p1;
     for (let r = 0; r < h; r++) {
       const half = Math.floor(r / 2.4);
       for (let x = bx - half; x <= bx + half; x++) if (x >= ix && x < ix + iw) px(ctx, x, IY + IH - h + r, 1, 1, c);
     }
     bx += 5 + Math.floor(rand(seed * 11 + b) * 5);
   }
+}
+
+/** The moon at night, the sun by day, and a low red sun at dawn and dusk, sinking behind the skyline. */
+function drawSkyLight(ctx: Ctx, ix: number, light: Phase) {
+  if (light === "night") {
+    px(ctx, ix + 7, IY + 3, 4, 4, "#f4ecc8");
+    px(ctx, ix + 8, IY + 4, 1, 1, "#d8cfa4");
+    return;
+  }
+  const low = light !== "day";
+  const x = ix + (light === "dusk" ? 14 : 6);
+  const y = low ? IY + 13 : IY + 2;
+  const [rim, core] = low ? ["#ff7a4a", "#ffc070"] : ["#ffd84a", "#fff3b0"];
+  px(ctx, x, y + 1, 6, 4, rim);
+  px(ctx, x + 1, y, 4, 6, rim);
+  px(ctx, x + 1, y + 1, 4, 4, core);
 }
 
 /** A window onto the theme's outside: city, open space or forest, with the static part of the sky. */
@@ -70,15 +107,16 @@ export function drawWindow(ctx: Ctx, x: number, w: number, seed: number, th: The
   const ix = x + 2;
   const iw = w - 4;
   th.sky.forEach((c, k) => px(ctx, ix, IY + k * 5, iw, 5, c));
-  const stars = th.skyline === "planet" ? 16 : 6;
-  for (let k = 0; k < stars; k++) px(ctx, ix + Math.floor(rand(seed * 50 + k) * iw), IY + Math.floor(rand(seed * 70 + k) * (th.skyline === "planet" ? 22 : 10)), 1, 1, th.stars);
-  if (seed === 0 && th.skyline !== "planet") {
-    px(ctx, ix + 7, IY + 3, 4, 4, "#f4ecc8");
-    px(ctx, ix + 8, IY + 4, 1, 1, "#d8cfa4");
-  }
+  const light = th.light ?? "night";
+  const planetary = th.skyline === "planet";
+  const stars = planetary ? 16 : light === "night" ? 6 : 0;
+  const band = planetary ? 22 : 10;
+  for (let k = 0; k < stars; k++)
+    px(ctx, ix + Math.floor(rand(seed * 50 + k) * iw), IY + Math.floor(rand(seed * 70 + k) * band), 1, 1, th.stars);
+  if (seed === 0 && !planetary) drawSkyLight(ctx, ix, light);
   if (th.skyline === "city") city(ctx, ix, iw, seed, th);
-  else if (th.skyline === "planet") planet(ctx, ix, iw, seed);
-  else pines(ctx, ix, iw, seed);
+  else if (planetary) planet(ctx, ix, iw, seed);
+  else pines(ctx, ix, iw, seed, light);
   if (th.skyline !== "planet") {
     px(ctx, x + w / 2 - 1, IY, 2, IH, th.frame);
     px(ctx, ix, IY + 12, iw, 1, th.frame);

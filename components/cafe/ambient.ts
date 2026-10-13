@@ -39,9 +39,9 @@ export function drawAmbient(ctx: Ctx, t: number, width: number, th: Theme = THEM
   hand(ctx, fx.CLOCK, -Math.PI / 2 + t * 0.03, 3, "#7a2d3a");
 }
 
-/** The coffee bar on the left wall: barista first, then the counter in front of them. */
-export function drawBar(ctx: Ctx, t: number, gold = false) {
-  drawPerson(ctx, 25, 71, BARISTA, { dir: t % 7 < 1.8 ? "left" : "down", step: 0, carrying: false });
+/** The coffee bar on the left wall: barista first, then the counter in front of them; a closed café has no barista. */
+export function drawBar(ctx: Ctx, t: number, gold = false, open = true) {
+  if (open) drawPerson(ctx, 25, 71, BARISTA, { dir: t % 7 < 1.8 ? "left" : "down", step: 0, carrying: false });
 
   px(ctx, 0, 63, 47, 20, LINE);
   px(ctx, 0, 64, 46, 8, "#8a6448");
@@ -58,7 +58,7 @@ export function drawBar(ctx: Ctx, t: number, gold = false) {
   px(ctx, 9, 52, 1, 1, "#4ade80");
   px(ctx, 8, 58, 5, 6, "#1a1a20");
   px(ctx, 9, 61, 3, 3, "#ece4d6");
-  steamPuff(ctx, 10, 45, t, 4, 9);
+  if (open) steamPuff(ctx, 10, 45, t, 4, 9);
 
   for (const x of [20, 24]) {
     px(ctx, x - 1, 65, 5, 5, LINE);
@@ -76,22 +76,39 @@ export function drawCupSteam(ctx: Ctx, x: number, y: number, t: number) {
   steamPuff(ctx, x, y, t, 3, 7);
 }
 
-/** Dims the room, then adds every light source on top. */
-export function drawLights(ctx: Ctx, lay: CafeLayout, views: AgentView[], colors: string[], t: number, th: Theme = THEMES.cafe) {
+const WINDOW_LIGHT = { day: ["#fff1cc", 0.2], dawn: ["#ffb27a", 0.12], dusk: ["#ff9a6a", 0.1] } as const;
+
+/** Dims the room, then adds every light source on top; a closed café keeps only screens, windows and the machine. */
+export function drawLights(
+  ctx: Ctx,
+  lay: CafeLayout,
+  views: AgentView[],
+  colors: string[],
+  t: number,
+  th: Theme = THEMES.cafe,
+  closed = false,
+) {
   ctx.fillStyle = th.dim;
   ctx.fillRect(0, 0, lay.width, lay.height);
+  if (closed) {
+    ctx.fillStyle = "rgba(3,2,10,0.38)";
+    ctx.fillRect(0, 0, lay.width, lay.height);
+  }
   ctx.globalCompositeOperation = "lighter";
 
   const { SIGN, SCONCES, WINDOWS, VENDING } = fixtures(lay.width);
   const flick = rand(Math.floor(t * 9)) > 0.96 ? 0.35 : 0.9 + 0.1 * Math.sin(t * 17);
   const sx = SIGN.x + SIGN.w / 2;
   const sy = SIGN.y + SIGN.h / 2;
-  glow(ctx, sx, sy, 74, "#ff4fa3", 0.16 * flick);
-  glow(ctx, sx, sy - 3, 44, "#5ce1ff", 0.1 * flick);
-  for (const x of SCONCES) glow(ctx, x, 13, 34, th.lampGlow, 0.22);
-  for (const w of WINDOWS) glow(ctx, w.x + w.w / 2, 20, 40, th.windowGlow, 0.06);
+  const sign = closed ? 0.2 : 1;
+  glow(ctx, sx, sy, 74, "#ff4fa3", 0.16 * flick * sign);
+  glow(ctx, sx, sy - 3, 44, "#5ce1ff", 0.1 * flick * sign);
+  if (!closed) for (const x of SCONCES) glow(ctx, x, 13, 34, th.lampGlow, 0.22);
+  const lit = th.skyline !== "planet" && th.light && th.light !== "night" ? WINDOW_LIGHT[th.light] : null;
+  const [wc, wa] = lit ?? [th.windowGlow, 0.06];
+  for (const w of WINDOWS) glow(ctx, w.x + w.w / 2, 20, 40, wc, wa);
   glow(ctx, VENDING.x + 12, VENDING.y + 22, 36, "#59d8ff", 0.15);
-  for (const top of lay.bands) glow(ctx, lay.width / 2, top + 30, 160, th.warm, 0.045);
+  if (!closed) for (const top of lay.bands) glow(ctx, lay.width / 2, top + 30, 160, th.warm, 0.045);
 
   views.forEach((v, i) => {
     const d = lay.desks[i];

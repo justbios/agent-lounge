@@ -4,8 +4,10 @@ import { AgentView, CafeTimeline, Walker, agentView } from "@/lib/cafe/timeline"
 import { drawAmbient, drawBar, drawCupSteam, drawLights } from "./ambient";
 import { Cat } from "./cat";
 import { DecorSet, drawDecor, drawDecorLights } from "./decor";
+import { drawFlights } from "./flight";
 import { drawItem, itemLight } from "./furniture";
 import { GuestSeat, drawGuests } from "./guests";
+import { Pastime, REST_MS, drawPastime, drawZzz, pastimeOf } from "./idle";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
 import { Ctx, LINE, paint, px, rand, shade } from "./pixel";
 import { Standing } from "./placement";
@@ -31,6 +33,8 @@ export interface FrameInput {
   furniture?: Standing[];
   /** the piece being placed, under the pointer */
   ghost?: Ghost | null;
+  /** night and nobody working: the lights go down, the barista goes home, everyone at a desk dozes */
+  closed?: boolean;
 }
 
 export interface Ghost {
@@ -129,7 +133,13 @@ function seatMode(v: AgentView): SeatMode {
   return "idle";
 }
 
-function drawStation(ctx: Ctx, d: Desk, v: AgentView, color: string, look: Look, f: FrameInput, i: number) {
+function lastEnd(stints: { start: number; end: number }[], clock: number): number {
+  let end = -Infinity;
+  for (const s of stints) if (s.end <= clock && s.end > end) end = s.end;
+  return end;
+}
+
+function drawStation(ctx: Ctx, d: Desk, v: AgentView, color: string, look: Look, f: FrameInput, i: number): Pastime {
   const tick = Math.floor(f.clock / 110);
   const flag = f.alert?.agent === i ? f.alert.kind : null;
   const asking = flag === "ask" && !v.walker;
@@ -140,11 +150,18 @@ function drawStation(ctx: Ctx, d: Desk, v: AgentView, color: string, look: Look,
     : v.screen === "work" ? (tick % 3 ? color : "#ffffff") : v.screen === "done" ? "#4ade80" : v.screen === "incoming" ? "#ffd25a" : "#3a3550";
   px(ctx, d.x + 15, d.top + 5, 1, 1, led);
   if (v.screen === "work" && !asking) drawCupSteam(ctx, d.x - 15, d.top + 13, f.t + i * 0.31);
+  let pastime: Pastime = null;
   if (!v.walker) {
-    drawSeated(ctx, d.x, d.top + 20, look, asking ? "alert" : seatMode(v), tick);
+    const mode = seatMode(v);
+    const free = (mode === "idle" || mode === "done") && !flag;
+    const rested = free && f.clock - lastEnd(f.model.stints[i], f.clock) > REST_MS;
+    pastime = rested ? pastimeOf(i, f.t, !!f.closed) : null;
+    drawSeated(ctx, d.x, d.top + 20, look, asking ? "alert" : pastime === "nap" ? "nap" : mode, tick);
     if (asking) drawRaisedHand(ctx, d.x, d.top + 20, look, f.t);
+    if (pastime) drawPastime(ctx, pastime, d.x, d.top + 20, look, f.t, i);
   }
   drawChair(ctx, d.x, d.top, color);
+  return pastime;
 }
 
 /** Spent tokens pile up as paper beside the desk: a sheet per third of an order of magnitude past ten thousand. */
@@ -191,7 +208,7 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   ctx.globalAlpha = 1;
   ctx.drawImage(f.room, 0, 0);
   drawAmbient(ctx, t, lay.width, f.theme);
-  drawBar(ctx, t, decor.has("goldMachine"));
+  drawBar(ctx, t, decor.has("goldMachine"), !f.closed);
   if (f.guests) drawGuests(ctx, f.guests, t);
   drawDecor(ctx, lay, decor, t);
   const furniture = f.furniture ?? [];
@@ -200,7 +217,7 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   }
 
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
-  views.forEach((v, i) => drawStation(ctx, lay.desks[i], v, model.agents[i].color, looks[i], f, i));
+  const pastimes = views.map((v, i) => drawStation(ctx, lay.desks[i], v, model.agents[i].color, looks[i], f, i));
   model.agents.forEach((a, i) => a.tokens && drawPaper(ctx, lay.desks[i], a.tokens, i));
 
   const sprites: { y: number; draw: () => void }[] = [];
@@ -215,12 +232,14 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   furniture.forEach((s) => s.layer === "floor" && sprites.push({ y: s.bottom, draw: () => drawItem(ctx, s.item, s.w, s.cx, s.bottom, t) }));
   sprites.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 
-  drawLights(ctx, lay, views, model.agents.map((a) => a.color), t, f.theme);
+  drawLights(ctx, lay, views, model.agents.map((a) => a.color), t, f.theme, f.closed);
   drawDecorLights(ctx, lay, decor, t);
   if (furniture.length) {
     ctx.globalCompositeOperation = "lighter";
     furniture.forEach((s) => itemLight(ctx, s.item, s.cx, s.bottom, t));
     ctx.globalCompositeOperation = "source-over";
   }
+  pastimes.forEach((p, i) => p === "nap" && drawZzz(ctx, lay.desks[i].x, lay.desks[i].top + 20, t, i));
+  drawFlights(ctx, model, lay, clock);
   if (f.ghost) drawGhost(ctx, f.ghost, t);
 }
