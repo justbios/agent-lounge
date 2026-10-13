@@ -6,6 +6,8 @@ const SPEED = 0.018;
 const FUR = "#e8913a";
 const FUR_DARK = "#b8642a";
 const BELLY = "#f6d7a8";
+const PET_MS = 3800;
+const HEART = [[1, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [2, 3]];
 
 type Mode = "walk" | "sit" | "nap";
 type Paint = (dx: number, dy: number, w: number, h: number, c: string) => void;
@@ -27,6 +29,7 @@ export class Cat {
   private dir: Dir = "right";
   private mode: Mode = "sit";
   private until = 0;
+  private petAt = -Infinity;
   private r: () => number;
 
   constructor(
@@ -48,6 +51,14 @@ export class Cat {
     }
     const band = Math.floor(this.r() * lay.walkY.length);
     return { p: { x: Math.round(14 + this.r() * (lay.width - 28)), y: lay.walkY[band] }, band };
+  }
+
+  /** Stops the cat where it is and makes it purr for a few seconds. */
+  pet(nowMs: number) {
+    this.petAt = nowMs;
+    this.mode = "sit";
+    this.until = Math.max(this.until, nowMs + PET_MS);
+    if (this.dir === "up" || this.dir === "down") this.dir = "right";
   }
 
   step(dtMs: number, nowMs: number, busy: number[]) {
@@ -80,7 +91,22 @@ export class Cat {
     return { x: this.x, y: this.y };
   }
 
-  draw(ctx: Ctx, t: number, crown = false) {
+  private drawHearts(ctx: Ctx, nowMs: number) {
+    const age = nowMs - this.petAt;
+    if (age < 0 || age > PET_MS) return;
+    for (let k = 0; k < 3; k++) {
+      const ph = (age / 1400 + k / 3) % 1;
+      if (age < k * 380) continue;
+      ctx.globalAlpha = Math.min(1, (1 - ph) * 1.6) * (age > PET_MS - 600 ? (PET_MS - age) / 600 : 1);
+      const hx = Math.round(this.x - 2 + Math.sin((ph + k) * 6) * 3 + (k - 1) * 4);
+      const hy = Math.round(this.y - 16 - ph * 14);
+      for (const [dx, dy] of HEART) px(ctx, hx + dx, hy + dy, 1, 1, "#ff6b9a");
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  draw(ctx: Ctx, t: number, crown = false, nowMs = t * 1000) {
+    this.drawHearts(ctx, nowMs);
     const X = Math.round(this.x);
     const Y = Math.round(this.y);
     const flip = this.dir === "left";

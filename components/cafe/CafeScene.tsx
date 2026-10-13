@@ -1,15 +1,18 @@
 "use client";
 
-import { CSSProperties, useEffect, useMemo, useRef } from "react";
-import { cafeLayout } from "@/lib/cafe/layout";
+import { CSSProperties, MouseEvent, PointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { CafeLayout, cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
-import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
+import { Bubble, CafeTimeline, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
+import { Point } from "@/lib/layout";
+import { AgentCard, ScenePop } from "./AgentCard";
 import { Cat } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
 import { DecorSet } from "./decor";
 import { drawFrame } from "./frame";
+import { FixtureKind, HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor } from "./people";
-import { buildRoom, fixtures } from "./room";
+import { buildRoom, doorOf, fixtures } from "./room";
 import { THEMES, Theme } from "./theme";
 
 const TYPE_MS_PER_CHAR = 22;
@@ -18,6 +21,45 @@ export interface SceneAlert {
   agent: number;
   kind: "ask" | "done";
   text: string;
+}
+
+/** Where a popover hangs, as fractions of the scene: below or above that point, or beside it on one side. */
+export interface Anchor {
+  x: number;
+  y: number;
+  below: boolean;
+  beside?: "left" | "right";
+}
+
+export interface FixturePick {
+  kind: FixtureKind;
+  anchor: Anchor;
+}
+
+function anchorAt(lay: CafeLayout, x: number, top: number, bottom: number): Anchor {
+  const below = top < lay.height * 0.55;
+  return { x: x / lay.width, y: (below ? bottom : top) / lay.height, below };
+}
+
+function fixtureAnchor(lay: CafeLayout, kind: FixtureKind, p: Point): Anchor {
+  if (kind === "door") {
+    const d = doorOf(lay);
+    return anchorAt(lay, d.x + d.w / 2, d.y - 8, d.y);
+  }
+  if (kind === "vending") {
+    const v = fixtures(lay.width).VENDING;
+    return anchorAt(lay, v.x + v.w / 2, v.y, v.y + v.h);
+  }
+  return anchorAt(lay, p.x, 4, 36);
+}
+
+function agentAnchor(model: CafeModel, tl: CafeTimeline, lay: CafeLayout, i: number, clock: number): Anchor {
+  const w = agentView(model, tl, lay, i, clock).walker;
+  const x = w ? w.x : lay.desks[i].x;
+  const top = w ? w.y - 26 : lay.desks[i].top - 4;
+  const bottom = w ? w.y + 2 : lay.desks[i].top + 46;
+  const below = top < lay.height * 0.5;
+  return { x: x / lay.width, y: (below ? top : bottom) / lay.height, below, beside: x > lay.width / 2 ? "left" : "right" };
 }
 
 function CafeBubble({ b, name, color, style }: { b: Bubble; name: string; color: string; style: CSSProperties }) {
@@ -43,6 +85,8 @@ export default function CafeScene({
   decor,
   catName,
   theme = THEMES.cafe,
+  onPick,
+  pops,
 }: {
   model: CafeModel;
   clock: number;
@@ -50,7 +94,12 @@ export default function CafeScene({
   decor?: DecorSet;
   catName?: string | null;
   theme?: Theme;
+  /** a fixture was clicked, or null for a click on bare floor */
+  onPick?: (pick: FixturePick | null) => void;
+  /** popovers the page hangs over the scene, positioned by an {@link Anchor} */
+  pops?: ReactNode;
 }) {
+  const [sel, setSel] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const catRef = useRef<HTMLSpanElement>(null);
   const clockRef = useRef(clock);
@@ -111,6 +160,39 @@ export default function CafeScene({
     return () => cancelAnimationFrame(raf);
   }, [model, agents, lay, tl, cat, theme]);
 
+  const pointAt = (e: MouseEvent | PointerEvent): Point => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) / r.width) * lay.width, y: ((e.clientY - r.top) / r.height) * lay.height };
+  };
+  const hitAt = (p: Point): Hit | null => {
+    const views = agents.map((_, i) => agentView(model, tl, lay, i, clockRef.current));
+    return hitTest(lay, views, cat.pos, p);
+  };
+  const hover = (e: PointerEvent<HTMLCanvasElement>) => {
+    const h = hitAt(pointAt(e));
+    const el = e.currentTarget;
+    el.style.cursor = h ? "pointer" : "";
+    el.title = !h ? "" : h.kind === "agent" ? `${agents[h.agent].name}: ${HIT_HINT.agent}` : HIT_HINT[h.kind];
+  };
+  const click = (e: MouseEvent<HTMLCanvasElement>) => {
+    const p = pointAt(e);
+    const h = hitAt(p);
+    if (h?.kind === "agent") {
+      const id = agents[h.agent].id;
+      setSel(sel === id ? null : id);
+      onPick?.(null);
+      return;
+    }
+    setSel(null);
+    if (h?.kind === "cat") {
+      cat.pet(performance.now());
+      onPick?.(null);
+      return;
+    }
+    onPick?.(h ? { kind: h.kind, anchor: fixtureAnchor(lay, h.kind, p) } : null);
+  };
+  const selIdx = sel == null ? -1 : agents.findIndex((a) => a.id === sel);
+
   const { SIGN } = fixtures(lay.width);
   const pos = (x: number, y: number): CSSProperties => ({
     left: `${(x / lay.width) * 100}%`,
@@ -122,46 +204,69 @@ export default function CafeScene({
   const talking = new Set(bubbles.filter((b) => b.seated).map((b) => b.agent));
 
   return (
-    <div className="arcade cafe" style={{ "--k": 384 / lay.width } as CSSProperties}>
-      <canvas
-        ref={canvasRef}
-        width={lay.width}
-        height={lay.height}
-        aria-label="Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу"
-      />
-      <div className="cafe-overlay" aria-hidden>
-        <div className="cafe-neon" style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
-          <span className="cafe-neon-main">RELAY</span>
-          <span className="cafe-neon-sub">інтернет-кафе</span>
-        </div>
-        {agents.map((a, i) => {
-          if (talking.has(i)) return null;
-          const ask = alert?.kind === "ask" && alert.agent === i;
-          return (
-            <span
-              key={a.id}
-              className={`cafe-name ${ask ? "ask" : ""}`}
-              style={{ ...pos(lay.desks[i].x, lay.desks[i].top - 2), color: a.color }}
-            >
-              {a.name.toLowerCase()}
-              {ask && <b> · {alert.text}</b>}
+    <div className="cafe-wrap" style={{ "--ar": lay.width / lay.height } as CSSProperties}>
+      <div className="arcade cafe" style={{ "--k": 384 / lay.width } as CSSProperties}>
+        <canvas
+          ref={canvasRef}
+          width={lay.width}
+          height={lay.height}
+          onClick={click}
+          onPointerMove={hover}
+          aria-label="Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу. Клікни агента, кота, дошку, автомат, вікно чи двері."
+        />
+        <div className="cafe-overlay" aria-hidden>
+          <div className="cafe-neon" style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
+            <span className="cafe-neon-main">RELAY</span>
+            <span className="cafe-neon-sub">інтернет-кафе</span>
+          </div>
+          {agents.map((a, i) => {
+            if (talking.has(i)) return null;
+            const ask = alert?.kind === "ask" && alert.agent === i;
+            return (
+              <span
+                key={a.id}
+                className={`cafe-name ${ask ? "ask" : ""}`}
+                style={{ ...pos(lay.desks[i].x, lay.desks[i].top - 2), color: a.color }}
+              >
+                {a.name.toLowerCase()}
+                {ask && <b> · {alert.text}</b>}
+              </span>
+            );
+          })}
+          {catName && (
+            <span ref={catRef} className="cafe-cat">
+              {catName}
             </span>
-          );
-        })}
-        {catName && (
-          <span ref={catRef} className="cafe-cat">
-            {catName}
-          </span>
+          )}
+          {bubbles.map((b) => (
+            <CafeBubble
+              key={b.key}
+              b={b}
+              name={agents[b.agent].name}
+              color={agents[b.agent].color}
+              style={pos(b.x, b.y)}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="cafe-pops">
+        {selIdx >= 0 && (
+          <ScenePop
+            anchor={agentAnchor(model, tl, lay, selIdx, clock)}
+            color={agents[selIdx].color}
+            label={agents[selIdx].name}
+            onClose={() => setSel(null)}
+          >
+            <AgentCard
+              model={model}
+              view={agentView(model, tl, lay, selIdx, clock)}
+              agent={selIdx}
+              clock={clock}
+              asking={alert?.kind === "ask" && alert.agent === selIdx ? alert.text : undefined}
+            />
+          </ScenePop>
         )}
-        {bubbles.map((b) => (
-          <CafeBubble
-            key={b.key}
-            b={b}
-            name={agents[b.agent].name}
-            color={agents[b.agent].color}
-            style={pos(b.x, b.y)}
-          />
-        ))}
+        {pops}
       </div>
     </div>
   );

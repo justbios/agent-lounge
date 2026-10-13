@@ -36,6 +36,30 @@ export function fixtures(width: number): Fixtures {
   return fx;
 }
 
+/** The way in: a gap in the front wall at the bottom of the room, with a mat. */
+export function doorOf(lay: CafeLayout) {
+  const w = 30;
+  return { x: Math.round(lay.width / 2 - w / 2), y: lay.height - 9, w, h: 9 };
+}
+
+function drawDoor(ctx: Ctx, lay: CafeLayout, th: Theme) {
+  const d = doorOf(lay);
+  const wallY = lay.height - 3;
+  px(ctx, 0, wallY, d.x - 2, 3, th.baseboard);
+  px(ctx, d.x + d.w + 2, wallY, lay.width - d.x - d.w - 2, 3, th.baseboard);
+  px(ctx, 0, wallY, d.x - 2, 1, th.rail);
+  px(ctx, d.x + d.w + 2, wallY, lay.width - d.x - d.w - 2, 1, th.rail);
+  for (const x of [d.x - 3, d.x + d.w + 1]) {
+    px(ctx, x, wallY - 2, 2, 5, LINE);
+    px(ctx, x, wallY - 2, 2, 1, th.sill);
+  }
+  px(ctx, d.x + 3, d.y, d.w - 6, 5, LINE);
+  px(ctx, d.x + 4, d.y + 1, d.w - 8, 3, "#5a2d3a");
+  for (let x = d.x + 6; x < d.x + d.w - 6; x += 3) px(ctx, x, d.y + 2, 1, 1, "#8a4b58");
+  px(ctx, d.x + d.w - 1, wallY - 9, 2, 9, LINE);
+  px(ctx, d.x + d.w, wallY - 8, 1, 8, th.frame);
+}
+
 function drawFloor(ctx: Ctx, lay: CafeLayout, th: Theme) {
   for (let y = WALL_H, k = 0; y < lay.height; y += 5, k++) {
     px(ctx, 0, y, lay.width, 5, th.planks[k % th.planks.length]);
@@ -210,6 +234,7 @@ export function buildRoom(lay: CafeLayout, agents: AgentDef[], seed = 1, th: The
   const ctx = c.getContext("2d")!;
   drawFloor(ctx, lay, th);
   drawRugs(ctx, lay);
+  drawDoor(ctx, lay, th);
   drawWall(ctx, lay.width, th);
   drawStools(ctx);
   drawVending(ctx, fixtures(lay.width));

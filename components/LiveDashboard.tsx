@@ -15,8 +15,7 @@ import { useCafe } from "@/lib/live/useCafe";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
-import CafeScene, { SceneAlert } from "./cafe/CafeScene";
-import { themeOf } from "./cafe/theme";
+import { SceneAlert } from "./cafe/CafeScene";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
 import CafePanel from "./live/CafePanel";
@@ -26,6 +25,7 @@ import EventLog from "./live/EventLog";
 import EmptyCafe from "./live/EmptyCafe";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
+import Stage from "./live/Stage";
 import StatBar from "./live/StatBar";
 import TeamBar from "./live/TeamBar";
 import { ago } from "./live/format";
@@ -262,10 +262,10 @@ export default function LiveDashboard({
         />
       )}
 
-      <section className="card stage-card">
-        <div className="card-hd">
-          <span className="card-ttl">{whole ? "уся команда" : session ? session.label : "інтернет-кафе"}</span>
-          {replay && replay.session === session?.id ? (
+      <Stage
+        title={whole ? "уся команда" : session ? session.label : "інтернет-кафе"}
+        sub={
+          replay && replay.session === session?.id ? (
             <ReplayBar
               replay={replay}
               playing={playing}
@@ -277,39 +277,39 @@ export default function LiveDashboard({
             <span className="muted-sm">
               {whole ? `${team.members.length} за столами` : session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}
             </span>
-          )}
-        </div>
-        <div className="stage-pad stage-rel">
-          <CafeScene
+          )
+        }
+        model={model}
+        clock={clock}
+        alert={alert}
+        cafe={cafe}
+        empty={!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
+        cloud={cloud}
+        roomKey={roomKey}
+        viewing={viewing}
+        onRecap={() => setRecapOpen(true)}
+        onCafe={() => setCafeOpen(true)}
+        agents={
+          <AgentList
             model={model}
+            views={views}
             clock={clock}
             alert={alert}
-            decor={cafe.decor}
-            catName={cafe.settings.cat_name}
-            theme={themeOf(cafe.settings.theme)}
+            rosterCount={whole ? 0 : roster.length}
+            title={whole ? "команда" : "агенти"}
+            askText={whole && teamAttn && team.members[teamAttn.seat] !== team.me ? "чекає" : undefined}
           />
-          {!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
-        </div>
-      </section>
-
-      <div className="grid-2">
-        <EventLog
-          events={feed.events}
-          session={whole ? null : (session?.id ?? null)}
-          agents={model.agents}
-          seatOf={scene?.seatOf}
-          team={whole ? team.colorOf : undefined}
-        />
-        <AgentList
-          model={model}
-          views={views}
-          clock={clock}
-          alert={alert}
-          rosterCount={whole ? 0 : roster.length}
-          title={whole ? "команда" : "агенти"}
-          askText={whole && teamAttn && team.members[teamAttn.seat] !== team.me ? "чекає" : undefined}
-        />
-      </div>
+        }
+        log={
+          <EventLog
+            events={feed.events}
+            session={whole ? null : (session?.id ?? null)}
+            agents={model.agents}
+            seatOf={scene?.seatOf}
+            team={whole ? team.colorOf : undefined}
+          />
+        }
+      />
 
       <p className="foot">
         {cloud ? (
@@ -324,7 +324,8 @@ export default function LiveDashboard({
           </>
         )}{" "}
         Головний Claude сидить за першим столом. Доручаючи задачу, він несе її субагенту, а той, закінчивши, приносить
-        результат назад.
+        результат назад. Сцена клікабельна: агент покаже картку, кіт дасться погладити, дошка відкриє підсумок, автомат
+        досягнення, вікно змінить вид, двері запросять команду.
       </p>
     </>
   );
