@@ -4,8 +4,9 @@ import { FormEvent, ReactNode, useState, useSyncExternalStore } from "react";
 import { Users, UserPlus } from "lucide-react";
 import { ROOM_KEY } from "@/lib/live/hookConfig.mjs";
 import { cleanMember } from "@/lib/live/member";
+import { useAccess } from "@/lib/live/access";
 import { newKey, saveKey } from "@/lib/live/relayKey";
-import { rememberCafe, setMe, useCafes, useMe } from "@/lib/live/team";
+import { KnownCafe, rememberCafe, setMe, useCafes, useMe } from "@/lib/live/team";
 
 const TEAM = /[#&]team=([A-Za-z0-9_-]{20,128})/;
 
@@ -48,7 +49,7 @@ function NameForm({ initial, button, onSave }: { initial: string; button: string
   );
 }
 
-function Step({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
+export function Step({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <div className="step">
       <div className="step-n">{icon}</div>
@@ -62,6 +63,7 @@ function Step({ icon, title, children }: { icon: ReactNode; title: string; child
 
 export function JoinTeam({ teamKey, current }: { teamKey: string; current: string | null }) {
   const valid = ROOM_KEY.test(teamKey);
+  const access = useAccess(valid ? teamKey : null);
   const join = (name: string) => {
     if (current && current !== teamKey) rememberCafe(current, "моє кафе");
     rememberCafe(teamKey, "кафе команди");
@@ -70,6 +72,21 @@ export function JoinTeam({ teamKey, current }: { teamKey: string; current: strin
     clearHash();
   };
   if (!valid) return <p className="key-paste-bad">Посилання-запрошення пошкоджене. Попроси нове.</p>;
+  if (!access) return <p className="step-p">Перевіряю запрошення…</p>;
+  if (access.lost) return <p className="key-paste-bad">Це запрошення вже не діє. Попроси у власника кафе нове.</p>;
+  const named = access.name;
+  if (named)
+    return (
+      <Step icon={<UserPlus size={14} />} title={`Тебе запросили в кафе команди як «${named}»`}>
+        <p className="step-p">
+          Ключ у запрошенні особистий: ним підписані твої чати, а пуші приходитимуть лише про твого Claude. Приєднайся
+          і віддай своєму Claude фразу, що з&apos;явиться нижче.
+        </p>
+        <button className="btn" onClick={() => join(named)}>
+          приєднатися
+        </button>
+      </Step>
+    );
   return (
     <Step icon={<UserPlus size={14} />} title="Тебе запросили в кафе команди">
       <p className="step-p">
@@ -82,8 +99,16 @@ export function JoinTeam({ teamKey, current }: { teamKey: string; current: strin
   );
 }
 
-export function MemberName({ roomKey }: { roomKey: string }) {
+export function MemberName({ roomKey, fixed }: { roomKey: string; fixed: string | null }) {
   const me = useMe(roomKey);
+  if (fixed)
+    return (
+      <div className="team-me-row">
+        <span className="step-p">
+          Твоє ім&apos;я в кафе: {fixed}. Воно закріплене за особистим ключем, ним підписані твої чати.
+        </span>
+      </div>
+    );
   return (
     <div className="team-me-row">
       <span className="step-p">
@@ -139,6 +164,16 @@ export function TeamInvite({ site, roomKey }: { site: string; roomKey: string })
   );
 }
 
+function CafePill({ cafe, on }: { cafe: KnownCafe; on: boolean }) {
+  const lost = useAccess(on ? null : cafe.key)?.lost;
+  if (lost) return null;
+  return (
+    <button className={`team-pill ${on ? "on" : ""}`} onClick={() => saveKey(cafe.key)}>
+      {cafe.label} <span className="team-n">{cafe.key.slice(0, 4)}…</span>
+    </button>
+  );
+}
+
 export function CafeSwitcher({ current }: { current: string }) {
   const cafes = useCafes();
   const list = cafes.some((c) => c.key === current) ? cafes : [{ key: current, label: "моє кафе" }, ...cafes];
@@ -147,9 +182,7 @@ export function CafeSwitcher({ current }: { current: string }) {
     <div className="cafe-switch">
       <span className="step-p">Кафе в цьому браузері:</span>
       {list.map((c) => (
-        <button key={c.key} className={`team-pill ${c.key === current ? "on" : ""}`} onClick={() => saveKey(c.key)}>
-          {c.label} <span className="team-n">{c.key.slice(0, 4)}…</span>
-        </button>
+        <CafePill key={c.key} cafe={c} on={c.key === current} />
       ))}
     </div>
   );

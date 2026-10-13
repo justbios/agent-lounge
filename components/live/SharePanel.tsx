@@ -3,26 +3,15 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy, Download, Film, Share2, Eye } from "lucide-react";
 import { Clip, clipSupported, recordClip, useSceneOnScreen } from "@/components/cafe/clip";
-import { roomOf, useHosted, useRelayKey, useViewRoom } from "@/lib/live/relayKey";
+import { useAccess } from "@/lib/live/access";
+import { useHosted, useRelayKey, useViewRoom } from "@/lib/live/relayKey";
 
 const CLIP_SECONDS = 15;
 const never = () => () => {};
+const origin = () => (typeof location === "undefined" ? "" : location.origin);
 
 function useOnClient(): boolean {
   return useSyncExternalStore(never, () => true, () => false);
-}
-
-function useViewLink(key: string | null, enabled: boolean): string | null {
-  const [link, setLink] = useState<{ key: string; url: string } | null>(null);
-  useEffect(() => {
-    if (!enabled || !key) return;
-    let live = true;
-    roomOf(key).then((room) => live && setLink({ key, url: `${location.origin}/#v=${room}` }));
-    return () => {
-      live = false;
-    };
-  }, [key, enabled]);
-  return enabled && link?.key === key ? link.url : null;
 }
 
 function ClipSection() {
@@ -91,7 +80,7 @@ function ClipSection() {
   );
 }
 
-function ViewLinkSection({ url }: { url: string }) {
+function ViewLinkSection({ url, locked }: { url: string; locked: boolean }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="share-sec">
@@ -100,7 +89,9 @@ function ViewLinkSection({ url }: { url: string }) {
       </div>
       <p className="alerts-hint">
         Хто відкриє, бачитиме твоє кафе наживо: питання, назви файлів, імена агентів. Писати чи керувати не зможе.
-        Закрити доступ можна лише новим ключем на сторінці підключення.
+        {locked
+          ? " Посилання змінюється щоразу, коли когось прибирають із команди, і старе перестає діяти."
+          : " Закрити доступ можна лише новим ключем на сторінці підключення."}
       </p>
       <div className="share-link">
         <code>{url}</code>
@@ -126,7 +117,8 @@ export default function SharePanel() {
   const [open, setOpen] = useState(false);
   const client = useOnClient();
   const box = useRef<HTMLDivElement>(null);
-  const viewUrl = useViewLink(key, !!hosted && !viewing);
+  const access = useAccess(hosted && !viewing ? key : null);
+  const viewUrl = access?.topic ? `${origin()}/#v=${access.topic}` : null;
 
   useEffect(() => {
     if (!open) return;
@@ -148,7 +140,7 @@ export default function SharePanel() {
       {client && (
         <div className="alerts-pop" role="dialog" aria-label="поділитися" hidden={!open}>
           <ClipSection />
-          {viewUrl && <ViewLinkSection url={viewUrl} />}
+          {viewUrl && <ViewLinkSection url={viewUrl} locked={!!access?.locked} />}
         </div>
       )}
     </div>

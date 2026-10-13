@@ -77,6 +77,14 @@ export function rememberCafe(key: string, label: string) {
   emit();
 }
 
+/** A café that moved to a new key keeps its place and name in the list. */
+export function swapCafe(from: string, to: string) {
+  if (!cafesSnap().some((c) => c.key === from)) return;
+  cafes = cafesSnap().map((c) => (c.key === from ? { ...c, key: to } : c));
+  keep(CAFES_KEY, cafes);
+  emit();
+}
+
 /** Which teammate the dashboard looks at: a name, or null for the whole team. */
 export function useFocus(): string | null {
   return useSyncExternalStore(subscribe, focusSnap, () => null);

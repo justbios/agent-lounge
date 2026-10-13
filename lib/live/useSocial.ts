@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { BUS_EVENTS, Bus } from "./bus";
-import { roomOf } from "./relayKey";
+import { useAccess } from "./access";
 import {
   Disc,
   Guest,
@@ -66,6 +66,8 @@ export function useSocial({
   enabled: boolean;
 }): Social {
   const id = room ? `v:${room}` : key ? `k:${key}` : null;
+  const access = useAccess(enabled && !room ? key : null);
+  const topic = room ?? access?.topic ?? null;
   const [self] = useState(newId);
   const [bus] = useState(newBus);
   const [seen, setSeen] = useState<{ id: string | null; guests: Guest[] }>({ id: null, guests: [] });
@@ -97,34 +99,29 @@ export function useSocial({
 
   useEffect(() => {
     const sb = supabase;
-    if (!enabled || !id || !sb) return;
+    if (!enabled || !id || !topic || !sb) return;
     let live = true;
-    let ch: RealtimeChannel | null = null;
-    (room ? Promise.resolve(room) : roomOf(key!)).then((r) => {
+    const c = sb.channel(`relay-social:${topic}`, { config: { presence: { key: self }, broadcast: { self: false } } });
+    for (const ev of BUS_EVENTS) c.on("broadcast", { event: ev }, ({ payload }) => live && bus.emit(ev, payload));
+    c.on("presence", { event: "sync" }, () => {
       if (!live) return;
-      const c = sb.channel(`relay-social:${r}`, { config: { presence: { key: self }, broadcast: { self: false } } });
-      ch = c;
-      for (const ev of BUS_EVENTS) c.on("broadcast", { event: ev }, ({ payload }) => live && bus.emit(ev, payload));
-      c.on("presence", { event: "sync" }, () => {
-        if (!live) return;
-        setSeen({ id, guests: guestsOf(c.presenceState(), self) });
-        const d = discOf(c.presenceState(), Date.now());
-        if (d) setHeard(take(id, d));
-      }).subscribe((status) => {
-        if (status !== "SUBSCRIBED") return;
-        chan.current = c;
-        void c.track(meta.current);
-        bus.attach(c);
-        setLink({ id, room: r });
-      });
+      setSeen({ id, guests: guestsOf(c.presenceState(), self) });
+      const d = discOf(c.presenceState(), Date.now());
+      if (d) setHeard(take(id, d));
+    }).subscribe((status) => {
+      if (status !== "SUBSCRIBED") return;
+      chan.current = c;
+      void c.track(meta.current);
+      bus.attach(c);
+      setLink({ id, room: topic });
     });
     return () => {
       live = false;
       bus.attach(null);
       chan.current = null;
-      if (ch) sb.removeChannel(ch);
+      sb.removeChannel(c);
     };
-  }, [enabled, id, key, room, name, viewer, self, bus]);
+  }, [enabled, id, topic, self, bus]);
 
   const react = (scene: string, agent: string, emoji: string) => {
     const now = Date.now();

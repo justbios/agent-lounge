@@ -5,12 +5,14 @@ import { ROOM_KEY } from "@/lib/live/hookConfig.mjs";
 import { saveKey } from "@/lib/live/relayKey";
 
 /** A home-screen app on iPhone keeps its own storage, so the link from another device is pasted here once. */
-export default function KeyPaste() {
+const HINT = "Уже підключав на іншому пристрої? Встав посилання з ключем:";
+
+export default function KeyPaste({ hint = HINT }: { hint?: string }) {
   const [text, setText] = useState("");
   const [bad, setBad] = useState(false);
   const submit = () => {
     const raw = text.trim();
-    const key = /[#&?]k=([A-Za-z0-9_-]{20,128})/.exec(raw)?.[1] ?? (ROOM_KEY.test(raw) ? raw : null);
+    const key = /[#&?](?:k|team)=([A-Za-z0-9_-]{20,128})/.exec(raw)?.[1] ?? (ROOM_KEY.test(raw) ? raw : null);
     if (!key) return setBad(true);
     saveKey(key);
   };
@@ -22,7 +24,7 @@ export default function KeyPaste() {
         submit();
       }}
     >
-      <span className="key-paste-hint">Уже підключав на іншому пристрої? Встав посилання з ключем:</span>
+      <span className="key-paste-hint">{hint}</span>
       <span className="key-paste-row">
         <input
           value={text}

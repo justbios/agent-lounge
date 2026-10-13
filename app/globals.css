@@ -3546,3 +3546,48 @@ body {
     0 -1px 0 #07050d;
   animation: chat-bob 1.6s ease-in-out infinite;
 }
+.notice.key-lost {
+  margin-top: 14px;
+}
+.key-lost p {
+  margin: 0 0 8px;
+}
+.key-lost .team-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.team-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.team-keys li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 6px 4px 12px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.team-keys li svg {
+  color: #ffd25a;
+}
+.team-key-act {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.team-key-act .btn {
+  height: 28px;
+  font-size: 12px;
+}
+.team-key-act .btn svg {
+  color: inherit;
+}

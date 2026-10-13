@@ -13,10 +13,13 @@ import {
   pluginSteps,
   statusChain,
 } from "@/lib/live/hookConfig.mjs";
+import { useAccess } from "@/lib/live/access";
 import pack from "@/lib/live/pluginPack.json";
 import { newKey, saveKey, useHosted, useRelayKey } from "@/lib/live/relayKey";
 import { useMe } from "@/lib/live/team";
 import { CafeSwitcher, JoinTeam, MemberName, TeamInvite, useTeamInvite } from "./connect/TeamConnect";
+import TeamKeys from "./connect/TeamKeys";
+import KeyLost from "./live/KeyLost";
 
 function Code({ text, wrap }: { text: string; wrap?: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -57,9 +60,18 @@ ${check}
 ${JSON.stringify(cloudHookSettings(url), null, 2)}`;
 }
 
+const LOST_LOCKED =
+  "Особистий ключ потрапив не туди? Власник кафе прибирає його і дає нове запрошення. " +
+  "Новий ключ нижче відкриє окреме порожнє кафе.";
+const LOST_SHARED =
+  "Якщо посилання з ключем потрапило не туди, візьми новий ключ і знову віддай фразу вище своєму Claude: " +
+  "старі хуки він замінить.";
+
 function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
   const me = useMe(roomKey);
-  const url = cloudHookUrl(site, roomKey, me);
+  const access = useAccess(roomKey);
+  const url = cloudHookUrl(site, roomKey, access?.name ?? me);
+  if (access?.lost) return <KeyLost kind={access.lost} current={roomKey} />;
   return (
     <>
       <div className="notice">
@@ -80,7 +92,7 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
             Встав у будь-який чат Claude Code. Він збереже короткий скрипт хуків у <code>~/.config/relay</code>,
             допише хуки й статус-рядок у налаштування і перевірить зв&apos;язок, це з пів хвилини.
           </p>
-          <MemberName roomKey={roomKey} />
+          <MemberName roomKey={roomKey} fixed={access?.name ?? null} />
           <Code text={cloudPrompt(site, url)} wrap />
           <p className="step-p">
             Далі просто працюй, а тут, на вкладці «наживо», за столами сидітимуть твої агенти. Кожен чат на окремій
@@ -127,18 +139,18 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
         </div>
       </div>
 
-      <TeamInvite site={site} roomKey={roomKey} />
+      {access && !access.locked && <TeamInvite site={site} roomKey={roomKey} />}
+      {access && <TeamKeys site={site} roomKey={roomKey} access={access} />}
 
       <details className="step-more">
         <summary className="step-ttl">Новий ключ або відключення</summary>
         <div className="step-body">
           <p className="step-p">
-            Якщо посилання з ключем потрапило не туди, візьми новий ключ і знову віддай фразу вище своєму Claude: старі
-            хуки він замінить. Щоб відключитись зовсім, попроси Claude прибрати з <code>~/.claude/settings.json</code>{" "}
-            хуки, що містять <code>/api/claude-hook</code>.
+            {access?.locked ? LOST_LOCKED : LOST_SHARED} Щоб відключитись зовсім, попроси Claude прибрати з{" "}
+            <code>~/.claude/settings.json</code> хуки, що містять <code>/api/claude-hook</code>.
           </p>
           <button className="btn" onClick={() => saveKey(newKey())}>
-            <RefreshCw size={13} /> новий ключ
+            <RefreshCw size={13} /> {access?.locked ? "нове порожнє кафе" : "новий ключ"}
           </button>
         </div>
       </details>
