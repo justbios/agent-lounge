@@ -93,11 +93,16 @@ function promptEvent(prompt: string | undefined): { tool: string; text: string }
   return { tool: "питання", text: clip(`«${p || "…"}»`, 56) };
 }
 
-function notice(message: string | undefined): string {
-  if (!message) return "чекає на тебе";
-  if (/permission/i.test(message)) return "чекає на дозвіл";
-  if (/waiting|idle|input/i.test(message)) return "чекає на тебе";
-  return clip(message);
+function notice(type: string | undefined, message: string | undefined): Partial<LiveEvent> | null {
+  if (type === "auth_success") return null;
+  const m = message ?? "";
+  if (type === "permission_prompt" || /permission/i.test(m)) {
+    const what = /permission to use (.+)$/i.exec(m)?.[1];
+    const tool = what ? describeTool(what.trim(), {}).tool : undefined;
+    return { tool: "дозвіл", need: "permission", text: tool ? `чекає на дозвіл: ${tool}` : "чекає на дозвіл" };
+  }
+  if (type === "idle_prompt" || !m || /waiting|idle|input/i.test(m)) return { tool: "увага", need: "input", text: "чекає на тебе" };
+  return { tool: "увага", need: "input", text: clip(m) };
 }
 
 /** Maps a raw Claude Code hook payload to a café event, or null when it should not show. */
@@ -140,8 +145,10 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
       return agent ? ev("sub_stop") : null;
     case "Stop":
       return agent ? null : ev("stop");
-    case "Notification":
-      return ev("notify", { tool: "увага", text: notice(str(raw.message)) });
+    case "Notification": {
+      const n = notice(str(raw.notification_type), str(raw.message));
+      return n ? ev("notify", n) : null;
+    }
     case "SessionEnd":
       return ev("session_end");
     default:

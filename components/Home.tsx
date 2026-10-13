@@ -20,7 +20,7 @@ export default function Home() {
   return (
     <div className="app">
       <TopBar mode={mode} onMode={setChosen} status={feed.status} />
-      {mode === "live" ? <LiveDashboard feed={feed} cloud={!!hosted} hasKey={!!key} /> : <PipelineDashboard />}
+      {mode === "live" ? <LiveDashboard feed={feed} cloud={!!hosted} roomKey={key} /> : <PipelineDashboard />}
     </div>
   );
 }

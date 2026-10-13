@@ -1,6 +1,8 @@
+import { after } from "next/server";
 import { cloudEnabled, cloudIngest } from "@/lib/live/cloud";
 import { ROOM_KEY } from "@/lib/live/hookConfig.mjs";
 import { normalizeHook, parseHookBody, rosterEvent } from "@/lib/live/normalize";
+import { alertFor, pushEnabled, sendPush } from "@/lib/live/pushServer";
 import { liveEnabled, nextSeq, publish } from "@/lib/live/store";
 import { LiveEvent } from "@/lib/live/types";
 
@@ -20,6 +22,11 @@ export async function POST(req: Request) {
       normalizeHook(body.raw, 0, at),
     ].filter((e): e is LiveEvent => e != null);
     if (events.length && !(await cloudIngest(roomKey, events))) return new Response(null, { status: 502 });
+    const alert = pushEnabled() ? events.map(alertFor).find((a) => a != null) : null;
+    if (alert) {
+      const origin = new URL(req.url).origin;
+      after(() => sendPush(roomKey, alert, origin).catch(() => 0));
+    }
     return new Response(null, { status: 204 });
   }
 

@@ -71,12 +71,17 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
           <Smartphone size={14} />
         </div>
         <div className="step-body">
-          <div className="step-ttl">Дивитись з іншого пристрою</div>
+          <div className="step-ttl">Телефон, що дзвонить, коли Claude чекає</div>
           <p className="step-p">
             Відкрий це посилання на телефоні чи іншому комп&apos;ютері. У ньому твій ключ, тож нікому його не
             показуй.
           </p>
           <Code text={`${site}/#k=${roomKey}`} wrap />
+          <p className="step-p">
+            Далі на «наживо» натисни «сповіщення» → «Пуш на цей пристрій». Телефон дзвенітиме, коли Claude просить
+            дозвіл або чекає на відповідь, навіть із закритим сайтом. На iPhone спершу «Поділитися» → «На початковий
+            екран», відкрий Relay з іконки і встав це посилання ще раз: iPhone тримає дані іконки окремо від Safari.
+          </p>
         </div>
       </div>
 

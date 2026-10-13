@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Pixelify_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -7,6 +7,11 @@ const pixel = Pixelify_Sans({ subsets: ["latin", "cyrillic"], variable: "--font-
 export const metadata: Metadata = {
   title: "Relay — живий конвеєр агентів",
   description: "Візуалізація мультиагентного пайплайну в реальному часі",
+  appleWebApp: { capable: true, title: "Relay", statusBarStyle: "black-translucent" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#06070c",
 };
 
 export default function RootLayout({

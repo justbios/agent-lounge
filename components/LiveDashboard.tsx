@@ -5,16 +5,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Users, Activity, Hash } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
-import { AgentView, agentView, buildTimeline } from "@/lib/cafe/timeline";
+import { agentView, buildTimeline } from "@/lib/cafe/timeline";
 import { CLAUDE_COLOR, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
 import { LiveEvent } from "@/lib/live/types";
+import { useAlerts } from "@/lib/live/useAlerts";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
-import CafeScene from "./cafe/CafeScene";
+import { usePush } from "@/lib/live/usePush";
+import CafeScene, { SceneAlert } from "./cafe/CafeScene";
+import AlertsMenu from "./live/AlertsMenu";
+import ChatTabs from "./live/ChatTabs";
+import KeyPaste from "./live/KeyPaste";
+import { ago, badge, clockTime, logText } from "./live/format";
 
 const LOG_ROWS = 120;
 const PICK_KEY = "relay.session";
 const RECENT_MS = 6 * 60 * 60 * 1000;
-const ACTIVE_MS = 90 * 1000;
 const NONE: string[] = [];
 const NO_EVENTS: LiveEvent[] = [];
 
@@ -27,9 +32,17 @@ const EMPTY: CafeModel = {
   seed: 4242,
 };
 
+/** A tapped push opens /?chat=<session>, which wins over the chat picked last time. */
 function readPick(): string | null {
+  if (typeof window === "undefined") return null;
+  const fromPush = new URLSearchParams(location.search).get("chat");
+  if (fromPush) {
+    history.replaceState(null, "", location.pathname + location.hash);
+    savePick(fromPush);
+    return fromPush;
+  }
   try {
-    return typeof window === "undefined" ? null : localStorage.getItem(PICK_KEY);
+    return localStorage.getItem(PICK_KEY);
   } catch {
     return null;
   }
@@ -71,46 +84,15 @@ function useNow(): number {
   return now;
 }
 
-function ago(ms: number): string {
-  const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s} с тому`;
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m} хв тому`;
-  return `${Math.round(m / 60)} год тому`;
-}
-
-function clockTime(at: number): string {
-  return new Date(at).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-function badge(v: AgentView, carrying: boolean): { cls: string; text: string } {
-  if (v.walker) return { cls: "rr-active", text: carrying ? "несе" : "вертається" };
-  if (v.screen === "work") return { cls: "rr-active", text: "працює" };
-  if (v.screen === "incoming") return { cls: "rr-active", text: "приймає" };
-  if (v.screen === "done") return { cls: "rr-done", text: "готово" };
-  return { cls: "rr-idle", text: "чекає" };
-}
-
-function logText(e: LiveEvent): string {
-  switch (e.kind) {
-    case "prompt":
-      return `${e.tool ?? "питання"} ${e.text ?? ""}`;
-    case "dispatch":
-      return `→ ${e.target}: ${e.text ?? ""}`;
-    case "sub_start":
-      return "старт";
-    case "sub_stop":
-      return "готово, несе результат";
-    case "stop":
-      return "відповів";
-    case "session_end":
-      return "сесію закрито";
-    default:
-      return e.text ?? e.kind;
-  }
-}
-
-export default function LiveDashboard({ feed, cloud, hasKey }: { feed: LiveFeed; cloud: boolean; hasKey: boolean }) {
+export default function LiveDashboard({
+  feed,
+  cloud,
+  roomKey,
+}: {
+  feed: LiveFeed;
+  cloud: boolean;
+  roomKey: string | null;
+}) {
   const [pick, setPick] = useState<string | null>(readPick);
   const choose = (id: string) => {
     setPick(id);
@@ -120,6 +102,22 @@ export default function LiveDashboard({ feed, cloud, hasKey }: { feed: LiveFeed;
   const sessions = useMemo(() => listSessions(feed.events), [feed.events]);
   const session = (pick && sessions.find((s) => s.id === pick)) || sessions[0] || null;
   const tabs = sessions.filter((s) => s === session || (!s.ended && now - s.last < RECENT_MS));
+  const push = usePush(roomKey, cloud);
+  const waiting = useAlerts(tabs, session?.id ?? null, push.state === "on", choose);
+
+  useEffect(() => {
+    const sw = typeof navigator !== "undefined" ? navigator.serviceWorker : undefined;
+    if (!sw) return;
+    const onMsg = (e: MessageEvent) => {
+      const d = e.data as { relay?: string; session?: string } | null;
+      if (d?.relay === "open-chat" && d.session) {
+        setPick(d.session);
+        savePick(d.session);
+      }
+    };
+    sw.addEventListener("message", onMsg);
+    return () => sw.removeEventListener("message", onMsg);
+  }, []);
   const sent = useMemo(() => (session ? sessionRoster(feed.events, session.id) : null), [feed.events, session]);
   const disk = useRoster(cloud ? undefined : session?.cwd);
   const roster = sent ?? disk;
@@ -129,6 +127,10 @@ export default function LiveDashboard({ feed, cloud, hasKey }: { feed: LiveFeed;
     [feed.events, session, roster],
   );
   const model = scene?.model ?? EMPTY;
+  const attn = session?.attn;
+  const alertSeat = attn ? (attn.agent ? scene?.seatOf[attn.agent] : 0) : undefined;
+  const alert: SceneAlert | undefined =
+    attn && alertSeat != null ? { agent: alertSeat, kind: attn.kind, text: attn.text } : undefined;
   const clock = scene && now ? now - scene.origin : 0;
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model]);
   const tl = useMemo(() => buildTimeline(model), [model]);
@@ -153,7 +155,7 @@ export default function LiveDashboard({ feed, cloud, hasKey }: { feed: LiveFeed;
   };
 
   const offline = feed.status === "offline";
-  const unplugged = cloud && !hasKey;
+  const unplugged = cloud && !roomKey;
   const pill = feed.status === "open" ? "на зв'язку" : unplugged ? "ще не підключено" : offline ? (cloud ? "немає зв'язку" : "Relay-сервер не запущений") : "підключаюсь…";
 
   return (
@@ -185,22 +187,10 @@ export default function LiveDashboard({ feed, cloud, hasKey }: { feed: LiveFeed;
           </span>
           <span className="stat-v">{session?.count ?? 0}</span>
         </div>
+        <AlertsMenu cloud={cloud} push={push} />
       </div>
 
-      {tabs.length > 0 && (
-        <nav className="chat-tabs" aria-label="чати Claude Code">
-          {tabs.map((s) => (
-            <button key={s.id} className={`chat-tab ${s === session ? "on" : ""}`} onClick={() => choose(s.id)} title={s.cwd}>
-              <span className="chat-tab-hd">
-                <span className={`chat-dot ${now - s.last < ACTIVE_MS ? "busy" : ""}`} />
-                <span className="chat-tab-nm">{s.label}</span>
-                <span className="chat-tab-ago">{ago(now - s.last)}</span>
-              </span>
-              <span className="chat-tab-ask">{s.ask ?? "питань ще не було"}</span>
-            </button>
-          ))}
-        </nav>
-      )}
+      {tabs.length > 0 && <ChatTabs tabs={tabs} current={session} waiting={waiting} now={now} onPick={choose} />}
 
       <section className="card stage-card">
         <div className="card-hd">
@@ -208,7 +198,7 @@ export default function LiveDashboard({ feed, cloud, hasKey }: { feed: LiveFeed;
           <span className="muted-sm">{session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}</span>
         </div>
         <div className="stage-pad stage-rel">
-          <CafeScene model={model} clock={clock} />
+          <CafeScene model={model} clock={clock} alert={alert} />
           {!session && (
             <div className="cafe-wait">
               <b>{unplugged ? "Твій Claude ще не підключений" : offline ? pill : "Чекаю на твого Claude…"}</b>
@@ -216,6 +206,7 @@ export default function LiveDashboard({ feed, cloud, hasKey }: { feed: LiveFeed;
                 unplugged ? (
                   <>
                     Одна фраза своєму Claude Code, і тут сядуть твої агенти: <Link href="/connect">підключити Claude</Link>.
+                    <KeyPaste />
                   </>
                 ) : (
                   <>
@@ -273,7 +264,10 @@ export default function LiveDashboard({ feed, cloud, hasKey }: { feed: LiveFeed;
           <div className="roster">
             {model.agents.map((a, i) => {
               const v = views[i];
-              const b = badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0);
+              const b =
+                alert?.kind === "ask" && alert.agent === i
+                  ? { cls: "rr-ask", text: "чекає на тебе" }
+                  : badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0);
               const notes = model.notes[i];
               let last = "";
               for (const n of notes) {

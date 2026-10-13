@@ -7,14 +7,35 @@ export function cloudEnabled(): boolean {
   return Boolean(URL_ && KEY);
 }
 
+async function rpc(name: string, args: Record<string, unknown>): Promise<Response | null> {
+  return fetch(`${URL_}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: { apikey: KEY!, "content-type": "application/json" },
+    body: JSON.stringify(args),
+    signal: AbortSignal.timeout(4000),
+  }).catch(() => null);
+}
+
 /** Writes through the relay_ingest RPC, which files the events under sha256(key) and broadcasts them to that room. */
 export async function cloudIngest(roomKey: string, events: LiveEvent[]): Promise<boolean> {
   const p_events = events.map((e) => ({ ...e, seq: undefined }));
-  const r = await fetch(`${URL_}/rest/v1/rpc/relay_ingest`, {
-    method: "POST",
-    headers: { apikey: KEY!, "content-type": "application/json" },
-    body: JSON.stringify({ p_key: roomKey, p_events }),
-    signal: AbortSignal.timeout(4000),
-  }).catch(() => null);
+  const r = await rpc("relay_ingest", { p_key: roomKey, p_events });
   return Boolean(r?.ok);
+}
+
+export interface PushTarget {
+  sub: { endpoint: string; keys: { p256dh: string; auth: string } };
+  done: boolean;
+}
+
+/** The room's live push subscriptions, plus the last question asked in this chat to put in the notification. */
+export async function cloudPushTargets(roomKey: string, session: string): Promise<{ targets: PushTarget[]; ask: string | null }> {
+  const r = await rpc("relay_push_targets", { p_key: roomKey, p_session: session });
+  if (!r?.ok) return { targets: [], ask: null };
+  const d = (await r.json().catch(() => null)) as { targets?: PushTarget[]; ask?: string | null } | null;
+  return { targets: d?.targets ?? [], ask: d?.ask ?? null };
+}
+
+export async function cloudPushGone(roomKey: string, endpoint: string): Promise<void> {
+  await rpc("relay_push_unsubscribe", { p_key: roomKey, p_endpoint: endpoint });
 }

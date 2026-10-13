@@ -4,7 +4,7 @@ import { AgentView, CafeTimeline, Walker, agentView } from "@/lib/cafe/timeline"
 import { drawAmbient, drawBar, drawCupSteam, drawLights } from "./ambient";
 import { Cat } from "./cat";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
-import { Ctx, px, rand, shade } from "./pixel";
+import { Ctx, paint, px, rand, shade } from "./pixel";
 
 export interface FrameInput {
   model: CafeModel;
@@ -16,6 +16,8 @@ export interface FrameInput {
   /** wall time in seconds — drives ambience, which keeps moving while the replay is paused */
   t: number;
   cat?: Cat;
+  /** the desk whose agent waits on the user: a raised hand and a flashing «!» for a question, a lit ✓ for a finished turn */
+  alert?: { agent: number; kind: "ask" | "done" };
 }
 
 const CHECK = [[-4, 3], [-3, 4], [-2, 5], [-1, 4], [0, 3], [1, 2], [2, 1], [3, 0]];
@@ -64,6 +66,25 @@ function drawScreen(ctx: Ctx, d: Desk, v: AgentView, color: string, clock: numbe
   px(ctx, sx + Math.round(tri(p) * (sw - 2)), sy + Math.round(tri(p * 1.37) * (sh - 1)), 2, 1, shade(color, 0.55));
 }
 
+function drawAskScreen(ctx: Ctx, d: Desk, t: number) {
+  const sy = d.top + 2;
+  const on = Math.floor(t * 2.5) % 2 === 0;
+  px(ctx, d.x - 8, sy, 16, 9, on ? "#3a2606" : "#1d1708");
+  const c = on ? "#ffd25a" : "#b8862a";
+  px(ctx, d.x - 1, sy + 1, 2, 5, c);
+  px(ctx, d.x - 1, sy + 7, 2, 1, c);
+}
+
+function drawRaisedHand(ctx: Ctx, X: number, headTop: number, look: Look, t: number) {
+  const x = X + 6 + (Math.floor(t * 3) % 2);
+  const T = headTop - 1;
+  paint(
+    ctx,
+    [[x, T - 2, 2, 11], [x, T - 5, 3, 3]],
+    [[x, T - 2, 2, 11, look.shirtDark], [x, T - 2, 1, 11, look.shirt], [x, T - 5, 3, 3, look.skin]],
+  );
+}
+
 function seatMode(v: AgentView): SeatMode {
   if (v.screen === "work") return "work";
   if (v.screen === "incoming") return "alert";
@@ -73,12 +94,19 @@ function seatMode(v: AgentView): SeatMode {
 
 function drawStation(ctx: Ctx, d: Desk, v: AgentView, color: string, look: Look, f: FrameInput, i: number) {
   const tick = Math.floor(f.clock / 110);
-  drawScreen(ctx, d, v, color, f.clock, f.t, i);
-  const led =
-    v.screen === "work" ? (tick % 3 ? color : "#ffffff") : v.screen === "done" ? "#4ade80" : v.screen === "incoming" ? "#ffd25a" : "#3a3550";
+  const flag = f.alert?.agent === i ? f.alert.kind : null;
+  const asking = flag === "ask" && !v.walker;
+  if (asking) drawAskScreen(ctx, d, f.t);
+  else drawScreen(ctx, d, flag === "done" && v.screen === "idle" ? { ...v, screen: "done" } : v, color, f.clock, f.t, i);
+  const led = asking
+    ? Math.floor(f.t * 2.5) % 2 ? "#3a3550" : "#ffd25a"
+    : v.screen === "work" ? (tick % 3 ? color : "#ffffff") : v.screen === "done" ? "#4ade80" : v.screen === "incoming" ? "#ffd25a" : "#3a3550";
   px(ctx, d.x + 15, d.top + 5, 1, 1, led);
-  if (v.screen === "work") drawCupSteam(ctx, d.x - 15, d.top + 13, f.t + i * 0.31);
-  if (!v.walker) drawSeated(ctx, d.x, d.top + 20, look, seatMode(v), tick);
+  if (v.screen === "work" && !asking) drawCupSteam(ctx, d.x - 15, d.top + 13, f.t + i * 0.31);
+  if (!v.walker) {
+    drawSeated(ctx, d.x, d.top + 20, look, asking ? "alert" : seatMode(v), tick);
+    if (asking) drawRaisedHand(ctx, d.x, d.top + 20, look, f.t);
+  }
   drawChair(ctx, d.x, d.top, color);
 }
 

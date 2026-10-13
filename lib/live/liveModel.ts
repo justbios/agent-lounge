@@ -1,6 +1,8 @@
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel, Note, Stint, TripRequest, scheduleTrips } from "@/lib/cafe/model";
 import { AgentDef } from "@/lib/types";
+import { Attention, nextAttention } from "./attention";
+import { sessionLabel } from "./label";
 import { LiveEvent } from "./types";
 
 export const CLAUDE_COLOR = "#ff9a62";
@@ -19,20 +21,13 @@ export interface LiveSession {
   ended: boolean;
   /** the latest thing the user actually typed, to tell chats in the same folder apart */
   ask?: string;
+  attn: Attention | null;
 }
 
 function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
-}
-
-function sessionLabel(cwd?: string): string {
-  if (!cwd) return "сесія";
-  const parts = cwd.split("/").filter(Boolean);
-  const wt = parts.lastIndexOf("worktrees");
-  if (wt >= 0 && parts[wt + 1]) return parts[wt + 1];
-  return parts[parts.length - 1] ?? cwd;
 }
 
 export function listSessions(events: LiveEvent[]): LiveSession[] {
@@ -52,9 +47,11 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
         count: 1,
         ended: e.kind === "session_end",
         ask: e.kind === "prompt" && e.tool === "питання" ? e.text : undefined,
+        attn: nextAttention(null, e),
       });
       continue;
     }
+    s.attn = nextAttention(s.attn, e);
     s.last = e.at;
     s.count += 1;
     if (e.kind === "session_end") s.ended = true;

@@ -27,5 +27,7 @@ export interface LiveEvent {
   target?: string;
   /** roster only: agent names from the project's .claude/agents */
   agents?: string[];
+  /** notify only: a permission prompt, or Claude idling until you write */
+  need?: "permission" | "input";
 }
 
