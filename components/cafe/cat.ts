@@ -8,6 +8,13 @@ const FUR_DARK = "#b8642a";
 const BELLY = "#f6d7a8";
 
 type Mode = "walk" | "sit" | "nap";
+type Paint = (dx: number, dy: number, w: number, h: number, c: string) => void;
+
+function drawCrown(P: Paint, dx: number, dy: number) {
+  P(dx, dy, 5, 1, "#ffd25a");
+  for (const k of [0, 2, 4]) P(dx + k, dy - 1, 1, 1, "#ffe680");
+  P(dx + 2, dy, 1, 1, "#ff4fa3");
+}
 
 /** The café cat: wanders the aisles, drops by whoever is busiest, naps where it likes. */
 export class Cat {
@@ -69,7 +76,11 @@ export class Cat {
     return this.y;
   }
 
-  draw(ctx: Ctx, t: number) {
+  get pos(): Point {
+    return { x: this.x, y: this.y };
+  }
+
+  draw(ctx: Ctx, t: number, crown = false) {
     const X = Math.round(this.x);
     const Y = Math.round(this.y);
     const flip = this.dir === "left";
@@ -86,6 +97,7 @@ export class Cat {
       P(2, -6, 4, 4, LINE);
       P(2, -5, 3, 3, FUR);
       P(-6, -2, 3, 2, FUR_DARK);
+      if (crown) drawCrown(P, 1, -7);
       const z = (t * 0.7) % 1;
       ctx.globalAlpha = 1 - z;
       px(ctx, X + (flip ? -6 : 4), Y - 9 - Math.round(z * 6), 2, 1, "#cfd6ff");
@@ -113,5 +125,6 @@ export class Cat {
     const swish = Math.round(Math.sin(t * (walking ? 6 : 2.4)) * 1.5);
     P(-6, (sit ? -4 : -5) + swish, 2, 1, FUR_DARK);
     P(-7, (sit ? -5 : -6) + swish, 1, 2, FUR_DARK);
+    if (crown) drawCrown(P, 2, sit ? -11 : -10);
   }
 }

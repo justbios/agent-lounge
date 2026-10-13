@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Users, Activity, Hash, CalendarDays } from "lucide-react";
+import { Users, Activity, Hash, CalendarDays, Trophy } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
@@ -9,11 +9,14 @@ import { CLAUDE_COLOR, buildLiveModel, listSessions, sessionRoster } from "@/lib
 import { leaveView, useViewRoom } from "@/lib/live/relayKey";
 import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
+import { useCafe } from "@/lib/live/useCafe";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
 import CafeScene, { SceneAlert } from "./cafe/CafeScene";
+import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
+import CafePanel from "./live/CafePanel";
 import ChatTabs from "./live/ChatTabs";
 import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
@@ -130,6 +133,9 @@ export default function LiveDashboard({
   const viewRoom = useViewRoom();
   const [recapOpen, setRecapOpen] = useState(false);
   const recap = useRecap({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events }, recapOpen);
+  const [cafeOpen, setCafeOpen] = useState(false);
+  const cafe = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
+  const earnedCount = cafe.earned.filter((e) => e.done).length;
   const [replay, setReplay] = useState<Replay | null>(null);
   const rp = replay && now ? replayAt(replay, now) : null;
   const shown = rp?.shown ?? 0;
@@ -188,6 +194,11 @@ export default function LiveDashboard({
           <button className="btn" onClick={() => setRecapOpen(true)}>
             <CalendarDays size={14} /> підсумок
           </button>
+          {cafe.progress && (
+            <button className="btn" onClick={() => setCafeOpen(true)} title="досягнення і декор кафе">
+              <Trophy size={14} /> кафе {earnedCount}/{cafe.earned.length}
+            </button>
+          )}
           {!viewing && <AlertsMenu cloud={cloud} push={push} />}
         </div>
       </div>
@@ -203,6 +214,18 @@ export default function LiveDashboard({
             setRecapOpen(false);
           }}
           onClose={() => setRecapOpen(false)}
+        />
+      )}
+
+      {cafeOpen && <CafePanel cafe={cafe} onClose={() => setCafeOpen(false)} />}
+      {cafe.fresh.length > 0 && !cafeOpen && (
+        <AchToast
+          fresh={cafe.fresh}
+          onOpen={() => {
+            cafe.dismiss();
+            setCafeOpen(true);
+          }}
+          onDismiss={cafe.dismiss}
         />
       )}
 
@@ -235,7 +258,7 @@ export default function LiveDashboard({
           )}
         </div>
         <div className="stage-pad stage-rel">
-          <CafeScene model={model} clock={clock} alert={alert} />
+          <CafeScene model={model} clock={clock} alert={alert} decor={cafe.decor} catName={cafe.settings.cat_name} />
           {!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
         </div>
       </section>

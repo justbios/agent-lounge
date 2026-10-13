@@ -6,6 +6,7 @@ import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
 import { Cat } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
+import { DecorSet } from "./decor";
 import { drawFrame } from "./frame";
 import { lookFor } from "./people";
 import { buildRoom, fixtures } from "./room";
@@ -34,10 +35,25 @@ function CafeBubble({ b, name, color, style }: { b: Bubble; name: string; color:
   );
 }
 
-export default function CafeScene({ model, clock, alert }: { model: CafeModel; clock: number; alert?: SceneAlert }) {
+export default function CafeScene({
+  model,
+  clock,
+  alert,
+  decor,
+  catName,
+}: {
+  model: CafeModel;
+  clock: number;
+  alert?: SceneAlert;
+  decor?: DecorSet;
+  catName?: string | null;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const catRef = useRef<HTMLSpanElement>(null);
   const clockRef = useRef(clock);
   const alertRef = useRef(alert);
+  const decorRef = useRef(decor);
+  const catNameRef = useRef(catName);
   const agents = model.agents;
   const lay = useMemo(() => cafeLayout(agents.length, model.seed), [agents.length, model.seed]);
   const cat = useMemo(() => new Cat(lay, model.seed), [lay, model.seed]);
@@ -46,7 +62,9 @@ export default function CafeScene({ model, clock, alert }: { model: CafeModel; c
   useEffect(() => {
     clockRef.current = clock;
     alertRef.current = alert;
-  }, [clock, alert]);
+    decorRef.current = decor;
+    catNameRef.current = catName;
+  }, [clock, alert, decor, catName]);
 
   useEffect(() => sceneMounted(), []);
 
@@ -63,12 +81,26 @@ export default function CafeScene({ model, clock, alert }: { model: CafeModel; c
       const busy = agents.map((_, i) => i).filter((i) => agentView(model, tl, lay, i, clock).screen === "work");
       cat.step(last ? Math.min(100, now - last) : 0, now, busy);
       last = now;
-      drawFrame(ctx, { model, lay, tl, looks, room, clock, t: now / 1000, cat, alert: alertRef.current });
+      drawFrame(ctx, { model, lay, tl, looks, room, clock, t: now / 1000, cat, alert: alertRef.current, decor: decorRef.current });
+      const p = cat.pos;
+      const label = catRef.current;
+      if (label) {
+        label.style.left = `${(p.x / lay.width) * 100}%`;
+        label.style.top = `${((p.y - 13) / lay.height) * 100}%`;
+      }
       if (clipWanted()) {
+        const name = catNameRef.current;
         const bubbles = agents
           .map((_, i) => bubbleFor(model, tl, lay, i, agentView(model, tl, lay, i, clock), clock))
           .filter((b): b is Bubble => b != null);
-        clipFrame(canvas, { lay, agents, bubbles, alert: alertRef.current, watermark: `relay · ${location.host}` });
+        clipFrame(canvas, {
+          lay,
+          agents,
+          bubbles,
+          alert: alertRef.current,
+          cat: name ? { ...p, name } : undefined,
+          watermark: `relay · ${location.host}`,
+        });
       }
       raf = requestAnimationFrame(loop);
     };
@@ -113,6 +145,11 @@ export default function CafeScene({ model, clock, alert }: { model: CafeModel; c
             </span>
           );
         })}
+        {catName && (
+          <span ref={catRef} className="cafe-cat">
+            {catName}
+          </span>
+        )}
         {bubbles.map((b) => (
           <CafeBubble
             key={b.key}

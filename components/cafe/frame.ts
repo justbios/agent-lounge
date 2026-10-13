@@ -3,6 +3,7 @@ import { CafeModel } from "@/lib/cafe/model";
 import { AgentView, CafeTimeline, Walker, agentView } from "@/lib/cafe/timeline";
 import { drawAmbient, drawBar, drawCupSteam, drawLights } from "./ambient";
 import { Cat } from "./cat";
+import { DecorSet, drawDecor, drawDecorLights } from "./decor";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
 import { Ctx, paint, px, rand, shade } from "./pixel";
 
@@ -18,7 +19,10 @@ export interface FrameInput {
   cat?: Cat;
   /** the desk whose agent waits on the user: a raised hand and a flashing «!» for a question, a lit ✓ for a finished turn */
   alert?: { agent: number; kind: "ask" | "done" };
+  decor?: DecorSet;
 }
+
+const NO_DECOR: DecorSet = new Set();
 
 const CHECK = [[-4, 3], [-3, 4], [-2, 5], [-1, 4], [0, 3], [1, 2], [2, 1], [3, 0]];
 
@@ -134,12 +138,14 @@ function drawWalker(ctx: Ctx, w: Walker, look: Look, lay: CafeLayout, clock: num
 
 export function drawFrame(ctx: Ctx, f: FrameInput) {
   const { model, lay, tl, looks, clock, t } = f;
+  const decor = f.decor ?? NO_DECOR;
   ctx.imageSmoothingEnabled = false;
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
   ctx.drawImage(f.room, 0, 0);
   drawAmbient(ctx, t, lay.width);
-  drawBar(ctx, t);
+  drawBar(ctx, t, decor.has("goldMachine"));
+  drawDecor(ctx, lay, decor, t);
 
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   views.forEach((v, i) => drawStation(ctx, lay.desks[i], v, model.agents[i].color, looks[i], f, i));
@@ -150,8 +156,9 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
     if (w) sprites.push({ y: w.y, draw: () => drawWalker(ctx, w, looks[i], lay, clock) });
   });
   const cat = f.cat;
-  if (cat) sprites.push({ y: cat.footY, draw: () => cat.draw(ctx, t) });
+  if (cat) sprites.push({ y: cat.footY, draw: () => cat.draw(ctx, t, decor.has("crown")) });
   sprites.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 
   drawLights(ctx, lay, views, model.agents.map((a) => a.color), t);
+  drawDecorLights(ctx, lay, decor, t);
 }

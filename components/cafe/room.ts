@@ -196,7 +196,7 @@ function drawVending(ctx: Ctx, fx: Fixtures) {
   px(ctx, x, y + h - 2, w, 2, "#1a2440");
 }
 
-function drawPlant(ctx: Ctx, x: number, baseY: number) {
+export function drawPlant(ctx: Ctx, x: number, baseY: number) {
   const leaves = [[0, -22, 3, 6], [-5, -19, 4, 5], [4, -19, 4, 5], [-7, -14, 4, 4], [5, -14, 4, 4], [-2, -17, 4, 7], [-4, -11, 3, 3], [3, -11, 3, 3]];
   for (const [dx, dy, w, h] of leaves) px(ctx, x + dx - 1, baseY + dy - 1, w + 2, h + 2, LINE);
   leaves.forEach(([dx, dy, w, h], i) => px(ctx, x + dx, baseY + dy, w, h, i % 2 ? "#2f7a4b" : "#3e9a5d"));

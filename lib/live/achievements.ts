@@ -1,0 +1,169 @@
+import { HourRow } from "./recap";
+
+/** One local day of a room, the shape relay_progress returns and progressFromHourly builds for a local Relay. */
+export interface ProgressDay {
+  day: string;
+  prompts: number;
+  tools: number;
+  dispatches: number;
+  fails: number;
+  answers: number;
+  minutes: number;
+  peak_hour: number;
+  night: boolean;
+  early: boolean;
+}
+
+export interface CafeSettings {
+  cat_name: string | null;
+  theme: string | null;
+}
+
+export interface Progress {
+  days: ProgressDay[];
+  agents: number;
+  tools: number;
+  projects: number;
+  chats: number;
+  room: CafeSettings | null;
+}
+
+export type Decor = "garland" | "trophy" | "owl" | "arcade" | "aquarium" | "goldMachine" | "plant" | "crown" | "extinguisher";
+
+interface Stats {
+  prompts: number;
+  tools: number;
+  dispatches: number;
+  fails: number;
+  streak: number;
+  minutes: number;
+  peak: number;
+  night: number;
+  early: number;
+  agents: number;
+  toolKinds: number;
+  projects: number;
+}
+
+export interface AchievementDef {
+  id: string;
+  icon: string;
+  title: string;
+  hint: string;
+  goal: number;
+  value: (s: Stats) => number;
+  /** counted over the whole history at once, so there is no day it was earned on */
+  lifetime?: boolean;
+  decor?: Decor;
+  decorName?: string;
+}
+
+export const ACHIEVEMENTS: AchievementDef[] = [
+  { id: "first_question", icon: "💬", title: "Перше питання", hint: "постав Claude перше питання", goal: 1, value: (s) => s.prompts },
+  { id: "first_handoff", icon: "🤝", title: "Перше доручення", hint: "Claude вперше доручив роботу агенту", goal: 1, value: (s) => s.dispatches, decor: "plant", decorName: "рослина в кутку" },
+  { id: "questions_100", icon: "💯", title: "Сотня питань", hint: "100 питань за весь час", goal: 100, value: (s) => s.prompts },
+  { id: "questions_1000", icon: "👑", title: "Тисяча питань", hint: "1000 питань за весь час", goal: 1000, value: (s) => s.prompts, decor: "crown", decorName: "корона для кота" },
+  { id: "tools_1000", icon: "🏆", title: "Тисяча дій", hint: "1000 дій інструментами", goal: 1000, value: (s) => s.tools, decor: "trophy", decorName: "кубок на автоматі" },
+  { id: "tools_10000", icon: "🚀", title: "Десять тисяч дій", hint: "10 000 дій інструментами", goal: 10000, value: (s) => s.tools },
+  { id: "team_5", icon: "👾", title: "Команда з п'яти", hint: "5 різних агентів отримали роботу", goal: 5, value: (s) => s.agents, lifetime: true, decor: "arcade", decorName: "аркадний автомат" },
+  { id: "team_10", icon: "🎉", title: "Повна зала", hint: "10 різних агентів отримали роботу", goal: 10, value: (s) => s.agents, lifetime: true },
+  { id: "rush_hour", icon: "⚡", title: "Година пік", hint: "10 доручень агентам за одну годину", goal: 10, value: (s) => s.peak, decor: "goldMachine", decorName: "золота кавоварка" },
+  { id: "polyglot", icon: "🐠", title: "На всі руки", hint: "15 різних інструментів", goal: 15, value: (s) => s.toolKinds, lifetime: true, decor: "aquarium", decorName: "акваріум" },
+  { id: "projects_5", icon: "📁", title: "П'ять проєктів", hint: "Claude працював у 5 різних проєктах", goal: 5, value: (s) => s.projects, lifetime: true },
+  { id: "night_owl", icon: "🦉", title: "Нічна сова", hint: "питання між північчю і п'ятою ранку", goal: 1, value: (s) => s.night, decor: "owl", decorName: "сова на підвіконні" },
+  { id: "early_bird", icon: "🐦", title: "Рання пташка", hint: "питання між п'ятою і сьомою ранку", goal: 1, value: (s) => s.early },
+  { id: "streak_3", icon: "🔥", title: "Три дні поспіль", hint: "питання три дні поспіль", goal: 3, value: (s) => s.streak, decor: "garland", decorName: "гірлянда" },
+  { id: "streak_7", icon: "📅", title: "Тиждень поспіль", hint: "питання сім днів поспіль", goal: 7, value: (s) => s.streak },
+  { id: "streak_30", icon: "🌙", title: "Місяць поспіль", hint: "питання тридцять днів поспіль", goal: 30, value: (s) => s.streak },
+  { id: "marathon", icon: "🏃", title: "Марафон", hint: "5 годин роботи за один день", goal: 300, value: (s) => s.minutes },
+  { id: "fails_50", icon: "🧯", title: "Загартований", hint: "50 невдалих викликів інструментів", goal: 50, value: (s) => s.fails, decor: "extinguisher", decorName: "вогнегасник" },
+];
+
+export interface Earned {
+  def: AchievementDef;
+  value: number;
+  done: boolean;
+  /** the local day it was earned on, when the history can tell */
+  day: string | null;
+}
+
+const DAY_MS = 24 * 3600 * 1000;
+const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY_MS);
+
+/** Walks the days in order and records the first day each achievement crossed its goal. */
+export function evaluate(p: Progress): Earned[] {
+  const s: Stats = { prompts: 0, tools: 0, dispatches: 0, fails: 0, streak: 0, minutes: 0, peak: 0, night: 0, early: 0, agents: p.agents, toolKinds: p.tools, projects: p.projects };
+  const day = new Map<string, string>();
+  let run = 0;
+  let prev: number | null = null;
+  for (const d of p.days) {
+    s.prompts += d.prompts;
+    s.tools += d.tools;
+    s.dispatches += d.dispatches;
+    s.fails += d.fails;
+    s.minutes = Math.max(s.minutes, d.minutes);
+    s.peak = Math.max(s.peak, d.peak_hour);
+    if (d.night) s.night = 1;
+    if (d.early) s.early = 1;
+    const n = dayNum(d.day);
+    run = d.prompts > 0 ? (prev != null && n === prev + 1 ? run + 1 : 1) : 0;
+    prev = d.prompts > 0 ? n : null;
+    s.streak = Math.max(s.streak, run);
+    for (const a of ACHIEVEMENTS) {
+      if (!a.lifetime && !day.has(a.id) && a.value(s) >= a.goal) day.set(a.id, d.day);
+    }
+  }
+  return ACHIEVEMENTS.map((def) => {
+    const value = def.value(s);
+    return { def, value, done: value >= def.goal, day: day.get(def.id) ?? null };
+  });
+}
+
+export function decorOf(earned: Earned[]): Set<Decor> {
+  return new Set(earned.filter((e) => e.done && e.def.decor).map((e) => e.def.decor!));
+}
+
+function localDay(t: number): string {
+  const d = new Date(t);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/** The same per-day shape for a local Relay, folded from the hourly rows it counts in memory. */
+export function progressFromHourly(rows: HourRow[], room: CafeSettings | null): Progress {
+  const days = new Map<string, ProgressDay>();
+  const agents = new Set<string>();
+  const tools = new Set<string>();
+  const projects = new Set<string>();
+  const chats = new Set<string>();
+  for (const r of rows) {
+    const t = Date.parse(r.hour);
+    const key = localDay(t);
+    const hour = new Date(t).getHours();
+    let d = days.get(key);
+    if (!d) {
+      d = { day: key, prompts: 0, tools: 0, dispatches: 0, fails: 0, answers: 0, minutes: 0, peak_hour: 0, night: false, early: false };
+      days.set(key, d);
+    }
+    d.prompts += r.prompts;
+    d.tools += r.tools;
+    d.dispatches += r.dispatches;
+    d.fails += r.fails;
+    d.answers += r.answers;
+    d.minutes += Object.keys(r.mins).length;
+    d.peak_hour = Math.max(d.peak_hour, r.dispatches);
+    if (r.prompts > 0 && hour < 5) d.night = true;
+    if (r.prompts > 0 && (hour === 5 || hour === 6)) d.early = true;
+    Object.keys(r.agents).forEach((k) => agents.add(k));
+    Object.keys(r.tools_by).forEach((k) => tools.add(k));
+    Object.keys(r.projects).forEach((k) => projects.add(k));
+    Object.keys(r.sessions).forEach((k) => chats.add(k));
+  }
+  return {
+    days: [...days.values()].sort((a, b) => a.day.localeCompare(b.day)),
+    agents: agents.size,
+    tools: tools.size,
+    projects: projects.size,
+    chats: chats.size,
+    room,
+  };
+}

@@ -8,6 +8,7 @@ export interface OverlayInput {
   agents: AgentDef[];
   bubbles: Bubble[];
   alert?: { agent: number; kind: "ask" | "done"; text: string };
+  cat?: { x: number; y: number; name: string };
   watermark: string;
 }
 
@@ -172,6 +173,19 @@ function bubble(ctx: CanvasRenderingContext2D, b: Bubble, a: AgentDef, s: number
   });
 }
 
+function catName(ctx: CanvasRenderingContext2D, c: NonNullable<OverlayInput["cat"]>, s: number, W: number) {
+  const size = Math.round(W * 0.011);
+  ctx.font = font(size);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#07050d";
+  ctx.lineWidth = Math.max(2, size / 5);
+  ctx.strokeText(c.name, c.x * s, (c.y - 13) * s);
+  ctx.fillStyle = "#f6d7a8";
+  ctx.fillText(c.name, c.x * s, (c.y - 13) * s);
+}
+
 function watermark(ctx: CanvasRenderingContext2D, text: string, W: number, H: number) {
   const size = Math.round(W * 0.012);
   ctx.font = font(size);
@@ -192,6 +206,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, o: OverlayInput, s: n
   const talking = new Set(o.bubbles.filter((b) => b.seated).map((b) => b.agent));
   neon(ctx, o, s, k);
   names(ctx, o, s, W, talking);
+  if (o.cat) catName(ctx, o.cat, s, W);
   for (const b of o.bubbles) bubble(ctx, b, o.agents[b.agent], s, W);
   if (o.watermark) watermark(ctx, o.watermark, W, H);
 }

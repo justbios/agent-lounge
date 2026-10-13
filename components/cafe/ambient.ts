@@ -53,7 +53,7 @@ export function drawAmbient(ctx: Ctx, t: number, width: number) {
 }
 
 /** The coffee bar on the left wall: barista first, then the counter in front of them. */
-export function drawBar(ctx: Ctx, t: number) {
+export function drawBar(ctx: Ctx, t: number, gold = false) {
   drawPerson(ctx, 25, 71, BARISTA, { dir: t % 7 < 1.8 ? "left" : "down", step: 0, carrying: false });
 
   px(ctx, 0, 63, 47, 20, LINE);
@@ -63,8 +63,9 @@ export function drawBar(ctx: Ctx, t: number) {
   for (const x of [11, 23, 35]) px(ctx, x, 73, 1, 8, "#4a3326");
 
   px(ctx, 3, 47, 15, 19, LINE);
-  px(ctx, 4, 48, 13, 17, "#b9bdc9");
-  px(ctx, 4, 48, 13, 2, "#d9dce6");
+  px(ctx, 4, 48, 13, 17, gold ? "#d9a93a" : "#b9bdc9");
+  px(ctx, 4, 48, 13, 2, gold ? "#ffe08a" : "#d9dce6");
+  if (gold) px(ctx, 5, 50, 1, 13, "#ffe9a8");
   px(ctx, 6, 51, 9, 5, "#2a2a33");
   px(ctx, 7, 52, 1, 1, Math.floor(t * 2) % 2 ? "#ff5d5d" : "#5a1f1f");
   px(ctx, 9, 52, 1, 1, "#4ade80");
