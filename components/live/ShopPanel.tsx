@@ -68,8 +68,8 @@ export default function ShopPanel({
   const b = cafe.beans;
   return (
     <Sheet
-      label="магазин"
-      title="Магазин"
+      label="кав'ярня"
+      title="Кав'ярня"
       sub={
         cafe.progress ? (
           <span className="shop-beans" title={`зароблено ${beans(b.earned)}, витрачено ${beans(b.spent)}`}>

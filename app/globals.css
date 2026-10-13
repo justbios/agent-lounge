@@ -3502,6 +3502,33 @@ body {
   display: flex;
   gap: 6px;
 }
+.cafe-beans {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  padding: 0.3em 0.5em 0.15em;
+  border: 1px solid #07050d;
+  border-radius: 0.3em 0.3em 0.9em 0.9em;
+  background: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.08) 0 2px, transparent 2px 4px), #b08850;
+  color: #2a1a0c;
+  font-size: clamp(7px, 1.1cqw, 11px);
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  box-shadow: 1px 1px 0 #07050d;
+}
+.cafe-beans::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -0.4em;
+  width: 1em;
+  height: 0.4em;
+  transform: translateX(-50%);
+  border: 1px solid #07050d;
+  border-bottom: none;
+  border-radius: 0.3em 0.3em 0 0;
+  background: #8a6438;
+}
 .cafe-juke {
   position: absolute;
   transform: translate(-50%, -100%);

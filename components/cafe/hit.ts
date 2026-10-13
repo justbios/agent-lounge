@@ -8,6 +8,7 @@ export type Hit =
   | { kind: "cat" }
   | { kind: "board" }
   | { kind: "vending" }
+  | { kind: "beans" }
   | { kind: "window" }
   | { kind: "door" }
   | { kind: "bar" };
@@ -16,8 +17,11 @@ export type FixtureKind = Exclude<Hit["kind"], "agent" | "cat">;
 
 const inBox = (p: Point, x: number, y: number, w: number, h: number) => p.x >= x && p.x < x + w && p.y >= y && p.y < y + h;
 
+/** The sack of coffee beans hanging over the coffee machine, where {@link BeanSack} floats. */
+export const SACK = { x: 12, y: 45 };
+
 /** What sits under a point of the scene, topmost first: walkers, the cat, desks, then the fixtures. */
-export function hitTest(lay: CafeLayout, views: AgentView[], cat: Point | null, p: Point): Hit | null {
+export function hitTest(lay: CafeLayout, views: AgentView[], cat: Point | null, p: Point, sack = false): Hit | null {
   for (let i = views.length - 1; i >= 0; i--) {
     const w = views[i].walker;
     if (w && inBox(p, w.x - 7, w.y - 24, 14, 26)) return { kind: "agent", agent: i };
@@ -30,6 +34,7 @@ export function hitTest(lay: CafeLayout, views: AgentView[], cat: Point | null, 
   const fx = fixtures(lay.width);
   const m = fx.METER;
   if (inBox(p, 2, 5, 44, 30) || inBox(p, m.x - 1, m.y - 1, m.w + 2, m.h + 2)) return { kind: "board" };
+  if (sack && inBox(p, SACK.x - 10, SACK.y - 9, 21, 10)) return { kind: "beans" };
   const b = BAR_AREA;
   if (inBox(p, b.x, b.y, b.w, b.h)) return { kind: "bar" };
   const v = fx.VENDING;
@@ -44,7 +49,8 @@ export const HIT_HINT: Record<Hit["kind"], string> = {
   agent: "хто це і що робить",
   cat: "погладити кота",
   board: "підсумок дня",
-  vending: "магазин",
+  vending: "кав'ярня",
+  beans: "кав'ярня: зерна й меблі",
   window: "змінити вид за вікном",
   door: "запросити команду",
   bar: "груповий чат",

@@ -20,7 +20,7 @@ import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
 import { buildRoom, doorOf, fixtures } from "./room";
 import { Anchor, CafeBubble, FixturePick, Placing, SceneAlert, agentAnchor, anchorAt, fixtureAnchor, onCat } from "./sceneParts";
-import { ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
+import { BeanSack, ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
 import { fmtTokens } from "../live/tokens";
 
@@ -58,6 +58,7 @@ export default function CafeScene({
   onFurniture,
   onJukebox,
   playing,
+  beans,
 }: {
   model: CafeModel;
   clock: number;
@@ -92,6 +93,8 @@ export default function CafeScene({
   onJukebox?: (piece: { pid: string; item: ItemId }, anchor: Anchor) => void;
   /** the record this page plays, shown over the jukebox */
   playing?: string | null;
+  /** coffee beans left, a sack over the counter that opens the shop */
+  beans?: number | null;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -213,7 +216,7 @@ export default function CafeScene({
   };
   const hitAt = (p: Point): Hit | null => {
     const at = agents.map((_, i) => agentView(model, tl, lay, i, clockRef.current));
-    return hitTest(lay, at, cat.pos, p);
+    return hitTest(lay, at, cat.pos, p, beans != null);
   };
   const ghostAt = (pl: Placing, p: Point): Ghost | null => {
     const it = itemOf(pl.item);
@@ -382,6 +385,7 @@ export default function CafeScene({
           })}
           <GuestTags seats={seats} more={barOverflow(guests ?? [])} pos={pos} />
           <ChatTag unread={chatUnread} pos={pos} />
+          <BeanSack beans={beans} pos={pos} />
           <JukeTag playing={playing} at={shown.find((s) => s.item === "jukebox")} pos={pos} />
           {reactions && <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />}
           {catName && (

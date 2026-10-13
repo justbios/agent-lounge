@@ -1,6 +1,7 @@
 import { CSSProperties } from "react";
 import { REACT_MS } from "@/lib/live/social";
 import { GuestSeat, guestTag } from "./guests";
+import { SACK } from "./hit";
 import type { Standing } from "./placement";
 
 /** A reaction already matched to a desk in the scene on screen. */
@@ -36,6 +37,16 @@ export function ChatTag({ unread, pos }: { unread: number; pos: Pos }) {
   return (
     <span className="cafe-chat" style={pos(33, 54)}>
       💬 {unread}
+    </span>
+  );
+}
+
+/** The café's coffee beans, a sack over the counter: a click on it opens the café's shop. */
+export function BeanSack({ beans, pos }: { beans?: number | null; pos: Pos }) {
+  if (beans == null) return null;
+  return (
+    <span className="cafe-beans" style={pos(SACK.x, SACK.y)}>
+      ☕ {Math.max(0, beans).toLocaleString("uk-UA")}
     </span>
   );
 }

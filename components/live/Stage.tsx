@@ -183,7 +183,7 @@ export default function Stage({
   const pick = (p: FixturePick | null) => {
     if (!p) return setPop(null);
     if (p.kind === "board") return onRecap();
-    if (p.kind === "vending") return onShop();
+    if (p.kind === "vending" || p.kind === "beans") return onShop();
     if (p.kind === "window") return nextTheme(p.anchor);
     if (p.kind === "bar") return onChat ? onChat() : note(p.anchor, "груповий чат є в хмарному кафе");
     setPop(pop?.kind === "door" ? null : { kind: "door", anchor: p.anchor });
@@ -317,6 +317,7 @@ export default function Stage({
           onFurniture={cafe.editable ? (f, anchor) => setPop({ kind: "furniture", ...f, anchor }) : undefined}
           onJukebox={(f, anchor) => setPop({ kind: "jukebox", ...f, anchor })}
           playing={sound.on ? trackInfo(sound.track).name : null}
+          beans={cafe.beans.left}
           pops={pops}
         />
         {placing && <PlacingBar placing={placing} onCancel={() => onPlacing(null)} />}
