@@ -21,6 +21,7 @@ export interface FrameInput {
   /** wall time in seconds — drives ambience, which keeps moving while the replay is paused */
   t: number;
   cat?: Cat;
+  cat2?: Cat | null;
   /** the desk whose agent waits on the user: a raised hand and a flashing «!» for a question, a lit ✓ for a finished turn */
   alert?: { agent: number; kind: "ask" | "done" };
   decor?: DecorSet;
@@ -194,7 +195,9 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   if (f.guests) drawGuests(ctx, f.guests, t);
   drawDecor(ctx, lay, decor, t);
   const furniture = f.furniture ?? [];
-  furniture.forEach((s) => !s.floor && drawItem(ctx, s.item, s.w, s.cx, s.bottom, t));
+  for (const layer of ["rug", "wall", "sill"] as const) {
+    furniture.forEach((s) => s.layer === layer && drawItem(ctx, s.item, s.w, s.cx, s.bottom, t));
+  }
 
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   views.forEach((v, i) => drawStation(ctx, lay.desks[i], v, model.agents[i].color, looks[i], f, i));
@@ -207,7 +210,9 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   });
   const cat = f.cat;
   if (cat) sprites.push({ y: cat.footY, draw: () => cat.draw(ctx, t, decor.has("crown")) });
-  furniture.forEach((s) => s.floor && sprites.push({ y: s.bottom, draw: () => drawItem(ctx, s.item, s.w, s.cx, s.bottom, t) }));
+  const cat2 = f.cat2;
+  if (cat2) sprites.push({ y: cat2.footY, draw: () => cat2.draw(ctx, t, false) });
+  furniture.forEach((s) => s.layer === "floor" && sprites.push({ y: s.bottom, draw: () => drawItem(ctx, s.item, s.w, s.cx, s.bottom, t) }));
   sprites.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 
   drawLights(ctx, lay, views, model.agents.map((a) => a.color), t, f.theme);

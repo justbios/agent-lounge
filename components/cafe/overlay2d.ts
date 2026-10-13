@@ -8,7 +8,9 @@ export interface OverlayInput {
   agents: AgentDef[];
   bubbles: Bubble[];
   alert?: { agent: number; kind: "ask" | "done"; text: string };
-  cat?: { x: number; y: number; name: string };
+  cats: { x: number; y: number; name: string }[];
+  /** the neon sign's second line, when the café bought its own */
+  sign?: string;
   watermark: string;
 }
 
@@ -74,7 +76,7 @@ function neon(ctx: CanvasRenderingContext2D, o: OverlayInput, s: number, k: numb
     ctx.shadowBlur = 0;
   };
   glowText("RELAY", top, main, 700, "#e3fcff", [["#1aa7d8", 26], ["#5ce1ff", 14], ["#5ce1ff", 6], ["#ffffff", 2]]);
-  glowText("інтернет-кафе", top + main + gap, sub, 400, "#ffe0f0", [["#ff4fa3", 14], ["#ff4fa3", 6], ["#ffffff", 2]]);
+  glowText(o.sign ?? "інтернет-кафе", top + main + gap, sub, 400, "#ffe0f0", [["#ff4fa3", 14], ["#ff4fa3", 6], ["#ffffff", 2]]);
   spacing(ctx, 0, 1);
 }
 
@@ -173,7 +175,7 @@ function bubble(ctx: CanvasRenderingContext2D, b: Bubble, a: AgentDef, s: number
   });
 }
 
-function catName(ctx: CanvasRenderingContext2D, c: NonNullable<OverlayInput["cat"]>, s: number, W: number) {
+function catName(ctx: CanvasRenderingContext2D, c: OverlayInput["cats"][number], s: number, W: number) {
   const size = Math.round(W * 0.011);
   ctx.font = font(size);
   ctx.textAlign = "center";
@@ -206,7 +208,7 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, o: OverlayInput, s: n
   const talking = new Set(o.bubbles.filter((b) => b.seated).map((b) => b.agent));
   neon(ctx, o, s, k);
   names(ctx, o, s, W, talking);
-  if (o.cat) catName(ctx, o.cat, s, W);
+  for (const c of o.cats) catName(ctx, c, s, W);
   for (const b of o.bubbles) bubble(ctx, b, o.agents[b.agent], s, W);
   if (o.watermark) watermark(ctx, o.watermark, W, H);
 }

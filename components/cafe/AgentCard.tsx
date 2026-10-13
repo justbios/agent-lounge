@@ -1,13 +1,14 @@
 "use client";
 
-import { CSSProperties, ReactNode, useEffect, useEffectEvent } from "react";
+import { CSSProperties, ReactNode, useEffect, useEffectEvent, useState } from "react";
 import { X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { AgentView } from "@/lib/cafe/timeline";
-import { LookPick } from "@/lib/live/interior";
+import { LookPick, NAME_MAX } from "@/lib/live/interior";
 import { REACTIONS } from "@/lib/live/social";
 import { badge, plural } from "../live/format";
 import { fmtTokens } from "../live/tokens";
+import { PROP_NAMES, propIndex } from "./desk";
 import { LOOK_CHOICES, lookIndex, pickedLook } from "./people";
 
 const LAST = 5;
@@ -64,10 +65,53 @@ export function ScenePop({
 
 const STYLES = ["навушники", "довге волосся", "гулька", "кепка"];
 
-function LookRow({ base, pick, onLook }: { base: number; pick?: LookPick; onLook: (p: LookPick | null) => void }) {
+function NickField({ value, color, onSave }: { value?: string; color: string; onSave: (v: string) => void }) {
+  const [v, setV] = useState(value ?? "");
+  const save = () => v.trim() !== (value ?? "") && onSave(v);
+  return (
+    <form
+      className="ac-nick"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+    >
+      <input
+        aria-label="табличка з ім'ям"
+        placeholder="табличка з ім'ям"
+        value={v}
+        maxLength={NAME_MAX}
+        style={{ "--c": color } as CSSProperties}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={save}
+      />
+    </form>
+  );
+}
+
+function LookRow({
+  base,
+  desk,
+  color,
+  pick,
+  onLook,
+}: {
+  base: number;
+  desk: number;
+  color: string;
+  pick?: LookPick;
+  onLook: (p: LookPick | null) => void;
+}) {
   const def = lookIndex(base);
   const cur = { style: pick?.style ?? def.style, hair: pick?.hair ?? def.hair, skin: pick?.skin ?? def.skin };
-  const next = (k: keyof typeof cur) => onLook({ ...pick, [k]: (cur[k] + 1) % LOOK_CHOICES[k] });
+  const prop = pick?.prop ?? desk;
+  const put = (patch: Partial<LookPick>) => {
+    const p: LookPick = { ...pick, ...patch };
+    for (const k of Object.keys(p) as (keyof LookPick)[]) if (p[k] == null || p[k] === "") delete p[k];
+    onLook(Object.keys(p).length ? p : null);
+  };
+  const next = (k: keyof typeof cur) => put({ [k]: (cur[k] + 1) % LOOK_CHOICES[k] });
+  const shirt = pick?.shirt == null ? 0 : pick.shirt + 1 < LOOK_CHOICES.shirt ? pick.shirt + 1 : undefined;
   const sw = (c?: string) => <i className="ac-sw" style={{ background: c }} />;
   return (
     <div className="ac-look" role="group" aria-label="вигляд агента">
@@ -80,11 +124,18 @@ function LookRow({ base, pick, onLook }: { base: number; pick?: LookPick; onLook
       <button onClick={() => next("skin")} title="наступний відтінок шкіри">
         {sw(pickedLook({ skin: cur.skin }).skin)} шкіра
       </button>
+      <button onClick={() => put({ shirt })} title="наступний колір одягу">
+        {sw(pickedLook({ shirt: pick?.shirt }).shirt ?? color)} одяг
+      </button>
+      <button onClick={() => put({ prop: (prop + 1) % PROP_NAMES.length })} title="що стоїть на столі">
+        на столі: {PROP_NAMES[prop % PROP_NAMES.length]}
+      </button>
       {pick && (
         <button onClick={() => onLook(null)} title="повернути як було">
           як було
         </button>
       )}
+      <NickField value={pick?.name} color={color} onSave={(name) => put({ name })} />
     </div>
   );
 }
@@ -120,8 +171,8 @@ export function AgentCard({
       <div className="ac-hd">
         <span className="ac-dot" />
         <div className="ac-who">
-          <b>{a.name}</b>
-          <span>{a.role}</span>
+          <b>{look?.name ?? a.name}</b>
+          <span>{look?.name ? `${a.name} · ${a.role}` : a.role}</span>
         </div>
         <span className={`rr-badge ${b.cls}`}>{b.text}</span>
       </div>
@@ -163,7 +214,16 @@ export function AgentCard({
           ))}
         </div>
       )}
-      {onLook && <LookRow base={a.look ?? agent} pick={look} onLook={onLook} />}
+      {onLook && (
+        <LookRow
+          key={a.id}
+          base={a.look ?? agent}
+          desk={propIndex(model.seed, agent)}
+          color={a.color}
+          pick={look}
+          onLook={onLook}
+        />
+      )}
     </div>
   );
 }

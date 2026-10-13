@@ -81,6 +81,8 @@ export interface CafeState {
   place: (p: Placed) => Promise<boolean>;
   stow: (pid: string) => Promise<boolean>;
   setLook: (agent: string, pick: LookPick | null) => Promise<boolean>;
+  /** the neon sign's own line and the second cat's name */
+  setNames: (patch: Pick<Interior, "sign" | "cat2Name">) => Promise<boolean>;
 }
 
 /** Lifetime progress, the decor it unlocks and the café's own settings: from Relay in the cloud, from memory and this browser locally. */
@@ -156,7 +158,7 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
   const fit = (next: Interior) => save({ interior: next });
   const buy = async (item: ItemId) => {
     const it = itemOf(item);
-    if (!it || !editable || beans.left < it.price) return false;
+    if (!it || !editable || beans.left < it.price || (it.place === "perk" && interior.owned.includes(item))) return false;
     return fit({ ...interior, owned: [...interior.owned, item] });
   };
   const place = (p: Placed) => {
@@ -170,6 +172,7 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
     else delete looks[agent];
     return fit({ ...interior, looks });
   };
+  const setNames = (patch: Pick<Interior, "sign" | "cat2Name">) => fit(cleanInterior({ ...interior, ...patch }));
 
   return {
     progress,
@@ -187,5 +190,6 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
     place,
     stow,
     setLook,
+    setNames,
   };
 }

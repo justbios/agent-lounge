@@ -243,7 +243,13 @@ export function drawPlant(ctx: Ctx, x: number, baseY: number) {
 }
 
 /** Everything that never moves, rendered once per layout. */
-export function buildRoom(lay: CafeLayout, agents: AgentDef[], seed = 1, th: Theme = THEMES.cafe): HTMLCanvasElement {
+export function buildRoom(
+  lay: CafeLayout,
+  agents: AgentDef[],
+  seed = 1,
+  th: Theme = THEMES.cafe,
+  props: (number | undefined)[] = [],
+): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = lay.width;
   c.height = lay.height;
@@ -255,6 +261,6 @@ export function buildRoom(lay: CafeLayout, agents: AgentDef[], seed = 1, th: The
   drawStools(ctx);
   drawVending(ctx, fixtures(lay.width));
   if (lay.height >= 180) drawPlant(ctx, 14, lay.height - 10);
-  drawDesks(ctx, lay, agents, seed);
+  drawDesks(ctx, lay, agents, seed, props);
   return c;
 }

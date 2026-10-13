@@ -2979,3 +2979,42 @@ body {
   display: flex;
   gap: 6px;
 }
+.ac-nick {
+  flex-basis: 100%;
+}
+.ac-nick input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 11.5px;
+}
+.ac-nick input:focus {
+  outline: none;
+  border-color: var(--c, var(--border-2));
+}
+.cafe-name.plate {
+  padding: 1px 3px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  background: rgba(7, 5, 13, 0.82);
+  text-shadow: none;
+}
+.shop-name {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 4px;
+}
+.shop-name input {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 11.5px;
+}

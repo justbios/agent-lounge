@@ -5,6 +5,7 @@ const SHOES = "#2b2433";
 const HAIR = ["#2a1c14", "#6b3b1c", "#d6a446", "#1a1922", "#9c3d24", "#d9d4cc", "#4a2f6b", "#7a4a2a"];
 const SKIN = ["#f2c9a1", "#dba67a", "#b97c52", "#8a5a3a", "#f6d7bb"];
 const PANTS = ["#2f3550", "#3a2f45", "#283a3a", "#40342a"];
+const SHIRTS = ["#e8e4f0", "#3b3f4f", "#d9534f", "#f0a43a", "#f2d24b", "#4caf72", "#3f8fd2", "#8b5cc7", "#e57aa8"];
 
 export interface Look {
   hair: string;
@@ -22,7 +23,7 @@ export interface Look {
 
 const at = <T,>(list: T[], i: number): T => list[((i % list.length) + list.length) % list.length];
 
-export const LOOK_CHOICES = { style: 4, hair: HAIR.length, skin: SKIN.length } as const;
+export const LOOK_CHOICES = { style: 4, hair: HAIR.length, skin: SKIN.length, shirt: SHIRTS.length } as const;
 
 const mod = (i: number, n: number) => ((i % n) + n) % n;
 
@@ -30,7 +31,7 @@ const mod = (i: number, n: number) => ((i % n) + n) % n;
 export const lookIndex = (i: number) => ({ style: mod(i, 4), hair: mod(i, HAIR.length), skin: mod(i * 3 + 1, SKIN.length) });
 
 /** What a café owner picked for an agent, as a {@link lookFor} override. */
-export function pickedLook(p: { style?: number; hair?: number; skin?: number } | undefined): Partial<Look> {
+export function pickedLook(p: { style?: number; hair?: number; skin?: number; shirt?: number } | undefined): Partial<Look> {
   if (!p) return {};
   const out: Partial<Look> = {};
   if (p.style != null) out.style = at([0, 1, 2, 3], p.style);
@@ -41,6 +42,10 @@ export function pickedLook(p: { style?: number; hair?: number; skin?: number } |
   if (p.skin != null) {
     out.skin = at(SKIN, p.skin);
     out.skinDark = shade(out.skin, 0.82);
+  }
+  if (p.shirt != null) {
+    out.shirt = at(SHIRTS, p.shirt);
+    out.shirtDark = shade(out.shirt, 0.66);
   }
   return out;
 }

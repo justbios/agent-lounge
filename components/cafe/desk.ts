@@ -38,6 +38,7 @@ function drawDesk(ctx: Ctx, X: number, T: number, color: string) {
 
 type Prop = "cactus" | "duck" | "cans" | "books" | "lamp" | "none";
 const PROPS: Prop[] = ["cactus", "duck", "cans", "books", "lamp", "none"];
+export const PROP_NAMES = ["кактус", "качка", "банки", "книжки", "лампа", "нічого"] as const;
 
 function drawProp(ctx: Ctx, X: number, T: number, prop: Prop, r: () => number) {
   const L = X - 20;
@@ -90,11 +91,15 @@ function drawSticky(ctx: Ctx, X: number, T: number, r: () => number) {
   px(ctx, X + 6 - Math.floor(r() * 3), T - 2, 3, 3, c);
 }
 
-export function drawDesks(ctx: Ctx, lay: CafeLayout, agents: AgentDef[], seed: number) {
+/** The index into {@link PROP_NAMES} desk `i` gets before anyone picks otherwise. */
+export const propIndex = (seed: number, i: number) => Math.floor(rng(seed * 613 + i * 97 + 5)() * PROPS.length);
+
+export function drawDesks(ctx: Ctx, lay: CafeLayout, agents: AgentDef[], seed: number, props: (number | undefined)[] = []) {
   lay.desks.forEach((d, i) => {
     drawDesk(ctx, d.x, d.top, agents[i].color);
     const r = rng(seed * 613 + i * 97 + 5);
-    drawProp(ctx, d.x, d.top, PROPS[Math.floor(r() * PROPS.length)], r);
+    const own = Math.floor(r() * PROPS.length);
+    drawProp(ctx, d.x, d.top, PROPS[(props[i] ?? own) % PROPS.length], r);
     drawSticky(ctx, d.x, d.top, r);
   });
 }

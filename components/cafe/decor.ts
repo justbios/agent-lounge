@@ -1,13 +1,14 @@
 import { CafeLayout } from "@/lib/cafe/layout";
 import type { Decor } from "@/lib/live/achievements";
 import { Ctx, LINE, glow, paint, px, shade } from "./pixel";
-import { drawPlant, fixtures } from "./room";
+import { fixtures } from "./room";
 
 export type DecorSet = ReadonlySet<Decor>;
 
 const GOLD = "#ffd25a";
 const BULBS = ["#ff4fa3", "#ffd25a", "#5ce1ff", "#4ade80"];
-const FLOOR_Y = 132;
+/** where the movable decor stood before it could be moved */
+export const FLOOR_Y = 132;
 
 function tri(x: number): number {
   const f = x % 2;
@@ -50,38 +51,37 @@ function drawTrophy(ctx: Ctx, width: number) {
   );
 }
 
-function drawOwl(ctx: Ctx, t: number) {
-  const x = 54 + 70 - 12;
+/** The owl from the night-owl achievement, standing with its feet on `b`. */
+export function drawOwl(ctx: Ctx, t: number, x: number, b: number) {
+  const o = b - 33;
   paint(
     ctx,
-    [[x, 24, 7, 9], [x, 23, 1, 1], [x + 6, 23, 1, 1]],
+    [[x, 24 + o, 7, 9], [x, 23 + o, 1, 1], [x + 6, 23 + o, 1, 1]],
     [
-      [x, 23, 1, 2, "#6b4f36"],
-      [x + 6, 23, 1, 2, "#6b4f36"],
-      [x, 24, 7, 9, "#8a6a4a"],
-      [x, 28, 1, 4, "#6b4f36"],
-      [x + 6, 28, 1, 4, "#6b4f36"],
-      [x + 1, 25, 5, 3, "#c9a87a"],
-      [x + 2, 29, 3, 3, "#d9c09a"],
-      [x + 3, 30, 1, 1, "#a8875f"],
-      [x + 3, 27, 1, 1, "#e8913a"],
-      [x + 2, 32, 1, 1, "#e8913a"],
-      [x + 4, 32, 1, 1, "#e8913a"],
+      [x, 23 + o, 1, 2, "#6b4f36"],
+      [x + 6, 23 + o, 1, 2, "#6b4f36"],
+      [x, 24 + o, 7, 9, "#8a6a4a"],
+      [x, 28 + o, 1, 4, "#6b4f36"],
+      [x + 6, 28 + o, 1, 4, "#6b4f36"],
+      [x + 1, 25 + o, 5, 3, "#c9a87a"],
+      [x + 2, 29 + o, 3, 3, "#d9c09a"],
+      [x + 3, 30 + o, 1, 1, "#a8875f"],
+      [x + 3, 27 + o, 1, 1, "#e8913a"],
+      [x + 2, 32 + o, 1, 1, "#e8913a"],
+      [x + 4, 32 + o, 1, 1, "#e8913a"],
     ],
   );
   const blink = t % 4.2 < 0.16;
   for (const ex of [x + 1, x + 4]) {
-    if (blink) px(ctx, ex, 26, 2, 1, "#6b4f36");
+    if (blink) px(ctx, ex, 26 + o, 2, 1, "#6b4f36");
     else {
-      px(ctx, ex, 25, 2, 2, GOLD);
-      px(ctx, ex + (ex === x + 1 ? 1 : 0), 26, 1, 1, LINE);
+      px(ctx, ex, 25 + o, 2, 2, GOLD);
+      px(ctx, ex + (ex === x + 1 ? 1 : 0), 26 + o, 1, 1, LINE);
     }
   }
 }
 
-function drawArcade(ctx: Ctx, t: number) {
-  const x = 4;
-  const b = FLOOR_Y;
+export function drawArcade(ctx: Ctx, t: number, x: number, b: number) {
   paint(
     ctx,
     [[x, b - 30, 14, 30]],
@@ -111,9 +111,7 @@ function drawArcade(ctx: Ctx, t: number) {
   px(ctx, ship, b - 18 - (Math.floor(t * 6) % 4), 1, 1, "#ffffff");
 }
 
-function drawAquarium(ctx: Ctx, t: number) {
-  const x = 22;
-  const b = FLOOR_Y;
+export function drawAquarium(ctx: Ctx, t: number, x: number, b: number) {
   paint(
     ctx,
     [[x, b - 22, 18, 22]],
@@ -166,11 +164,7 @@ export function drawDecor(ctx: Ctx, lay: CafeLayout, decor: DecorSet, t: number)
   if (!decor.size) return;
   if (decor.has("garland")) drawGarland(ctx, lay.width, t, false);
   if (decor.has("trophy")) drawTrophy(ctx, lay.width);
-  if (decor.has("owl")) drawOwl(ctx, t);
   if (decor.has("extinguisher")) drawExtinguisher(ctx, lay.width);
-  if (decor.has("arcade")) drawArcade(ctx, t);
-  if (decor.has("aquarium")) drawAquarium(ctx, t);
-  if (decor.has("plant")) drawPlant(ctx, lay.width - 14, Math.min(lay.height - 4, FLOOR_Y));
 }
 
 /** The decor's own light, added after the room is dimmed. */
@@ -178,9 +172,6 @@ export function drawDecorLights(ctx: Ctx, lay: CafeLayout, decor: DecorSet, t: n
   if (!decor.size) return;
   ctx.globalCompositeOperation = "lighter";
   if (decor.has("garland")) drawGarland(ctx, lay.width, t, true);
-  if (decor.has("arcade")) glow(ctx, 11, FLOOR_Y - 19, 14, "#5ce1ff", 0.16);
-  if (decor.has("aquarium")) glow(ctx, 31, FLOOR_Y - 16, 14, "#5ab0e0", 0.14);
   if (decor.has("goldMachine")) glow(ctx, 10, 56, 14, GOLD, 0.12);
-  if (decor.has("owl")) glow(ctx, 54 + 70 - 9, 26, 6, GOLD, 0.12);
   ctx.globalCompositeOperation = "source-over";
 }

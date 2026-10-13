@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useEffectEvent, useState } from "react";
 import { Gamepad2, Maximize2, Minimize2, ScrollText, Users, X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
-import { Placed, itemOf } from "@/lib/live/interior";
+import { ItemId, Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { CafeState } from "@/lib/live/useCafe";
 import { ScenePop } from "../cafe/AgentCard";
@@ -15,7 +15,7 @@ import Presence from "./Presence";
 
 type Pop =
   | { kind: "door"; anchor: Anchor }
-  | { kind: "furniture"; anchor: Anchor; pid: string }
+  | { kind: "furniture"; anchor: Anchor; pid: string; item: ItemId }
   | { kind: "note"; anchor: Anchor; text: string; id: number };
 
 const TOP: Anchor = { x: 0.5, y: 0.08, below: true };
@@ -172,7 +172,9 @@ export default function Stage({
     onPlacing(null);
     if (!(await cafe.place(p))) note(TOP, "не вдалося поставити, спробуй ще раз");
   };
-  const furn = pop?.kind === "furniture" ? cafe.interior.placed.find((p) => p.pid === pop.pid) : undefined;
+  const furn = pop?.kind === "furniture" ? pop : undefined;
+  const furnDef = furn && itemOf(furn.item);
+  const moved = !!furn && cafe.interior.placed.some((p) => p.pid === furn.pid);
 
   return (
     <section className={`card stage-card ${full ? "stage-full" : ""}`}>
@@ -208,17 +210,17 @@ export default function Stage({
           catName={cafe.settings.cat_name}
           theme={theme}
           onPick={pick}
-          furniture={cafe.interior.placed}
-          looks={cafe.interior.looks}
+          interior={cafe.interior}
           onLook={cafe.editable ? (id, look) => void cafe.setLook(id, look) : undefined}
           placing={placing}
+          onPlacing={cafe.editable ? onPlacing : undefined}
           onPlace={place}
-          onFurniture={cafe.editable ? (pid, anchor) => setPop({ kind: "furniture", pid, anchor }) : undefined}
+          onFurniture={cafe.editable ? (f, anchor) => setPop({ kind: "furniture", ...f, anchor }) : undefined}
           pops={
-            pop?.kind === "furniture" && furn ? (
-              <ScenePop anchor={pop.anchor} label={itemOf(furn.item)?.name ?? "річ"} onClose={() => setPop(null)}>
+            furn && furnDef ? (
+              <ScenePop anchor={furn.anchor} label={furnDef.name} onClose={() => setPop(null)}>
                 <div className="furn-pop">
-                  <b>{itemOf(furn.item)?.name}</b>
+                  <b>{furnDef.name}</b>
                   <div>
                     <button
                       className="btn"
@@ -229,15 +231,17 @@ export default function Stage({
                     >
                       перемістити
                     </button>
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        setPop(null);
-                        void cafe.stow(furn.pid);
-                      }}
-                    >
-                      прибрати
-                    </button>
+                    {(!furnDef.decor || moved) && (
+                      <button
+                        className="btn"
+                        onClick={() => {
+                          setPop(null);
+                          void cafe.stow(furn.pid);
+                        }}
+                      >
+                        {furnDef.decor ? "на звичне місце" : "прибрати"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </ScenePop>

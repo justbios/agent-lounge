@@ -3,9 +3,13 @@ import { CafeLayout, Dir, SEAT_DY, pathLength, pointAt, rng, route } from "@/lib
 import { Ctx, LINE, px } from "./pixel";
 
 const SPEED = 0.018;
-const FUR = "#e8913a";
-const FUR_DARK = "#b8642a";
-const BELLY = "#f6d7a8";
+export interface Coat {
+  fur: string;
+  dark: string;
+  belly: string;
+}
+
+const GINGER: Coat = { fur: "#e8913a", dark: "#b8642a", belly: "#f6d7a8" };
 const PET_MS = 3800;
 const HEART = [[1, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [2, 3]];
 
@@ -35,6 +39,7 @@ export class Cat {
   constructor(
     private lay: CafeLayout,
     seed: number,
+    private coat: Coat = GINGER,
   ) {
     this.r = rng(seed * 7 + 3);
     this.band = Math.floor(this.r() * lay.walkY.length);
@@ -112,6 +117,7 @@ export class Cat {
     const flip = this.dir === "left";
     const P = (dx: number, dy: number, w: number, h: number, c: string) =>
       px(ctx, flip ? X - dx - w : X + dx, Y + dy, w, h, c);
+    const { fur: FUR, dark: FUR_DARK, belly: BELLY } = this.coat;
 
     ctx.fillStyle = "rgba(0,0,0,0.3)";
     ctx.fillRect(X - 5, Y - 1, 10, 2);

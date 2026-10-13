@@ -1,5 +1,7 @@
 import { ItemId } from "@/lib/live/interior";
+import { drawAquarium, drawArcade, drawOwl } from "./decor";
 import { Ctx, LINE, glow, px, shade } from "./pixel";
+import { drawPlant } from "./room";
 
 type Draw = (ctx: Ctx, L: number, B: number, t: number) => void;
 
@@ -173,7 +175,105 @@ function jukebox(ctx: Ctx, L: number, B: number, t: number) {
   px(ctx, L + 1, B - 3, 14, 3, "#3a1d24");
 }
 
-const DRAW: Record<ItemId, Draw> = { candle, cactus, luckycat, bonsai, catbed, lamp, palm, shelf, gramophone, couch, jukebox };
+function frame(ctx: Ctx, L: number, B: number, bg: string) {
+  px(ctx, L, B - 12, 9, 12, LINE);
+  px(ctx, L + 1, B - 11, 7, 10, bg);
+}
+
+function posterHills(ctx: Ctx, L: number, B: number) {
+  frame(ctx, L, B, "#7fc4ec");
+  px(ctx, L + 5, B - 10, 2, 2, "#ffd25a");
+  px(ctx, L + 1, B - 6, 7, 5, "#3e5a7a");
+  px(ctx, L + 2, B - 7, 2, 1, "#3e5a7a");
+  px(ctx, L + 3, B - 8, 1, 1, "#e9f2ea");
+  px(ctx, L + 5, B - 6, 2, 1, "#e9f2ea");
+  px(ctx, L + 1, B - 3, 7, 2, "#2f7a4b");
+}
+
+function posterCat(ctx: Ctx, L: number, B: number) {
+  frame(ctx, L, B, "#ff9ab8");
+  px(ctx, L + 2, B - 9, 1, 2, "#e8913a");
+  px(ctx, L + 6, B - 9, 1, 2, "#e8913a");
+  px(ctx, L + 2, B - 8, 5, 5, "#e8913a");
+  px(ctx, L + 3, B - 7, 1, 1, LINE);
+  px(ctx, L + 5, B - 7, 1, 1, LINE);
+  px(ctx, L + 4, B - 5, 1, 1, "#ff6b9a");
+  px(ctx, L + 2, B - 2, 5, 1, "#ffe0f0");
+}
+
+function posterRocket(ctx: Ctx, L: number, B: number, t: number) {
+  frame(ctx, L, B, "#1d1426");
+  px(ctx, L + 2, B - 10, 1, 1, "#ffffff");
+  px(ctx, L + 6, B - 8, 1, 1, "#ffffff");
+  px(ctx, L + 4, B - 10, 1, 1, "#f4efe6");
+  px(ctx, L + 3, B - 9, 3, 5, "#f4efe6");
+  px(ctx, L + 4, B - 8, 1, 1, "#5aa9e6");
+  px(ctx, L + 2, B - 5, 1, 2, "#d63a3a");
+  px(ctx, L + 6, B - 5, 1, 2, "#d63a3a");
+  px(ctx, L + 4, B - 4, 1, 1 + (Math.floor(t * 6) % 2), "#ff9a3c");
+}
+
+function rug(ctx: Ctx, L: number, B: number) {
+  px(ctx, L + 1, B - 9, 26, 9, "#5a2430");
+  px(ctx, L, B - 8, 28, 7, "#5a2430");
+  px(ctx, L + 2, B - 8, 24, 7, "#7a2d3a");
+  px(ctx, L + 3, B - 7, 22, 1, "#d9a978");
+  px(ctx, L + 3, B - 3, 22, 1, "#d9a978");
+  for (let x = L + 5; x < L + 24; x += 4) px(ctx, x, B - 5, 2, 1, (x - L) % 8 === 1 ? "#ffd25a" : "#c4744d");
+  for (const y of [B - 8, B - 6, B - 4]) {
+    px(ctx, L - 1, y, 1, 1, "#d9a978");
+    px(ctx, L + 28, y, 1, 1, "#d9a978");
+  }
+}
+
+function neon(ctx: Ctx, L: number, B: number, t: number) {
+  px(ctx, L, B - 10, 22, 10, LINE);
+  px(ctx, L + 1, B - 9, 20, 8, "#150f22");
+  const on = Math.floor(t * 3) % 4 !== 0;
+  for (let x = L + 3; x < L + 19; x += 2) px(ctx, x, B - 7, 1, 2, on ? "#ff4fa3" : "#7a2a52");
+  for (let x = L + 4; x < L + 18; x += 2) px(ctx, x, B - 4, 1, 1, "#5ce1ff");
+}
+
+/** A café cat sitting still, in the given fur; the shop shows the second cat with it. */
+export function sittingCat(ctx: Ctx, L: number, B: number, fur: string, dark: string, belly: string) {
+  px(ctx, L + 2, B - 6, 8, 6, LINE);
+  px(ctx, L + 3, B - 5, 6, 5, fur);
+  px(ctx, L + 3, B - 3, 6, 1, dark);
+  px(ctx, L + 6, B - 2, 3, 1, belly);
+  px(ctx, L + 8, B - 9, 5, 5, LINE);
+  px(ctx, L + 9, B - 8, 3, 3, fur);
+  px(ctx, L + 9, B - 10, 1, 2, fur);
+  px(ctx, L + 11, B - 10, 1, 2, fur);
+  px(ctx, L + 11, B - 7, 1, 1, LINE);
+  px(ctx, L, B - 4, 2, 1, dark);
+  px(ctx, L - 1, B - 5, 1, 2, dark);
+}
+
+export const CAT2 = { fur: "#9aa0ad", dark: "#5f6370", belly: "#e3e6ee" } as const;
+
+const DRAW: Record<ItemId, Draw> = {
+  candle,
+  cactus,
+  luckycat,
+  bonsai,
+  posterHills,
+  posterCat,
+  posterRocket,
+  rug,
+  catbed,
+  lamp,
+  palm,
+  shelf,
+  gramophone,
+  couch,
+  jukebox,
+  neon,
+  cat2: (ctx, L, B) => sittingCat(ctx, L + 1, B, CAT2.fur, CAT2.dark, CAT2.belly),
+  arcade: (ctx, L, B, t) => drawArcade(ctx, t, L, B),
+  aquarium: (ctx, L, B, t) => drawAquarium(ctx, t, L, B),
+  plant: (ctx, L, B) => drawPlant(ctx, L + 7, B),
+  owl: (ctx, L, B, t) => drawOwl(ctx, t, L, B),
+};
 
 /** One piece of furniture with its foot in the middle of `cx` at `bottom`. */
 export function drawItem(ctx: Ctx, id: ItemId, w: number, cx: number, bottom: number, t: number) {
@@ -185,4 +285,7 @@ export function itemLight(ctx: Ctx, id: ItemId, cx: number, bottom: number, t: n
   if (id === "candle") glow(ctx, cx, bottom - 9, 7, "#ffb15e", 0.16 + (Math.floor(t * 7) % 3) * 0.02);
   else if (id === "lamp") glow(ctx, cx, bottom - 20, 18, "#ffd9a0", 0.16);
   else if (id === "jukebox") glow(ctx, cx, bottom - 16, 16, JUKE[Math.floor(t * 2) % 4], 0.12);
+  else if (id === "arcade") glow(ctx, cx, bottom - 19, 14, "#5ce1ff", 0.16);
+  else if (id === "aquarium") glow(ctx, cx, bottom - 16, 14, "#5ab0e0", 0.14);
+  else if (id === "owl") glow(ctx, cx, bottom - 7, 6, "#ffd25a", 0.12);
 }
