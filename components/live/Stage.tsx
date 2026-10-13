@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useEffectEvent, useState } from "react";
-import { Gamepad2, Maximize2, Minimize2, ScrollText, Users, X } from "lucide-react";
+import { Building2, Gamepad2, Maximize2, Minimize2, ScrollText, Users, X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { ItemId, Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
@@ -118,6 +118,7 @@ export default function Stage({
   onGames,
   placing,
   onPlacing,
+  onHouse,
 }: {
   title: string;
   sub: ReactNode;
@@ -143,6 +144,8 @@ export default function Stage({
   onGames: () => void;
   placing: Placing | null;
   onPlacing: (p: Placing | null) => void;
+  /** zooms back out to the whole house, when the café has more than one room */
+  onHouse?: () => void;
 }) {
   const [pop, setPop] = useState<Pop | null>(null);
   const [drawer, setDrawer] = useState<Side | null>(null);
@@ -177,8 +180,13 @@ export default function Stage({
   const moved = !!furn && cafe.interior.placed.some((p) => p.pid === furn.pid);
 
   return (
-    <section className={`card stage-card ${full ? "stage-full" : ""}`}>
+    <section className={`card stage-card ${full ? "stage-full" : ""} ${onHouse ? "zoomed" : ""}`}>
       <div className="card-hd">
+        {onHouse && (
+          <button className="btn btn-ic house-back" onClick={onHouse} title="до всього будинку">
+            <Building2 size={14} />
+          </button>
+        )}
         <span className="card-ttl">{title}</span>
         <div className="stage-tools">
           {sub}

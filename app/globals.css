@@ -1119,65 +1119,7 @@ body {
   }
 }
 
-/* ---------- chat switcher ---------- */
-.chat-tabs {
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  margin-bottom: 14px;
-  scrollbar-width: thin;
-}
-.chat-tab {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 220px;
-  padding: 9px 12px;
-  text-align: left;
-  color: var(--muted);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-}
-.chat-tab:hover {
-  border-color: var(--border-2);
-}
-.chat-tab.on {
-  color: #f3f0ff;
-  border-color: rgba(255, 154, 98, 0.55);
-  background: linear-gradient(180deg, rgba(255, 154, 98, 0.12), rgba(255, 154, 98, 0.03));
-}
-.chat-tab-hd {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-.chat-tab-nm {
-  flex: 1;
-  min-width: 0;
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.chat-tab-ago {
-  font-size: 11px;
-  color: var(--dim);
-  white-space: nowrap;
-}
-.chat-tab-ask {
-  font-size: 11.5px;
-  color: var(--dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* ---------- chat status ---------- */
 .chat-dot {
   flex: 0 0 auto;
   width: 7px;
@@ -1191,14 +1133,7 @@ body {
   animation: ping 1.6s ease-out infinite;
 }
 
-/* ---------- attention: tabs, scene label, alerts menu ---------- */
-.chat-tab.attn-ask {
-  border-color: rgba(255, 210, 90, 0.6);
-  box-shadow: 0 0 0 1px rgba(255, 210, 90, 0.18), 0 0 18px rgba(255, 210, 90, 0.12);
-}
-.chat-tab.attn-done {
-  border-color: rgba(74, 222, 128, 0.45);
-}
+/* ---------- attention: rooms, scene label, alerts menu ---------- */
 .chat-flag {
   flex: 0 0 auto;
   font-size: 10.5px;
@@ -1908,11 +1843,6 @@ body {
 }
 .team-pill .chat-flag {
   margin-left: 0;
-}
-.chat-tab-mb {
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
 }
 .team-me-row {
   display: flex;
@@ -3017,4 +2947,198 @@ body {
   background: var(--panel-2);
   color: var(--text);
   font-size: 11.5px;
+}
+
+/* ---------- the house: every chat a room ---------- */
+.house-card {
+  margin-bottom: 16px;
+}
+.house {
+  --brick: #3a2a2e;
+  --mortar: #2a1d21;
+  --slab: #5a3b2a;
+  position: relative;
+  margin: 22px 18px 26px;
+  padding: 0 10px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 7px, var(--mortar) 7px 8px),
+    repeating-linear-gradient(90deg, var(--brick) 0 15px, var(--mortar) 15px 16px);
+  border: 2px solid #120c0f;
+  border-top: 0;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+.house-roof {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 0 -18px;
+  padding: 14px 0 10px;
+  background: linear-gradient(180deg, #221a2b, #160f1c);
+  border: 2px solid #120c0f;
+  clip-path: polygon(4% 0, 96% 0, 100% 100%, 0 100%);
+}
+.house-sign {
+  font-family: var(--font-pixel), var(--mono);
+  font-size: clamp(16px, 2.6vw, 26px);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: #e3fcff;
+  text-shadow:
+    0 0 2px #fff,
+    0 0 6px #5ce1ff,
+    0 0 14px #5ce1ff,
+    0 0 26px #1aa7d8;
+  animation: neon-flicker 7s steps(1) infinite;
+}
+.house-floor {
+  position: relative;
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  padding: 12px 0 14px;
+  border-bottom: 6px solid var(--slab);
+  box-shadow: 0 2px 0 #120c0f;
+}
+.house-plate {
+  flex: 0 0 auto;
+  align-self: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  padding: 8px 3px;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--c, #f6d7a8);
+  background: rgba(7, 5, 13, 0.82);
+  border: 1px solid color-mix(in srgb, var(--c, #f6d7a8) 55%, transparent);
+  border-radius: 3px;
+}
+.house-halls {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 230px), 1fr));
+  align-items: start;
+  gap: 10px;
+}
+.hall {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 0 0 7px;
+  text-align: left;
+  color: var(--muted);
+  background: #120d14;
+  border: 2px solid #120c0f;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  cursor: zoom-in;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.hall:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.hall.on {
+  box-shadow: inset 0 0 0 1px rgba(255, 154, 98, 0.55);
+}
+.hall.attn-ask {
+  border-color: rgba(255, 210, 90, 0.75);
+  box-shadow: 0 0 18px rgba(255, 210, 90, 0.18);
+}
+.hall.attn-done {
+  border-color: rgba(74, 222, 128, 0.55);
+}
+.hall-pic {
+  position: relative;
+  display: block;
+  background: #0a0d16;
+  overflow: hidden;
+}
+.hall-pic canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+.hall-pic .chat-flag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+.hall-hd {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0 9px;
+}
+.hall-nm {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hall-ago {
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.hall-ask {
+  padding: 0 9px;
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.house-floor.lobby .house-halls {
+  grid-template-columns: minmax(0, 480px);
+  justify-content: center;
+}
+.house-street {
+  height: 14px;
+  margin: 0 -12px;
+  background: repeating-linear-gradient(90deg, #2b2733 0 22px, #d9c27a 22px 34px, #2b2733 34px 56px);
+  background-size: 56px 3px;
+  background-repeat: repeat-x;
+  background-position: 0 8px;
+  background-color: #1d1a24;
+  border-top: 2px solid #120c0f;
+}
+.stage-card.zoomed .card-ttl {
+  margin-right: auto;
+}
+.stage-card.zoomed .cafe-wrap {
+  view-transition-name: hall-zoom;
+}
+::view-transition-group(hall-zoom) {
+  animation-duration: 0.45s;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+::view-transition-old(hall-zoom),
+::view-transition-new(hall-zoom) {
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+@media (max-width: 640px) {
+  .house-hint {
+    display: none;
+  }
+  .house {
+    margin: 14px 8px 18px;
+    padding: 0 6px;
+  }
+  .house-floor {
+    gap: 6px;
+  }
 }

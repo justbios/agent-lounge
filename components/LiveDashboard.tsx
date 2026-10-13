@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
-import { CalendarDays, Trophy } from "lucide-react";
+import { flushSync } from "react-dom";
+import { CalendarDays, Gamepad2, Trophy } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
+import { LOBBY, houseFloors, useHouseScenes } from "@/lib/live/house";
 import { CLAUDE_COLOR, LiveSession, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
 import { leaveView, useViewRoom } from "@/lib/live/relayKey";
 import { setFocus, useTeamView } from "@/lib/live/team";
@@ -21,17 +23,19 @@ import { useGames } from "@/lib/live/useGames";
 import { useSocial } from "@/lib/live/useSocial";
 import { latestLimits, tokenRate } from "@/lib/live/usage";
 import { Placing, SceneAlert } from "./cafe/CafeScene";
+import { themeOf } from "./cafe/theme";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
 import CafePanel from "./live/CafePanel";
-import ChatTabs from "./live/ChatTabs";
 import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
 import BetStrip from "./live/BetStrip";
 import EmptyCafe from "./live/EmptyCafe";
 import GamesPanel from "./live/GamesPanel";
+import House from "./live/House";
 import InviteToast from "./live/InviteToast";
 import { LimitsMini } from "./live/Limits";
+import Presence from "./live/Presence";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
 import Stage from "./live/Stage";
@@ -40,6 +44,7 @@ import TeamBar from "./live/TeamBar";
 import { ago } from "./live/format";
 
 const PICK_KEY = "relay.session";
+const VIEW_KEY = "relay.view";
 const RECENT_MS = 6 * 60 * 60 * 1000;
 const NONE: string[] = [];
 
@@ -71,6 +76,25 @@ function readPick(): string | null {
 function savePick(id: string) {
   try {
     localStorage.setItem(PICK_KEY, id);
+  } catch {}
+}
+
+type View = "house" | "hall";
+
+/** The whole house, or one room zoomed in; a tapped push always lands in its room. */
+function readView(): View {
+  if (typeof window === "undefined") return "house";
+  if (new URLSearchParams(location.search).get("chat")) return "hall";
+  try {
+    return localStorage.getItem(VIEW_KEY) === "hall" ? "hall" : "house";
+  } catch {
+    return "house";
+  }
+}
+
+function saveView(v: View) {
+  try {
+    localStorage.setItem(VIEW_KEY, v);
   } catch {}
 }
 
@@ -115,6 +139,7 @@ export default function LiveDashboard({
   roomKey: string | null;
   viewing: boolean;
 }) {
+  const [view, setView] = useState<View>(readView);
   const [pick, setPick] = useState<string | null>(readPick);
   const choose = (id: string) => {
     setPick(id);
@@ -127,12 +152,14 @@ export default function LiveDashboard({
   const session = (pick && sessions.find((s) => s.id === pick)) || pool[0] || null;
   const recent = (s: LiveSession) => s === session || (!s.ended && now - s.last < RECENT_MS);
   const mine = (s: LiveSession) => !team.me || !s.member || s.member === team.me;
-  const tabs = pool.filter(recent);
+  const chats = sessions.filter(recent);
   const push = usePush(roomKey, cloud && !viewing, team.me);
   const openChat = (id: string) => {
     const s = sessions.find((x) => x.id === id);
     if (team.on && s) setFocus(memberOf(s));
     choose(id);
+    setView("hall");
+    saveView("hall");
   };
   const waiting = useAlerts(sessions.filter((s) => recent(s) && mine(s)), session?.id ?? null, push.state === "on", openChat);
   const flagged = new Set([...waiting, ...sessions.filter((s) => s.attn && !mine(s)).map((s) => s.id)]);
@@ -171,13 +198,28 @@ export default function LiveDashboard({
   const replayEvents = useMemo(() => (replay ? replay.events.slice(0, shown) : null), [replay, shown]);
 
   const whole = team.all && !playing;
+  const houseOn = !playing && !!session && (chats.length > 1 || team.on);
+  const inHouse = houseOn && view === "house";
+  const scenes = useHouseScenes(feed.events, chats.map((s) => s.id).join("|"), team.on ? team.members : null, inHouse);
+  const zoom = (next: View, act?: () => void) => {
+    const go = () =>
+      flushSync(() => {
+        act?.();
+        setView(next);
+        saveView(next);
+      });
+    const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+    if (doc.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) doc.startViewTransition(go);
+    else go();
+  };
   const scene = useMemo(() => {
     if (playing && replay && replayEvents) return buildLiveModel(replayEvents, replay.session, roster);
     if (whole) return buildTeamModel(feed.events, team.members);
     return session ? buildLiveModel(feed.events, session.id, roster) : null;
   }, [playing, replay, replayEvents, whole, feed.events, team.members, session, roster]);
   const model = scene?.model ?? EMPTY;
-  const teamAttn = whole ? teamAlert(sessions, team.members) : null;
+  const lobbyAttn = team.on ? teamAlert(sessions, team.members) : null;
+  const teamAttn = whole ? lobbyAttn : null;
   const attn = playing ? null : whole ? teamAttn?.attn : session?.attn;
   const alertSeat = whole ? teamAttn?.seat : attn ? (attn.agent ? scene?.seatOf[attn.agent] : 0) : undefined;
   const alert: SceneAlert | undefined =
@@ -308,7 +350,7 @@ export default function LiveDashboard({
         </div>
       )}
 
-      {team.on && (
+      {team.on && !inHouse && (
         <TeamBar
           members={team.members}
           colors={team.colors}
@@ -319,80 +361,92 @@ export default function LiveDashboard({
           onFocus={focusOn}
         />
       )}
-      {tabs.length > 0 && (
-        <ChatTabs
-          tabs={tabs}
-          current={whole ? null : session}
+      {inHouse ? (
+        <House
+          floors={houseFloors(chats, team)}
+          scenes={scenes}
+          lobby={team.on}
+          lobbyAlert={lobbyAttn && { agent: lobbyAttn.seat, kind: lobbyAttn.attn.kind }}
+          current={whole ? LOBBY : (session?.id ?? null)}
           waiting={flagged}
           now={now}
-          onPick={openChat}
-          colors={team.all ? team.colorOf : undefined}
+          look={{ theme: themeOf(cafe.settings.theme), decor: cafe.decor, interior: cafe.interior }}
+          tools={
+            <>
+              <Presence guests={social.guests} />
+              <button className="btn btn-ic" onClick={() => setGamesOpen(true)} title="ігри">
+                <Gamepad2 size={14} />
+              </button>
+            </>
+          }
+          onOpen={(id) => zoom("hall", () => (id === LOBBY ? setFocus(null) : openChat(id)))}
+        />
+      ) : (
+        <Stage
+          title={whole ? "уся команда" : session ? session.label : "інтернет-кафе"}
+          sub={
+            replay && replay.session === session?.id ? (
+              <ReplayBar
+                replay={replay}
+                playing={playing}
+                shown={shown}
+                onStop={() => setReplay(null)}
+                onAgain={() => setReplay({ ...replay, startedAt: Date.now() })}
+              />
+            ) : (
+              <span className="muted-sm">
+                {whole ? `${team.members.length} за столами` : session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}
+              </span>
+            )
+          }
+          model={model}
+          clock={clock}
+          alert={alert}
+          rate={rate}
+          guests={social.guests}
+          reactions={reactions}
+          onReact={(i, emoji) => social.react(sceneId, model.agents[i].id, emoji)}
+          cafe={cafe}
+          empty={!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
+          below={
+            <BetStrip
+              rounds={games.bets.rounds}
+              self={social.self}
+              now={now}
+              onPick={games.bets.place}
+            />
+          }
+          cloud={cloud}
+          roomKey={roomKey}
+          viewing={viewing}
+          onRecap={() => setRecapOpen(true)}
+          onCafe={() => setCafeOpen(true)}
+          onGames={() => setGamesOpen(true)}
+          placing={placing}
+          onPlacing={setPlacing}
+          onHouse={houseOn ? () => zoom("house") : undefined}
+          agents={
+            <AgentList
+              model={model}
+              views={views}
+              clock={clock}
+              alert={alert}
+              rosterCount={whole ? 0 : roster.length}
+              title={whole ? "команда" : "агенти"}
+              askText={whole && teamAttn && team.members[teamAttn.seat] !== team.me ? "чекає" : undefined}
+            />
+          }
+          log={
+            <EventLog
+              events={feed.events}
+              session={whole ? null : (session?.id ?? null)}
+              agents={model.agents}
+              seatOf={scene?.seatOf}
+              team={whole ? team.colorOf : undefined}
+            />
+          }
         />
       )}
-
-      <Stage
-        title={whole ? "уся команда" : session ? session.label : "інтернет-кафе"}
-        sub={
-          replay && replay.session === session?.id ? (
-            <ReplayBar
-              replay={replay}
-              playing={playing}
-              shown={shown}
-              onStop={() => setReplay(null)}
-              onAgain={() => setReplay({ ...replay, startedAt: Date.now() })}
-            />
-          ) : (
-            <span className="muted-sm">
-              {whole ? `${team.members.length} за столами` : session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}
-            </span>
-          )
-        }
-        model={model}
-        clock={clock}
-        alert={alert}
-        rate={rate}
-        guests={social.guests}
-        reactions={reactions}
-        onReact={(i, emoji) => social.react(sceneId, model.agents[i].id, emoji)}
-        cafe={cafe}
-        empty={!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
-        below={
-          <BetStrip
-            rounds={games.bets.rounds}
-            self={social.self}
-            now={now}
-            onPick={games.bets.place}
-          />
-        }
-        cloud={cloud}
-        roomKey={roomKey}
-        viewing={viewing}
-        onRecap={() => setRecapOpen(true)}
-        onCafe={() => setCafeOpen(true)}
-        onGames={() => setGamesOpen(true)}
-        placing={placing}
-        onPlacing={setPlacing}
-        agents={
-          <AgentList
-            model={model}
-            views={views}
-            clock={clock}
-            alert={alert}
-            rosterCount={whole ? 0 : roster.length}
-            title={whole ? "команда" : "агенти"}
-            askText={whole && teamAttn && team.members[teamAttn.seat] !== team.me ? "чекає" : undefined}
-          />
-        }
-        log={
-          <EventLog
-            events={feed.events}
-            session={whole ? null : (session?.id ?? null)}
-            agents={model.agents}
-            seatOf={scene?.seatOf}
-            team={whole ? team.colorOf : undefined}
-          />
-        }
-      />
 
       <p className="foot">
         {cloud ? (
@@ -410,6 +464,7 @@ export default function LiveDashboard({
         результат назад. Сцена клікабельна: агент покаже картку, з якої можна кинути йому реакцію, кіт дасться погладити,
         дошка відкриє підсумок, автомат досягнення, вікно змінить вид, двері запросять команду.
         {cloud && " Хто ще відкрив це кафе, сидить біля бару."}
+        {houseOn && " Інші чати живуть у сусідніх залах: кнопка з будиночком угорі віддаляє до всього будинку."}
       </p>
     </>
   );

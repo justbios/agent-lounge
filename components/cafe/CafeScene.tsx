@@ -176,7 +176,8 @@ export default function CafeScene({
           ...(n.cat ? [{ ...cat.pos, name: n.cat }] : []),
           ...(cat2 && n.cat2 ? [{ ...cat2.pos, name: n.cat2 }] : []),
         ];
-        clipFrame(canvas, { lay, agents: named, bubbles, alert: alertRef.current, cats, sign: n.sign, watermark: `relay · ${location.host}` });
+        const watermark = `relay · ${location.host}`;
+        clipFrame(canvas, { lay, agents: named, bubbles, alert: alertRef.current, cats, sign: n.sign, watermark });
       }
       raf = requestAnimationFrame(loop);
     };
