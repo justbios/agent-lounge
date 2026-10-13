@@ -1,4 +1,4 @@
-import type { Decor, Progress } from "./achievements";
+import type { Decor } from "./achievements";
 
 /** sill — on a window sill; wall — hangs between the fixtures; floor — stands among people; rug — flat under them; perk — not placed */
 export type ItemPlace = "sill" | "wall" | "floor" | "rug" | "perk";
@@ -72,6 +72,8 @@ export interface LookPick {
 export interface Interior {
   /** one entry per copy bought */
   owned: ItemId[];
+  /** the copies bought since the beans started over: only these cost beans, the older ones are the café's to keep */
+  paid?: ItemId[];
   placed: Placed[];
   looks: Record<string, LookPick>;
   /** the second line of the neon sign */
@@ -148,6 +150,14 @@ export function cleanInterior(v: unknown): Interior {
     if (pick) looks[k] = pick;
   }
   const out: Interior = { owned, placed, looks };
+  const unpaid = new Map<string, number>();
+  owned.forEach((id) => unpaid.set(id, (unpaid.get(id) ?? 0) + 1));
+  const paid = (Array.isArray(o.paid) ? o.paid : []).filter((id): id is ItemId => {
+    if (typeof id !== "string" || !unpaid.get(id)) return false;
+    unpaid.set(id, unpaid.get(id)! - 1);
+    return true;
+  });
+  if (paid.length) out.paid = paid;
   const sign = text(o.sign, SIGN_MAX);
   const cat2Name = text(o.cat2Name, 24);
   const title = text(o.title, TITLE_MAX);
@@ -161,19 +171,27 @@ export const owns = (i: Interior, id: ItemId) => i.owned.includes(id);
 
 export const BEAN_RULES = { prompt: 3, dispatch: 5, answer: 1, minute: 1, toolsPerBean: 4, achievement: 30 } as const;
 
-/** Coffee beans the café has earned so far: everything Claude did, plus each achievement. */
-export function beansEarned(p: Progress | null, achievements: number): number {
-  if (!p) return 0;
-  const r = BEAN_RULES;
-  let b = achievements * r.achievement;
-  for (const d of p.days) {
-    b += d.prompts * r.prompt + d.dispatches * r.dispatch + d.answers * r.answer + d.minutes * r.minute;
-    b += Math.floor(d.tools / r.toolsPerBean);
-  }
-  return b;
+/** When every café's beans started over from zero: only work after this hour earns them. */
+export const BEANS_FROM = "2026-10-13T18:00:00Z";
+
+/** What a café did since {@link BEANS_FROM}, summed over its hours. */
+export interface BeanWork {
+  prompts: number;
+  tools: number;
+  dispatches: number;
+  answers: number;
+  minutes: number;
 }
 
-export const beansSpent = (i: Interior): number => i.owned.reduce((s, id) => s + (itemOf(id)?.price ?? 0), 0);
+/** Coffee beans the café has earned since the restart: what Claude did, plus each achievement reached since. */
+export function beansEarned(w: BeanWork | null, achievements: number): number {
+  if (!w) return 0;
+  const r = BEAN_RULES;
+  const work = w.prompts * r.prompt + w.dispatches * r.dispatch + w.answers * r.answer + w.minutes * r.minute;
+  return achievements * r.achievement + work + Math.floor(w.tools / r.toolsPerBean);
+}
+
+export const beansSpent = (i: Interior): number => (i.paid ?? []).reduce((s, id) => s + (itemOf(id)?.price ?? 0), 0);
 
 /** Copies of each item bought but not standing anywhere. */
 export function inStock(i: Interior): Map<ItemId, number> {

@@ -131,7 +131,7 @@ export function decorOf(earned: Earned[]): Set<Decor> {
   return new Set(earned.filter((e) => e.done && e.def.decor).map((e) => e.def.decor!));
 }
 
-function localDay(t: number): string {
+export function localDay(t: number): string {
   const d = new Date(t);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }

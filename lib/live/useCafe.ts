@@ -2,9 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { CafeSettings, Decor, Earned, Progress, decorOf, evaluate, progressFromHourly } from "./achievements";
-import { Interior, ItemId, LookPick, Placed, beansEarned, beansSpent, cleanInterior, itemOf } from "./interior";
-import { aggregateHourly } from "./recap";
+import { CafeSettings, Decor, Earned, Progress, decorOf, evaluate, localDay, progressFromHourly } from "./achievements";
+import {
+  BEANS_FROM,
+  BeanWork,
+  Interior,
+  ItemId,
+  LookPick,
+  Placed,
+  beansEarned,
+  beansSpent,
+  cleanInterior,
+  itemOf,
+} from "./interior";
+import { HourRow, aggregateHourly } from "./recap";
 import { LiveEvent } from "./types";
 
 const REFRESH_MS = 60 * 1000;
@@ -75,6 +86,7 @@ export interface CafeState {
   fresh: Earned[];
   dismiss: () => void;
   interior: Interior;
+  /** counted from {@link BEANS_FROM}: earned since, spent on what was bought since, and what is left */
   beans: { earned: number; spent: number; left: number };
   buy: (item: ItemId) => Promise<boolean>;
   /** puts a piece down, or moves the one with the same pid */
@@ -85,10 +97,34 @@ export interface CafeState {
   setNames: (patch: Pick<Interior, "sign" | "cat2Name" | "title">) => Promise<boolean>;
 }
 
+interface Remote {
+  id: string;
+  progress: Progress | null;
+  work: BeanWork | null;
+  error: boolean;
+}
+
+/** The local day the beans started over on: achievements reached after it pay beans. */
+const FROM_DAY = localDay(Date.parse(BEANS_FROM));
+
+function workSince(hours: HourRow[], since: string): BeanWork {
+  const from = Date.parse(since);
+  const w: BeanWork = { prompts: 0, tools: 0, dispatches: 0, answers: 0, minutes: 0 };
+  for (const h of hours) {
+    if (Date.parse(h.hour) < from) continue;
+    w.prompts += h.prompts;
+    w.tools += h.tools;
+    w.dispatches += h.dispatches;
+    w.answers += h.answers;
+    w.minutes += Object.keys(h.mins).length;
+  }
+  return w;
+}
+
 /** Lifetime progress, the decor it unlocks and the café's own settings: from Relay in the cloud, from memory and this browser locally. */
 export function useCafe({ cloud, key, room, events, viewing }: CafeSource): CafeState {
   const id = viewing ? (room ? `v:${room}` : "") : key ? `k:${key}` : "";
-  const [remote, setRemote] = useState<{ id: string; progress: Progress | null; error: boolean } | null>(null);
+  const [remote, setRemote] = useState<Remote | null>(null);
   const [saved, setSaved] = useState<{ id: string; room: CafeSettings } | null>(null);
   const localSettings = useSyncExternalStore(subscribe, localSnap, () => NO_SETTINGS);
   const seenAll = useSyncExternalStore(subscribe, seenSnap, () => null);
@@ -99,10 +135,22 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
     let live = true;
     const load = async () => {
       const p_tz_min = -new Date().getTimezoneOffset();
-      const { data, error } = viewing
-        ? await sb.rpc("relay_progress_room", { p_room: room, p_tz_min })
-        : await sb.rpc("relay_progress", { p_key: key, p_tz_min });
-      if (live) setRemote({ id, progress: error ? null : (data as Progress), error: !!error });
+      const [prog, work] = await Promise.all([
+        viewing
+          ? sb.rpc("relay_progress_room", { p_room: room, p_tz_min })
+          : sb.rpc("relay_progress", { p_key: key, p_tz_min }),
+        viewing
+          ? sb.rpc("relay_beans_room", { p_room: room, p_since: BEANS_FROM })
+          : sb.rpc("relay_beans", { p_key: key, p_since: BEANS_FROM }),
+      ]);
+      if (!live) return;
+      const error = !!prog.error || !!work.error;
+      setRemote({
+        id,
+        progress: error ? null : (prog.data as Progress),
+        work: error ? null : (work.data as BeanWork),
+        error,
+      });
     };
     const refresh = () => document.visibilityState === "visible" && void load();
     void load();
@@ -115,9 +163,15 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
     };
   }, [cloud, id, key, room, viewing]);
 
-  const localProgress = useMemo(() => (cloud ? null : progressFromHourly(aggregateHourly(events), null)), [cloud, events]);
-  const progress = cloud ? (remote?.id === id ? remote.progress : null) : localProgress;
-  const error = cloud && remote?.id === id ? remote.error : false;
+  const local = useMemo(() => {
+    if (cloud) return null;
+    const hours = aggregateHourly(events);
+    return { progress: progressFromHourly(hours, null), work: workSince(hours, BEANS_FROM) };
+  }, [cloud, events]);
+  const mine = remote?.id === id ? remote : null;
+  const progress = cloud ? (mine?.progress ?? null) : (local?.progress ?? null);
+  const work = cloud ? (mine?.work ?? null) : (local?.work ?? null);
+  const error = cloud && !!mine?.error;
   const settings = cloud ? (saved?.id === id ? saved.room : (progress?.room ?? NO_SETTINGS)) : localSettings;
   const earned = useMemo(() => (progress ? evaluate(progress) : []), [progress]);
   const decor = useMemo(() => decorOf(earned), [earned]);
@@ -152,14 +206,14 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
   );
 
   const interior = useMemo(() => cleanInterior(settings.interior), [settings.interior]);
-  const earnedBeans = beansEarned(progress, done.length);
+  const earnedBeans = beansEarned(work, done.filter((e) => e.day && e.day > FROM_DAY).length);
   const spent = beansSpent(interior);
   const beans = { earned: earnedBeans, spent, left: earnedBeans - spent };
   const fit = (next: Interior) => save({ interior: next });
   const buy = async (item: ItemId) => {
     const it = itemOf(item);
     if (!it || !editable || beans.left < it.price || (it.place === "perk" && interior.owned.includes(item))) return false;
-    return fit({ ...interior, owned: [...interior.owned, item] });
+    return fit({ ...interior, owned: [...interior.owned, item], paid: [...(interior.paid ?? []), item] });
   };
   const place = (p: Placed) => {
     const rest = interior.placed.filter((q) => q.pid !== p.pid);
