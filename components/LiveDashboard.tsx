@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
-import { CalendarDays, Gamepad2, MessageCircle, Trophy, Volume2, VolumeX, X } from "lucide-react";
+import { CalendarDays, Gamepad2, MessageCircle, ShoppingBag, Trophy, X } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
@@ -30,8 +30,10 @@ import { Placing, SceneAlert } from "./cafe/CafeScene";
 import { themeOf } from "./cafe/theme";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
-import CafePanel from "./live/CafePanel";
+import AchPanel from "./live/AchPanel";
 import ChatPanel from "./live/ChatPanel";
+import JukeboxMenu from "./live/Jukebox";
+import ShopPanel from "./live/ShopPanel";
 import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
 import BetStrip from "./live/BetStrip";
@@ -193,7 +195,7 @@ export default function LiveDashboard({
   const viewRoom = useViewRoom();
   const [recapOpen, setRecapOpen] = useState(false);
   const recap = useRecap({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events }, recapOpen);
-  const [cafeOpen, setCafeOpen] = useState(false);
+  const [sheet, setSheet] = useState<"ach" | "shop" | null>(null);
   const [placing, setPlacing] = useState<Placing | null>(null);
   const cafe = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
   const earnedCount = cafe.earned.filter((e) => e.done).length;
@@ -301,41 +303,23 @@ export default function LiveDashboard({
         seats={model.agents.length}
         seatsLabel={whole ? "учасників" : "агентів"}
         working={working}
-        events={whole ? feed.events.length : (session?.count ?? 0)}
         tokens={spent}
         limits={<LimitsMini limits={myLimits} now={now} onOpen={() => setRecapOpen(true)} />}
       >
         <button className="btn" onClick={() => setRecapOpen(true)}>
           <CalendarDays size={14} /> підсумок
         </button>
-        <span className="music">
-          <button
-            className={`btn btn-ic ${sound.on ? "on" : ""}`}
-            onClick={sound.toggle}
-            aria-pressed={sound.on}
-            title={sound.on ? "вимкнути музику кафе" : "музика кафе: lo-fi і клавіатури, гучніше, коли працюють"}
-          >
-            {sound.on ? <Volume2 size={14} /> : <VolumeX size={14} />}
-          </button>
-          {sound.on && (
-            <span className="speed music-vol">
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={sound.vol}
-                aria-label="гучність музики"
-                onChange={(e) => sound.setVol(parseFloat(e.target.value))}
-              />
-            </span>
-          )}
-        </span>
+        <JukeboxMenu sound={sound} />
         <SpeechPick />
         {cafe.progress && (
-          <button className="btn" onClick={() => setCafeOpen(true)} title="досягнення і декор кафе">
-            <Trophy size={14} /> кафе {earnedCount}/{cafe.earned.length}
-          </button>
+          <>
+            <button className="btn" onClick={() => setSheet("ach")} title="досягнення">
+              <Trophy size={14} /> {earnedCount}/{cafe.earned.length}
+            </button>
+            <button className="btn" onClick={() => setSheet("shop")} title="магазин: меблі за кавові зерна">
+              <ShoppingBag size={14} /> ☕ {Math.max(0, cafe.beans.left).toLocaleString("uk-UA")}
+            </button>
+          </>
         )}
         {!viewing && <AlertsMenu cloud={cloud} push={push} />}
       </StatBar>
@@ -368,13 +352,14 @@ export default function LiveDashboard({
         />
       )}
 
-      {cafeOpen && (
-        <CafePanel
+      {sheet === "ach" && <AchPanel cafe={cafe} onClose={() => setSheet(null)} />}
+      {sheet === "shop" && (
+        <ShopPanel
           cafe={cafe}
-          onClose={() => setCafeOpen(false)}
+          onClose={() => setSheet(null)}
           onPlace={(item) => {
             setPlacing({ item, pid: newPid() });
-            setCafeOpen(false);
+            setSheet(null);
           }}
         />
       )}
@@ -401,12 +386,12 @@ export default function LiveDashboard({
         />
       )}
       <InviteToast duels={games.duels} onPlay={() => setGamesOpen(true)} />
-      {cafe.fresh.length > 0 && !cafeOpen && (
+      {cafe.fresh.length > 0 && sheet !== "ach" && (
         <AchToast
           fresh={cafe.fresh}
           onOpen={() => {
             cafe.dismiss();
-            setCafeOpen(true);
+            setSheet("ach");
           }}
           onDismiss={cafe.dismiss}
         />
@@ -485,6 +470,7 @@ export default function LiveDashboard({
           reactions={reactions}
           onReact={(i, emoji) => social.react(sceneId, model.agents[i].id, emoji)}
           cafe={cafe}
+          sound={sound}
           empty={!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
           below={
             <BetStrip
@@ -498,7 +484,7 @@ export default function LiveDashboard({
           roomKey={roomKey}
           viewing={viewing}
           onRecap={() => setRecapOpen(true)}
-          onCafe={() => setCafeOpen(true)}
+          onShop={() => setSheet("shop")}
           onGames={() => setGamesOpen(true)}
           placing={placing}
           onPlacing={setPlacing}
@@ -540,7 +526,7 @@ export default function LiveDashboard({
         )}{" "}
         Головний Claude сидить за першим столом. Доручаючи задачу, він несе її субагенту, а той, закінчивши, приносить
         результат назад. Сцена клікабельна: агент покаже картку, з якої можна кинути йому реакцію, кіт дасться погладити,
-        дошка відкриє підсумок, автомат досягнення, вікно змінить вид, двері запросять команду.
+        дошка відкриє підсумок, автомат із напоями — магазин, вікно змінить вид, двері запросять команду.
         {cloud && " Усі, хто відкрив це кафе, і ти теж, сидять біля бару, а клік по бару відкриває груповий чат."}
         {houseOn && " Інші чати живуть у сусідніх залах: кнопка з будиночком угорі віддаляє до всього будинку."}
       </p>

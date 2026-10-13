@@ -1,6 +1,7 @@
 import { CSSProperties } from "react";
 import { REACT_MS } from "@/lib/live/social";
 import { GuestSeat, guestTag } from "./guests";
+import type { Standing } from "./placement";
 
 /** A reaction already matched to a desk in the scene on screen. */
 export interface SeatReaction {
@@ -35,6 +36,16 @@ export function ChatTag({ unread, pos }: { unread: number; pos: Pos }) {
   return (
     <span className="cafe-chat" style={pos(33, 54)}>
       💬 {unread}
+    </span>
+  );
+}
+
+/** The record playing on this page, floating over the jukebox. */
+export function JukeTag({ playing, at, pos }: { playing?: string | null; at?: Standing; pos: Pos }) {
+  if (!playing || !at) return null;
+  return (
+    <span className="cafe-juke" style={pos(at.cx, at.bottom - at.h - 1)}>
+      ♪ {playing}
     </span>
   );
 }

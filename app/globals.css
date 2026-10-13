@@ -2141,14 +2141,6 @@ body {
   background: linear-gradient(135deg, #8b6dff, #22d3ee);
   border-color: transparent;
 }
-.music {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.music-vol input[type="range"] {
-  width: 76px;
-}
 .speech-pick {
   display: inline-flex;
   align-items: center;
@@ -2917,11 +2909,13 @@ body {
   flex-direction: column;
   gap: 8px;
 }
-.shop-hd {
+.shop-own {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  flex-direction: column;
   gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 .shop-beans {
   font-family: var(--font-pixel), var(--mono);
@@ -3377,4 +3371,132 @@ body {
     width: auto;
     height: min(70vh, 480px);
   }
+}
+
+.juke {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.juke-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.juke-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.juke-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.juke-row.picked {
+  border-color: var(--border-2);
+}
+.juke-row.on {
+  background: rgba(255, 79, 163, 0.12);
+  border-color: rgba(255, 79, 163, 0.45);
+}
+.juke-ic {
+  flex: none;
+  width: 22px;
+  font-size: 16px;
+  text-align: center;
+}
+.juke-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.juke-name b {
+  font-size: 13px;
+  font-weight: 600;
+}
+.juke-name small {
+  overflow: hidden;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.juke-play {
+  flex: none;
+  color: var(--muted);
+}
+.juke-eq {
+  flex: none;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+.juke-eq i {
+  width: 3px;
+  height: 3px;
+  background: #ff4fa3;
+  animation: juke-eq 0.9s ease-in-out infinite;
+}
+.juke-eq i:nth-child(2) {
+  background: #ffd25a;
+  animation-delay: -0.3s;
+}
+.juke-eq i:nth-child(3) {
+  background: #5ce1ff;
+  animation-delay: -0.6s;
+}
+@keyframes juke-eq {
+  50% {
+    height: 12px;
+  }
+}
+.juke-ctl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.juke-ctl input[type="range"] {
+  flex: 1;
+}
+.juke-pop {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(280px, 70vw);
+  padding-right: 18px;
+  font-size: 12.5px;
+}
+.juke-own {
+  display: flex;
+  gap: 6px;
+}
+.cafe-juke {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  max-width: calc(14cqw * var(--k, 1));
+  overflow: hidden;
+  font-size: clamp(7px, 1.1cqw, 11px);
+  font-weight: 700;
+  color: #ffd2ec;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-shadow:
+    1px 0 0 #07050d,
+    -1px 0 0 #07050d,
+    0 1px 0 #07050d,
+    0 -1px 0 #07050d;
+  animation: chat-bob 1.6s ease-in-out infinite;
 }

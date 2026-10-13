@@ -44,7 +44,7 @@ export const HIT_HINT: Record<Hit["kind"], string> = {
   agent: "хто це і що робить",
   cat: "погладити кота",
   board: "підсумок дня",
-  vending: "досягнення і декор",
+  vending: "магазин",
   window: "змінити вид за вікном",
   door: "запросити команду",
   bar: "груповий чат",

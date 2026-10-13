@@ -20,7 +20,7 @@ import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
 import { buildRoom, doorOf, fixtures } from "./room";
 import { Anchor, CafeBubble, FixturePick, Placing, SceneAlert, agentAnchor, anchorAt, fixtureAnchor, onCat } from "./sceneParts";
-import { ChatTag, GuestTags, ReactionLayer, SeatReaction } from "./SceneSocial";
+import { ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
 import { fmtTokens } from "../live/tokens";
 
@@ -56,6 +56,8 @@ export default function CafeScene({
   onPlacing,
   onPlace,
   onFurniture,
+  onJukebox,
+  playing,
 }: {
   model: CafeModel;
   clock: number;
@@ -86,6 +88,10 @@ export default function CafeScene({
   onPlace?: (p: Placed) => void;
   /** a piece of furniture was clicked */
   onFurniture?: (piece: { pid: string; item: ItemId }, anchor: Anchor) => void;
+  /** a jukebox was clicked: anyone may pick the music, only the owner moves it */
+  onJukebox?: (piece: { pid: string; item: ItemId }, anchor: Anchor) => void;
+  /** the record this page plays, shown over the jukebox */
+  playing?: string | null;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -217,6 +223,10 @@ export default function CafeScene({
     return s ? { ...base, ...s, ok: true } : { ...base, cx: p.x, bottom: p.y + it.h / 2, ok: false };
   };
   const pieceAt = (p: Point) => (onFurniture && !hitAt(p) ? standingAt(shown, p) : null);
+  const jukeAt = (p: Point) => {
+    const s = onJukebox && !hitAt(p) ? standingAt(shown, p) : null;
+    return s?.item === "jukebox" ? s : null;
+  };
 
   const down = (e: PointerEvent<HTMLCanvasElement>) => {
     droppedRef.current = false;
@@ -241,6 +251,11 @@ export default function CafeScene({
       return;
     }
     const h = hitAt(p);
+    if (jukeAt(p)) {
+      el.style.cursor = "pointer";
+      el.title = onPlacing ? "клацни, щоб вибрати мелодію, або перетягни" : "музичний автомат: вибрати мелодію";
+      return;
+    }
     if (!h && pieceAt(p)) {
       el.style.cursor = onPlacing ? "grab" : "pointer";
       el.title = "перетягни або клацни, щоб перемістити чи прибрати";
@@ -284,6 +299,11 @@ export default function CafeScene({
       return;
     }
     setSel(null);
+    const j = jukeAt(p);
+    if (j) {
+      onJukebox!({ pid: j.pid, item: j.item }, anchorAt(lay, j.cx, j.bottom - j.h, j.bottom));
+      return;
+    }
     const f = pieceAt(p);
     if (f) {
       onFurniture!({ pid: f.pid, item: f.item }, anchorAt(lay, f.cx, f.bottom - f.h, f.bottom));
@@ -362,6 +382,7 @@ export default function CafeScene({
           })}
           <GuestTags seats={seats} more={barOverflow(guests ?? [])} pos={pos} />
           <ChatTag unread={chatUnread} pos={pos} />
+          <JukeTag playing={playing} at={shown.find((s) => s.item === "jukebox")} pos={pos} />
           {reactions && <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />}
           {catName && (
             <span ref={catRef} className="cafe-cat">

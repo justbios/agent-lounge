@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode } from "react";
-import { Activity, Coins, Hash, Users } from "lucide-react";
+import { Activity, Coins, Users } from "lucide-react";
 import { fmtTokens } from "./tokens";
 
 const ICON = { display: "inline", verticalAlign: "-1px", marginRight: 4 } as const;
@@ -12,7 +12,6 @@ export default function StatBar({
   seats,
   seatsLabel,
   working,
-  events,
   tokens,
   limits,
   children,
@@ -22,18 +21,21 @@ export default function StatBar({
   seats: number;
   seatsLabel: string;
   working: number;
-  events: number;
   tokens: number;
   limits?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <div className="statbar live-bar">
-      <span className={`live-pill ${status === "open" ? "on" : status === "offline" ? "off" : ""}`}>
-        <span className={`feed-dot feed-${status}`} />
-        {pill}
-      </span>
-      <span className="stat-sep" />
+      {status !== "open" && (
+        <>
+          <span className={`live-pill ${status === "offline" ? "off" : ""}`}>
+            <span className={`feed-dot feed-${status}`} />
+            {pill}
+          </span>
+          <span className="stat-sep" />
+        </>
+      )}
       <div className="stat">
         <span className="stat-k">
           <Users size={11} style={ICON} />
@@ -47,13 +49,6 @@ export default function StatBar({
           зараз працюють
         </span>
         <span className="stat-v">{working}</span>
-      </div>
-      <div className="stat">
-        <span className="stat-k">
-          <Hash size={11} style={ICON} />
-          подій
-        </span>
-        <span className="stat-v">{events}</span>
       </div>
       <div className="stat" title="токени, які хук порахував за останню добу в цьому чаті чи команді">
         <span className="stat-k">

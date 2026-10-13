@@ -5,17 +5,21 @@ import { Building2, Gamepad2, Maximize2, Minimize2, ScrollText, Users, X } from 
 import { CafeModel } from "@/lib/cafe/model";
 import { ItemId, Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
+import { trackInfo } from "@/lib/live/tracks";
 import { CafeState } from "@/lib/live/useCafe";
+import { CafeSound } from "@/lib/live/useCafeSound";
 import { ScenePop } from "../cafe/AgentCard";
 import CafeScene, { Anchor, FixturePick, Placing, SceneAlert } from "../cafe/CafeScene";
 import { SeatReaction } from "../cafe/SceneSocial";
 import { THEMES, THEME_IDS, themeOf } from "../cafe/theme";
 import DoorInvite from "./DoorInvite";
+import { JukeboxList } from "./Jukebox";
 import Presence from "./Presence";
 
 type Pop =
   | { kind: "door"; anchor: Anchor }
   | { kind: "furniture"; anchor: Anchor; pid: string; item: ItemId }
+  | { kind: "jukebox"; anchor: Anchor; pid: string; item: ItemId }
   | { kind: "note"; anchor: Anchor; text: string; id: number };
 
 const TOP: Anchor = { x: 0.5, y: 0.08, below: true };
@@ -110,6 +114,7 @@ export default function Stage({
   reactions,
   onReact,
   cafe,
+  sound,
   empty,
   below,
   agents,
@@ -118,7 +123,7 @@ export default function Stage({
   roomKey,
   viewing,
   onRecap,
-  onCafe,
+  onShop,
   onGames,
   placing,
   onPlacing,
@@ -142,6 +147,7 @@ export default function Stage({
   reactions: SeatReaction[];
   onReact: (agent: number, emoji: string) => void;
   cafe: CafeState;
+  sound: CafeSound;
   empty?: ReactNode;
   /** under the scene: the open bets */
   below?: ReactNode;
@@ -151,7 +157,7 @@ export default function Stage({
   roomKey: string | null;
   viewing: boolean;
   onRecap: () => void;
-  onCafe: () => void;
+  onShop: () => void;
   onGames: () => void;
   placing: Placing | null;
   onPlacing: (p: Placing | null) => void;
@@ -177,7 +183,7 @@ export default function Stage({
   const pick = (p: FixturePick | null) => {
     if (!p) return setPop(null);
     if (p.kind === "board") return onRecap();
-    if (p.kind === "vending") return onCafe();
+    if (p.kind === "vending") return onShop();
     if (p.kind === "window") return nextTheme(p.anchor);
     if (p.kind === "bar") return onChat ? onChat() : note(p.anchor, "груповий чат є в хмарному кафе");
     setPop(pop?.kind === "door" ? null : { kind: "door", anchor: p.anchor });
@@ -190,6 +196,77 @@ export default function Stage({
   const furn = pop?.kind === "furniture" ? pop : undefined;
   const furnDef = furn && itemOf(furn.item);
   const moved = !!furn && cafe.interior.placed.some((p) => p.pid === furn.pid);
+
+  const pops =
+    furn && furnDef ? (
+      <ScenePop anchor={furn.anchor} label={furnDef.name} onClose={() => setPop(null)}>
+        <div className="furn-pop">
+          <b>{furnDef.name}</b>
+          <div>
+            <button
+              className="btn"
+              onClick={() => {
+                setPop(null);
+                onPlacing({ item: furn.item, pid: furn.pid });
+              }}
+            >
+              перемістити
+            </button>
+            {(!furnDef.decor || moved) && (
+              <button
+                className="btn"
+                onClick={() => {
+                  setPop(null);
+                  void cafe.stow(furn.pid);
+                }}
+              >
+                {furnDef.decor ? "на звичне місце" : "прибрати"}
+              </button>
+            )}
+          </div>
+        </div>
+      </ScenePop>
+    ) : pop?.kind === "jukebox" ? (
+      <ScenePop anchor={pop.anchor} label="музичний автомат" onClose={() => setPop(null)}>
+        <div className="juke-pop">
+          <b>Музичний автомат</b>
+          <JukeboxList sound={sound} />
+          {cafe.editable && (
+            <div className="juke-own">
+              <button
+                className="btn"
+                onClick={() => {
+                  setPop(null);
+                  onPlacing({ item: pop.item, pid: pop.pid });
+                }}
+              >
+                перемістити
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setPop(null);
+                  void cafe.stow(pop.pid);
+                }}
+              >
+                прибрати
+              </button>
+            </div>
+          )}
+        </div>
+      </ScenePop>
+    ) : pop?.kind === "door" ? (
+      <ScenePop anchor={pop.anchor} label="запросити команду" onClose={() => setPop(null)}>
+        <DoorInvite cloud={cloud} roomKey={roomKey} viewing={viewing} />
+      </ScenePop>
+    ) : pop?.kind === "note" ? (
+      <div
+        className={`scene-note ${pop.anchor.below ? "below" : "above"}`}
+        style={{ left: `${pop.anchor.x * 100}%`, top: `${pop.anchor.y * 100}%` }}
+      >
+        {pop.text}
+      </div>
+    ) : null;
 
   return (
     <section className={`card stage-card ${full ? "stage-full" : ""} ${onHouse ? "zoomed" : ""}`}>
@@ -238,48 +315,9 @@ export default function Stage({
           onPlacing={cafe.editable ? onPlacing : undefined}
           onPlace={place}
           onFurniture={cafe.editable ? (f, anchor) => setPop({ kind: "furniture", ...f, anchor }) : undefined}
-          pops={
-            furn && furnDef ? (
-              <ScenePop anchor={furn.anchor} label={furnDef.name} onClose={() => setPop(null)}>
-                <div className="furn-pop">
-                  <b>{furnDef.name}</b>
-                  <div>
-                    <button
-                      className="btn"
-                      onClick={() => {
-                        setPop(null);
-                        onPlacing({ item: furn.item, pid: furn.pid });
-                      }}
-                    >
-                      перемістити
-                    </button>
-                    {(!furnDef.decor || moved) && (
-                      <button
-                        className="btn"
-                        onClick={() => {
-                          setPop(null);
-                          void cafe.stow(furn.pid);
-                        }}
-                      >
-                        {furnDef.decor ? "на звичне місце" : "прибрати"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </ScenePop>
-            ) : pop?.kind === "door" ? (
-              <ScenePop anchor={pop.anchor} label="запросити команду" onClose={() => setPop(null)}>
-                <DoorInvite cloud={cloud} roomKey={roomKey} viewing={viewing} />
-              </ScenePop>
-            ) : pop?.kind === "note" ? (
-              <div
-                className={`scene-note ${pop.anchor.below ? "below" : "above"}`}
-                style={{ left: `${pop.anchor.x * 100}%`, top: `${pop.anchor.y * 100}%` }}
-              >
-                {pop.text}
-              </div>
-            ) : null
-          }
+          onJukebox={(f, anchor) => setPop({ kind: "jukebox", ...f, anchor })}
+          playing={sound.on ? trackInfo(sound.track).name : null}
+          pops={pops}
         />
         {placing && <PlacingBar placing={placing} onCancel={() => onPlacing(null)} />}
         {empty}

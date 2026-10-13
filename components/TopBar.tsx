@@ -7,7 +7,18 @@ import SharePanel from "./live/SharePanel";
 
 export type Mode = "demo" | "live";
 
-export default function TopBar({ mode, onMode, status }: { mode: Mode; onMode: (m: Mode) => void; status: FeedStatus }) {
+export default function TopBar({
+  mode,
+  onMode,
+  status,
+  connected,
+}: {
+  mode: Mode;
+  onMode: (m: Mode) => void;
+  status: FeedStatus;
+  /** Claude Code already reports here: the connect link shrinks to an icon */
+  connected: boolean;
+}) {
   return (
     <header className="header">
       <div className="brand">
@@ -21,9 +32,15 @@ export default function TopBar({ mode, onMode, status }: { mode: Mode; onMode: (
       </div>
       <div className="header-r">
         <SharePanel />
-        <Link className="btn" href="/connect">
-          <Plug size={14} /> підключити Claude
-        </Link>
+        {connected ? (
+          <Link className="btn btn-ic" href="/connect" title="Claude підключено. Ще один комп'ютер чи оновлення: тут">
+            <Plug size={14} />
+          </Link>
+        ) : (
+          <Link className="btn" href="/connect">
+            <Plug size={14} /> підключити Claude
+          </Link>
+        )}
         <div className="viewseg modeseg">
           <button className={mode === "demo" ? "on" : ""} onClick={() => onMode("demo")}>
             демо

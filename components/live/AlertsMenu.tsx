@@ -66,8 +66,13 @@ export default function AlertsMenu({ cloud, push }: { cloud: boolean; push: Push
 
   return (
     <div className="alerts" ref={box}>
-      <button className={`btn alerts-btn ${anyOn ? "on" : ""}`} onClick={() => setOpen(!open)} aria-expanded={open}>
-        {anyOn ? <BellRing size={14} /> : <Bell size={14} />} сповіщення
+      <button
+        className={`btn btn-ic alerts-btn ${anyOn ? "on" : ""}`}
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        title="сповіщення"
+      >
+        {anyOn ? <BellRing size={14} /> : <Bell size={14} />}
       </button>
       {open && (
         <div className="alerts-pop" role="dialog" aria-label="сповіщення">

@@ -21,7 +21,12 @@ export default function Home() {
 
   return (
     <div className="app">
-      <TopBar mode={mode} onMode={setChosen} status={feed.status} />
+      <TopBar
+        mode={mode}
+        onMode={setChosen}
+        status={feed.status}
+        connected={hosted ? !!key && !viewing : local.events.length > 0}
+      />
       {mode === "live" ? <LiveDashboard feed={feed} cloud={!!hosted} roomKey={key} viewing={viewing} /> : <PipelineDashboard />}
     </div>
   );

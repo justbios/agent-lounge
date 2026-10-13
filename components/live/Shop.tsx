@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { BEAN_RULES, ItemDef, ItemId, ItemPlace, SHOP, SIGN_MAX, inStock } from "@/lib/live/interior";
+import { BEANS_FROM, BEAN_RULES, ItemDef, ItemId, ItemPlace, SHOP, SIGN_MAX, inStock } from "@/lib/live/interior";
 import { CafeState } from "@/lib/live/useCafe";
 import { drawItem } from "../cafe/furniture";
 import { plural } from "./format";
@@ -27,7 +27,7 @@ function Preview({ it }: { it: ItemDef }) {
   return <canvas ref={ref} width={it.w + PAD * 2} height={it.h + PAD * 2} aria-hidden />;
 }
 
-const beans = (n: number) => `${n.toLocaleString("uk-UA")} ${plural(n, "зернина", "зернини", "зерен")}`;
+export const beans = (n: number) => `${n.toLocaleString("uk-UA")} ${plural(n, "зернина", "зернини", "зерен")}`;
 
 function NameField({
   label,
@@ -75,6 +75,12 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
   const [bad, setBad] = useState(false);
   const stock = inStock(cafe.interior);
   const r = BEAN_RULES;
+  const since = new Date(BEANS_FROM).toLocaleString("uk-UA", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
   const buy = async (id: ItemId) => {
     setBusy(id);
     setBad(false);
@@ -85,14 +91,9 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
 
   return (
     <section className="shop">
-      <div className="shop-hd">
-        <div className="share-ttl">Магазин</div>
-        <span className="shop-beans" title={`зароблено ${beans(cafe.beans.earned)}, витрачено ${beans(cafe.beans.spent)}`}>
-          ☕ {beans(Math.max(0, cafe.beans.left))}
-        </span>
-      </div>
       <p className="alerts-hint">
-        Кавові зерна дає робота Claude: питання {r.prompt}, доручення агенту {r.dispatch}, відповідь {r.answer}, хвилина в
+        Рахунок зерен почався заново {since}: їх дає лише робота відтоді, а куплене раніше лишилось у кафе. Кавові зерна
+        дає робота Claude: питання {r.prompt}, доручення агенту {r.dispatch}, відповідь {r.answer}, хвилина в
         роботі {r.minute}, кожні {r.toolsPerBean} дії інструментами ще одна, досягнення {r.achievement}.
         {cafe.editable
           ? " Поставлене, і зароблений декор теж, можна перетягнути або клацнути, щоб перемістити чи прибрати."
