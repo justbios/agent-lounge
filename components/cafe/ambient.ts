@@ -3,6 +3,8 @@ import { AgentView } from "@/lib/cafe/timeline";
 import { drawPerson, lookFor } from "./people";
 import { Ctx, LINE, glow, px, rand } from "./pixel";
 import { Fixtures, fixtures } from "./room";
+import { THEMES, Theme } from "./theme";
+import { drawWeather } from "./windows";
 
 const BARISTA = lookFor(9, "#e9e2cf", {
   hair: "#3a2416",
@@ -21,21 +23,6 @@ function hand(ctx: Ctx, CLOCK: Fixtures["CLOCK"], angle: number, len: number, co
   }
 }
 
-function rain(ctx: Ctx, t: number, fx: Fixtures) {
-  fx.WINDOWS.forEach((w, wi) => {
-    const ix = w.x + 2;
-    const iw = w.w - 4;
-    const ih = 23;
-    ctx.globalAlpha = 0.5;
-    for (let k = 0; k < 12; k++) {
-      const speed = 22 + rand(k + wi * 20) * 10;
-      const y = (t * speed + rand(k * 7 + wi) * ih) % ih;
-      px(ctx, ix + Math.floor(rand(k * 13 + wi * 3) * iw), 7 + y, 1, 2, "#7d95d6");
-    }
-    ctx.globalAlpha = 1;
-  });
-}
-
 function steamPuff(ctx: Ctx, x: number, y: number, t: number, puffs: number, rise: number) {
   for (let k = 0; k < puffs; k++) {
     const ph = (t * 0.8 + k / puffs) % 1;
@@ -45,9 +32,9 @@ function steamPuff(ctx: Ctx, x: number, y: number, t: number, puffs: number, ris
   ctx.globalAlpha = 1;
 }
 
-export function drawAmbient(ctx: Ctx, t: number, width: number) {
+export function drawAmbient(ctx: Ctx, t: number, width: number, th: Theme = THEMES.cafe) {
   const fx = fixtures(width);
-  rain(ctx, t, fx);
+  drawWeather(ctx, t, fx, th);
   hand(ctx, fx.CLOCK, -Math.PI / 2 + t * 0.35, 5, LINE);
   hand(ctx, fx.CLOCK, -Math.PI / 2 + t * 0.03, 3, "#7a2d3a");
 }
@@ -90,8 +77,8 @@ export function drawCupSteam(ctx: Ctx, x: number, y: number, t: number) {
 }
 
 /** Dims the room, then adds every light source on top. */
-export function drawLights(ctx: Ctx, lay: CafeLayout, views: AgentView[], colors: string[], t: number) {
-  ctx.fillStyle = "rgba(9,6,22,0.30)";
+export function drawLights(ctx: Ctx, lay: CafeLayout, views: AgentView[], colors: string[], t: number, th: Theme = THEMES.cafe) {
+  ctx.fillStyle = th.dim;
   ctx.fillRect(0, 0, lay.width, lay.height);
   ctx.globalCompositeOperation = "lighter";
 
@@ -101,10 +88,10 @@ export function drawLights(ctx: Ctx, lay: CafeLayout, views: AgentView[], colors
   const sy = SIGN.y + SIGN.h / 2;
   glow(ctx, sx, sy, 74, "#ff4fa3", 0.16 * flick);
   glow(ctx, sx, sy - 3, 44, "#5ce1ff", 0.1 * flick);
-  for (const x of SCONCES) glow(ctx, x, 13, 34, "#ffb15e", 0.22);
-  for (const w of WINDOWS) glow(ctx, w.x + w.w / 2, 20, 40, "#4f6bff", 0.06);
+  for (const x of SCONCES) glow(ctx, x, 13, 34, th.lampGlow, 0.22);
+  for (const w of WINDOWS) glow(ctx, w.x + w.w / 2, 20, 40, th.windowGlow, 0.06);
   glow(ctx, VENDING.x + 12, VENDING.y + 22, 36, "#59d8ff", 0.15);
-  for (const top of lay.bands) glow(ctx, lay.width / 2, top + 30, 160, "#ffcf8a", 0.045);
+  for (const top of lay.bands) glow(ctx, lay.width / 2, top + 30, 160, th.warm, 0.045);
 
   views.forEach((v, i) => {
     const d = lay.desks[i];

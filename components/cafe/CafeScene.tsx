@@ -10,6 +10,7 @@ import { DecorSet } from "./decor";
 import { drawFrame } from "./frame";
 import { lookFor } from "./people";
 import { buildRoom, fixtures } from "./room";
+import { THEMES, Theme } from "./theme";
 
 const TYPE_MS_PER_CHAR = 22;
 
@@ -41,12 +42,14 @@ export default function CafeScene({
   alert,
   decor,
   catName,
+  theme = THEMES.cafe,
 }: {
   model: CafeModel;
   clock: number;
   alert?: SceneAlert;
   decor?: DecorSet;
   catName?: string | null;
+  theme?: Theme;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const catRef = useRef<HTMLSpanElement>(null);
@@ -73,7 +76,7 @@ export default function CafeScene({
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     const looks = agents.map((a, i) => lookFor(a.look ?? i, a.color));
-    const room = buildRoom(lay, agents, model.seed);
+    const room = buildRoom(lay, agents, model.seed, theme);
     let raf = 0;
     let last = 0;
     const loop = (now: number) => {
@@ -81,7 +84,7 @@ export default function CafeScene({
       const busy = agents.map((_, i) => i).filter((i) => agentView(model, tl, lay, i, clock).screen === "work");
       cat.step(last ? Math.min(100, now - last) : 0, now, busy);
       last = now;
-      drawFrame(ctx, { model, lay, tl, looks, room, clock, t: now / 1000, cat, alert: alertRef.current, decor: decorRef.current });
+      drawFrame(ctx, { model, lay, tl, looks, room, clock, t: now / 1000, cat, alert: alertRef.current, decor: decorRef.current, theme });
       const p = cat.pos;
       const label = catRef.current;
       if (label) {
@@ -106,7 +109,7 @@ export default function CafeScene({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [model, agents, lay, tl, cat]);
+  }, [model, agents, lay, tl, cat, theme]);
 
   const { SIGN } = fixtures(lay.width);
   const pos = (x: number, y: number): CSSProperties => ({

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Earned } from "@/lib/live/achievements";
 import { CafeState } from "@/lib/live/useCafe";
+import ThemePicker from "./ThemePicker";
 
 const num = (n: number) => n.toLocaleString("uk-UA");
 const dayLabel = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
@@ -103,6 +104,7 @@ export default function CafePanel({ cafe, onClose }: { cafe: CafeState; onClose:
           підвіконні.
         </p>
 
+        <ThemePicker cafe={cafe} />
         {cafe.editable && <CatName cafe={cafe} />}
         {cafe.error && <p className="key-paste-bad">Не вдалося дістати прогрес, спробую ще раз за хвилину.</p>}
 

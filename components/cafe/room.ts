@@ -1,6 +1,9 @@
-import { CafeLayout, WALL_H, rng } from "@/lib/cafe/layout";
+import { CafeLayout, WALL_H } from "@/lib/cafe/layout";
 import { AgentDef } from "@/lib/types";
+import { drawDesks } from "./desk";
 import { Ctx, LINE, px, rand, shade } from "./pixel";
+import { THEMES, Theme } from "./theme";
+import { drawWindow } from "./windows";
 
 export interface Fixtures {
   WINDOWS: { x: number; w: number }[];
@@ -33,14 +36,13 @@ export function fixtures(width: number): Fixtures {
   return fx;
 }
 
-function drawFloor(ctx: Ctx, lay: CafeLayout) {
-  const planks = ["#3b2c2a", "#382927", "#3f2f2c", "#352725"];
+function drawFloor(ctx: Ctx, lay: CafeLayout, th: Theme) {
   for (let y = WALL_H, k = 0; y < lay.height; y += 5, k++) {
-    px(ctx, 0, y, lay.width, 5, planks[k % planks.length]);
-    px(ctx, 0, y + 4, lay.width, 1, "#2e211f");
+    px(ctx, 0, y, lay.width, 5, th.planks[k % th.planks.length]);
+    px(ctx, 0, y + 4, lay.width, 1, th.plankLine);
     let x = Math.floor(rand(k * 7.3) * 40);
     while (x < lay.width) {
-      px(ctx, x, y, 1, 4, "#2a1e1c");
+      px(ctx, x, y, 1, 4, th.plankGap);
       x += 30 + Math.floor(rand(k * 13 + x) * 26);
     }
   }
@@ -75,37 +77,6 @@ function drawRugs(ctx: Ctx, lay: CafeLayout) {
   });
 }
 
-function drawWindow(ctx: Ctx, x: number, w: number, seed: number) {
-  px(ctx, x - 1, 4, w + 2, 31, LINE);
-  px(ctx, x, 5, w, 29, "#5a4766");
-  const ix = x + 2;
-  const iy = 7;
-  const iw = w - 4;
-  const ih = 25;
-  const sky = ["#0b1033", "#0f1543", "#141a52", "#1a2060", "#20266b"];
-  sky.forEach((c, k) => px(ctx, ix, iy + k * 5, iw, 5, c));
-  for (let k = 0; k < 6; k++) px(ctx, ix + Math.floor(rand(seed * 50 + k) * iw), iy + Math.floor(rand(seed * 70 + k) * 10), 1, 1, "#c9d3ff");
-  if (seed === 0) {
-    px(ctx, ix + 7, iy + 3, 4, 4, "#f4ecc8");
-    px(ctx, ix + 8, iy + 4, 1, 1, "#d8cfa4");
-  }
-  for (let bx = ix, b = 0; bx < ix + iw; b++) {
-    const bw = Math.min(5 + Math.floor(rand(seed * 31 + b) * 7), ix + iw - bx);
-    const bh = 7 + Math.floor(rand(seed * 17 + b * 3) * 12);
-    px(ctx, bx, iy + ih - bh, bw, bh, b % 2 ? "#0a0c20" : "#0d1029");
-    for (let wy = iy + ih - bh + 2; wy < iy + ih - 1; wy += 3) {
-      for (let wx = bx + 1; wx < bx + bw - 1; wx += 2) {
-        if (rand(wx * 3.1 + wy * 7.7 + seed) > 0.62) px(ctx, wx, wy, 1, 1, rand(wx + wy) > 0.8 ? "#7fd4ff" : "#ffd27a");
-      }
-    }
-    bx += bw;
-  }
-  px(ctx, x + w / 2 - 1, iy, 2, ih, "#5a4766");
-  px(ctx, ix, iy + 12, iw, 1, "#5a4766");
-  px(ctx, x - 2, 33, w + 4, 2, "#7a6386");
-  px(ctx, x - 2, 35, w + 4, 1, "#20182a");
-}
-
 function drawSignBoard(ctx: Ctx, fx: Fixtures) {
   const { x, y, w, h } = fx.SIGN;
   px(ctx, x - 1, y - 1, w + 2, h + 2, LINE);
@@ -116,22 +87,24 @@ function drawSignBoard(ctx: Ctx, fx: Fixtures) {
   }
 }
 
-function drawChalkboard(ctx: Ctx) {
+function drawChalkboard(ctx: Ctx, th: Theme) {
+  const [frame, board, chalk] = th.board;
   px(ctx, 2, 5, 44, 30, LINE);
-  px(ctx, 3, 6, 42, 28, "#6b4a35");
-  px(ctx, 5, 8, 38, 24, "#1e2a24");
+  px(ctx, 3, 6, 42, 28, frame);
+  px(ctx, 5, 8, 38, 24, board);
   for (const [lx, ly, lw] of [[8, 11, 16], [8, 15, 24], [8, 19, 20], [8, 23, 26], [8, 27, 14]]) {
-    for (let i = 0; i < lw; i++) if (rand(lx * 9 + ly * 13 + i) > 0.18) px(ctx, lx + i, ly, 1, 1, "#aebdb3");
+    for (let i = 0; i < lw; i++) if (rand(lx * 9 + ly * 13 + i) > 0.18) px(ctx, lx + i, ly, 1, 1, chalk);
     px(ctx, 37, ly, 3, 1, "#e8c46a");
   }
 }
 
-function drawSconce(ctx: Ctx, x: number) {
+function drawSconce(ctx: Ctx, x: number, th: Theme) {
+  const [body, rim, hi] = th.lamp;
   px(ctx, x - 1, 17, 2, 3, "#3a2f45");
   px(ctx, x - 4, 10, 8, 7, LINE);
-  px(ctx, x - 3, 11, 6, 5, "#f0c27a");
-  px(ctx, x - 3, 15, 6, 1, "#c8914e");
-  px(ctx, x - 2, 11, 1, 3, "#ffe2a8");
+  px(ctx, x - 3, 11, 6, 5, body);
+  px(ctx, x - 3, 15, 6, 1, rim);
+  px(ctx, x - 2, 11, 1, 3, hi);
 }
 
 function drawClockFace(ctx: Ctx, fx: Fixtures) {
@@ -146,21 +119,45 @@ function drawClockFace(ctx: Ctx, fx: Fixtures) {
   for (const [dx, dy] of [[0, -5], [5, 0], [0, 5], [-5, 0]]) px(ctx, CLOCK.x + dx, CLOCK.y + dy, 1, 1, "#7a6a80");
 }
 
-function drawWall(ctx: Ctx, width: number) {
-  const fx = fixtures(width);
-  px(ctx, 0, 0, width, WALL_H, "#2b2140");
-  for (let x = 3; x < width; x += 8) px(ctx, x, 0, 1, 37, "#30254a");
-  px(ctx, 0, 37, width, 2, "#4b3a52");
-  px(ctx, 0, 39, width, 9, "#3a2a36");
-  for (let x = 8; x < width; x += 16) {
-    px(ctx, x, 40, 1, 7, "#2e212b");
-    px(ctx, x + 1, 40, 1, 7, "#45333f");
+function drawPattern(ctx: Ctx, width: number, th: Theme) {
+  if (th.pattern === "boards") {
+    for (let x = 3; x < width; x += 8) px(ctx, x, 0, 1, 37, th.wallLine);
+    return;
   }
-  px(ctx, 0, 48, width, 2, "#1c1520");
-  fx.WINDOWS.forEach((w, i) => drawWindow(ctx, w.x, w.w, i));
+  if (th.pattern === "panels") {
+    for (let y = 12; y < 37; y += 12) px(ctx, 0, y, width, 1, th.wallLine);
+    for (let y = 0, r = 0; y < 37; y += 12, r++) {
+      for (let x = (r % 2) * 16; x < width; x += 32) {
+        px(ctx, x, y, 1, 12, th.wallLine);
+        px(ctx, x + 2, y + 2, 1, 1, th.rail);
+        px(ctx, x + 2, y + 9, 1, 1, th.rail);
+      }
+    }
+    return;
+  }
+  const hi = shade(th.wall, 1.18);
+  for (let y = 0, k = 0; y < 37; y += 6, k++) {
+    px(ctx, 0, y, width, 1, hi);
+    px(ctx, 0, y + 5, width, 1, th.wallLine);
+    for (let x = Math.floor(rand(k * 5.1) * 60); x < width; x += 70 + Math.floor(rand(k * 9 + x) * 50)) px(ctx, x, y + 2, 2, 2, th.wallLine);
+  }
+}
+
+function drawWall(ctx: Ctx, width: number, th: Theme) {
+  const fx = fixtures(width);
+  px(ctx, 0, 0, width, WALL_H, th.wall);
+  drawPattern(ctx, width, th);
+  px(ctx, 0, 37, width, 2, th.rail);
+  px(ctx, 0, 39, width, 9, th.wainscot);
+  for (let x = 8; x < width; x += 16) {
+    px(ctx, x, 40, 1, 7, th.wainscotLines[0]);
+    px(ctx, x + 1, 40, 1, 7, th.wainscotLines[1]);
+  }
+  px(ctx, 0, 48, width, 2, th.baseboard);
+  fx.WINDOWS.forEach((w, i) => drawWindow(ctx, w.x, w.w, i, th));
   drawSignBoard(ctx, fx);
-  drawChalkboard(ctx);
-  fx.SCONCES.forEach((x) => drawSconce(ctx, x));
+  drawChalkboard(ctx, th);
+  fx.SCONCES.forEach((x) => drawSconce(ctx, x, th));
   drawClockFace(ctx, fx);
 }
 
@@ -205,111 +202,18 @@ export function drawPlant(ctx: Ctx, x: number, baseY: number) {
   px(ctx, x - 5, baseY - 8, 10, 2, "#a65d3b");
 }
 
-function drawDesk(ctx: Ctx, X: number, T: number, color: string) {
-  ctx.fillStyle = "rgba(0,0,0,0.28)";
-  ctx.fillRect(X - 21, T + 25, 42, 4);
-  px(ctx, X - 19, T + 21, 2, 6, "#2d211b");
-  px(ctx, X + 17, T + 21, 2, 6, "#2d211b");
-  px(ctx, X - 21, T + 12, 42, 13, LINE);
-  px(ctx, X - 20, T + 13, 40, 8, "#7a5a44");
-  px(ctx, X - 20, T + 13, 40, 1, "#94704f");
-  px(ctx, X - 20, T + 21, 40, 3, "#573d2e");
-
-  px(ctx, X - 11, T - 1, 22, 15, LINE);
-  px(ctx, X - 10, T, 20, 13, "#1c1a26");
-  px(ctx, X - 10, T, 20, 1, "#2e2b3c");
-  px(ctx, X - 8, T + 2, 16, 9, "#05060c");
-  px(ctx, X - 1, T + 13, 2, 2, "#1c1a26");
-  px(ctx, X - 4, T + 15, 8, 1, "#2a2736");
-
-  px(ctx, X + 12, T + 2, 7, 13, LINE);
-  px(ctx, X + 13, T + 3, 5, 11, "#191723");
-  px(ctx, X + 13, T + 3, 5, 1, "#2a2736");
-  for (let k = 0; k < 3; k++) px(ctx, X + 14, T + 8 + k * 2, 3, 1, "#24212f");
-
-  px(ctx, X - 7, T + 17, 14, 3, "#23212e");
-  for (let k = 0; k < 6; k++) px(ctx, X - 6 + k * 2, T + 18, 1, 1, "#4f4a68");
-  px(ctx, X - 7, T + 20, 14, 1, shade(color, 0.7));
-  px(ctx, X + 9, T + 16, 7, 4, "#191723");
-  px(ctx, X + 11, T + 17, 2, 2, "#d7d3e4");
-
-  px(ctx, X - 18, T + 14, 6, 6, LINE);
-  px(ctx, X - 17, T + 15, 4, 4, "#ece4d6");
-  px(ctx, X - 16, T + 15, 2, 1, "#6b4325");
-  px(ctx, X - 13, T + 16, 1, 2, "#ece4d6");
-}
-
-type Prop = "cactus" | "duck" | "cans" | "books" | "lamp" | "none";
-const PROPS: Prop[] = ["cactus", "duck", "cans", "books", "lamp", "none"];
-
-function drawProp(ctx: Ctx, X: number, T: number, prop: Prop, r: () => number) {
-  const L = X - 20;
-  const base = T + 13;
-  switch (prop) {
-    case "cactus":
-      px(ctx, L, base - 9, 6, 10, LINE);
-      px(ctx, L + 1, base - 3, 4, 3, "#a65d3b");
-      px(ctx, L + 2, base - 8, 2, 5, "#3e9a5d");
-      px(ctx, L + 1, base - 6, 1, 2, "#3e9a5d");
-      px(ctx, L + 4, base - 7, 1, 2, "#3e9a5d");
-      px(ctx, L + 2, base - 9, 1, 1, "#ff7eb6");
-      return;
-    case "duck":
-      px(ctx, L, base - 6, 7, 6, LINE);
-      px(ctx, L + 1, base - 3, 5, 3, "#ffd23f");
-      px(ctx, L + 3, base - 5, 3, 3, "#ffd23f");
-      px(ctx, L + 6, base - 4, 1, 1, "#ff8c1a");
-      px(ctx, L + 4, base - 5, 1, 1, LINE);
-      return;
-    case "cans":
-      for (let k = 0; k < 2 + Math.floor(r() * 2); k++) {
-        const c = ["#4cc9f0", "#06d6a0", "#ff5d73", "#ffd166"][Math.floor(r() * 4)];
-        px(ctx, L + k * 3, base - 5, 3, 5, LINE);
-        px(ctx, L + k * 3 + 1, base - 4, 1, 4, c);
-      }
-      return;
-    case "books": {
-      const cols = ["#b4475f", "#3f6fb0", "#4f9a62", "#c9a44a"];
-      for (let k = 0; k < 3; k++) {
-        px(ctx, L + (k % 2), base - 3 - k * 2, 8, 3, LINE);
-        px(ctx, L + 1 + (k % 2), base - 2 - k * 2, 6, 1, cols[(k + Math.floor(r() * 4)) % 4]);
-      }
-      return;
-    }
-    case "lamp":
-      px(ctx, L + 1, base - 11, 7, 12, LINE);
-      px(ctx, L + 2, base - 10, 5, 3, "#ffcf6e");
-      px(ctx, L + 4, base - 7, 1, 6, "#4a4458");
-      px(ctx, L + 2, base - 1, 5, 1, "#4a4458");
-      return;
-    default:
-      return;
-  }
-}
-
-function drawSticky(ctx: Ctx, X: number, T: number, r: () => number) {
-  if (r() < 0.45) return;
-  const c = ["#ffe066", "#ff9ecf", "#9be7ff"][Math.floor(r() * 3)];
-  px(ctx, X + 6 - Math.floor(r() * 3), T - 2, 3, 3, c);
-}
-
 /** Everything that never moves, rendered once per layout. */
-export function buildRoom(lay: CafeLayout, agents: AgentDef[], seed = 1): HTMLCanvasElement {
+export function buildRoom(lay: CafeLayout, agents: AgentDef[], seed = 1, th: Theme = THEMES.cafe): HTMLCanvasElement {
   const c = document.createElement("canvas");
   c.width = lay.width;
   c.height = lay.height;
   const ctx = c.getContext("2d")!;
-  drawFloor(ctx, lay);
+  drawFloor(ctx, lay, th);
   drawRugs(ctx, lay);
-  drawWall(ctx, lay.width);
+  drawWall(ctx, lay.width, th);
   drawStools(ctx);
   drawVending(ctx, fixtures(lay.width));
   if (lay.height >= 180) drawPlant(ctx, 14, lay.height - 10);
-  lay.desks.forEach((d, i) => {
-    drawDesk(ctx, d.x, d.top, agents[i].color);
-    const r = rng(seed * 613 + i * 97 + 5);
-    drawProp(ctx, d.x, d.top, PROPS[Math.floor(r() * PROPS.length)], r);
-    drawSticky(ctx, d.x, d.top, r);
-  });
+  drawDesks(ctx, lay, agents, seed);
   return c;
 }

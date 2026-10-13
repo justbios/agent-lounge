@@ -6,6 +6,7 @@ import { Cat } from "./cat";
 import { DecorSet, drawDecor, drawDecorLights } from "./decor";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
 import { Ctx, paint, px, rand, shade } from "./pixel";
+import { Theme } from "./theme";
 
 export interface FrameInput {
   model: CafeModel;
@@ -20,6 +21,7 @@ export interface FrameInput {
   /** the desk whose agent waits on the user: a raised hand and a flashing «!» for a question, a lit ✓ for a finished turn */
   alert?: { agent: number; kind: "ask" | "done" };
   decor?: DecorSet;
+  theme?: Theme;
 }
 
 const NO_DECOR: DecorSet = new Set();
@@ -143,7 +145,7 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   ctx.globalCompositeOperation = "source-over";
   ctx.globalAlpha = 1;
   ctx.drawImage(f.room, 0, 0);
-  drawAmbient(ctx, t, lay.width);
+  drawAmbient(ctx, t, lay.width, f.theme);
   drawBar(ctx, t, decor.has("goldMachine"));
   drawDecor(ctx, lay, decor, t);
 
@@ -159,6 +161,6 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   if (cat) sprites.push({ y: cat.footY, draw: () => cat.draw(ctx, t, decor.has("crown")) });
   sprites.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 
-  drawLights(ctx, lay, views, model.agents.map((a) => a.color), t);
+  drawLights(ctx, lay, views, model.agents.map((a) => a.color), t, f.theme);
   drawDecorLights(ctx, lay, decor, t);
 }

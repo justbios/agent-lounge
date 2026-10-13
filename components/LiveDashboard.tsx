@@ -16,6 +16,7 @@ import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
 import CafeScene, { SceneAlert } from "./cafe/CafeScene";
+import { themeOf } from "./cafe/theme";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
 import CafePanel from "./live/CafePanel";
@@ -279,7 +280,14 @@ export default function LiveDashboard({
           )}
         </div>
         <div className="stage-pad stage-rel">
-          <CafeScene model={model} clock={clock} alert={alert} decor={cafe.decor} catName={cafe.settings.cat_name} />
+          <CafeScene
+            model={model}
+            clock={clock}
+            alert={alert}
+            decor={cafe.decor}
+            catName={cafe.settings.cat_name}
+            theme={themeOf(cafe.settings.theme)}
+          />
           {!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
         </div>
       </section>
