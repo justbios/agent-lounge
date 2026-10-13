@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Radio, Plug } from "lucide-react";
 import { FeedStatus } from "@/lib/live/useLiveFeed";
+import SharePanel from "./live/SharePanel";
 
 export type Mode = "demo" | "live";
 
@@ -19,6 +20,7 @@ export default function TopBar({ mode, onMode, status }: { mode: Mode; onMode: (
         </div>
       </div>
       <div className="header-r">
+        <SharePanel />
         <Link className="btn" href="/connect">
           <Plug size={14} /> підключити Claude
         </Link>

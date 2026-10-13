@@ -10,18 +10,26 @@ import { FeedStatus, LiveFeed } from "./useLiveFeed";
 const MAX_EVENTS = 6000;
 
 interface State {
-  key: string | null;
+  id: string | null;
   status: FeedStatus;
   events: LiveEvent[];
 }
 
-/** The hosted café: a snapshot of the room from relay_snapshot, then every new event over Supabase Realtime. */
-export function useCloudFeed(key: string | null, enabled: boolean): LiveFeed {
-  const [state, setState] = useState<State>({ key: null, status: "connecting", events: [] });
+/** Where a cloud feed reads from: the owner's key, or a room hash from a read-only view link. */
+export interface CloudSource {
+  key: string | null;
+  room: string | null;
+}
+
+/** The hosted café: a snapshot of the room, then every new event over Supabase Realtime. */
+export function useCloudFeed(src: CloudSource, enabled: boolean): LiveFeed {
+  const [state, setState] = useState<State>({ id: null, status: "connecting", events: [] });
+  const { key, room: viewRoom } = src;
+  const id = viewRoom ? `v:${viewRoom}` : key ? `k:${key}` : null;
 
   useEffect(() => {
     const sb = supabase;
-    if (!enabled || !key || !sb) return;
+    if (!enabled || !id || !sb) return;
     let live = true;
     let channel: RealtimeChannel | null = null;
     let byseq = new Map<number, LiveEvent>();
@@ -33,18 +41,20 @@ export function useCloudFeed(key: string | null, enabled: boolean): LiveFeed {
         events = events.slice(-MAX_EVENTS);
         byseq = new Map(events.map((e) => [e.seq, e]));
       }
-      if (live) setState({ key, status: "open", events });
+      if (live) setState({ id, status: "open", events });
     };
-    const mark = (status: FeedStatus) => live && setState((s) => ({ ...s, key, status }));
+    const mark = (status: FeedStatus) => live && setState((s) => ({ ...s, id, status }));
+    const snapshot = () =>
+      viewRoom ? sb.rpc("relay_snapshot_room", { p_room: viewRoom }) : sb.rpc("relay_snapshot", { p_key: key });
 
-    roomOf(key).then((room) => {
+    (viewRoom ? Promise.resolve(viewRoom) : roomOf(key!)).then((room) => {
       if (!live) return;
       channel = sb
         .channel(`relay:${room}`)
         .on("broadcast", { event: "ev" }, ({ payload }) => merge([payload as LiveEvent]))
         .subscribe(async (status) => {
           if (status === "SUBSCRIBED") {
-            const { data, error } = await sb.rpc("relay_snapshot", { p_key: key });
+            const { data, error } = await snapshot();
             if (error) mark("offline");
             else merge((data as { events: LiveEvent[] }).events ?? []);
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
@@ -57,8 +67,8 @@ export function useCloudFeed(key: string | null, enabled: boolean): LiveFeed {
       live = false;
       if (channel) sb.removeChannel(channel);
     };
-  }, [key, enabled]);
+  }, [id, key, viewRoom, enabled]);
 
-  if (!enabled || !key || !supabase) return { status: "offline", events: [] };
-  return state.key === key ? { status: state.status, events: state.events } : { status: "connecting", events: [] };
+  if (!enabled || !id || !supabase) return { status: "offline", events: [] };
+  return state.id === id ? { status: state.status, events: state.events } : { status: "connecting", events: [] };
 }

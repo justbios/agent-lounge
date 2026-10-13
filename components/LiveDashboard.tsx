@@ -7,6 +7,7 @@ import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
 import { CLAUDE_COLOR, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
+import { leaveView } from "@/lib/live/relayKey";
 import { LiveEvent } from "@/lib/live/types";
 import { useAlerts } from "@/lib/live/useAlerts";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
@@ -88,10 +89,12 @@ export default function LiveDashboard({
   feed,
   cloud,
   roomKey,
+  viewing,
 }: {
   feed: LiveFeed;
   cloud: boolean;
   roomKey: string | null;
+  viewing: boolean;
 }) {
   const [pick, setPick] = useState<string | null>(readPick);
   const choose = (id: string) => {
@@ -102,7 +105,7 @@ export default function LiveDashboard({
   const sessions = useMemo(() => listSessions(feed.events), [feed.events]);
   const session = (pick && sessions.find((s) => s.id === pick)) || sessions[0] || null;
   const tabs = sessions.filter((s) => s === session || (!s.ended && now - s.last < RECENT_MS));
-  const push = usePush(roomKey, cloud);
+  const push = usePush(roomKey, cloud && !viewing);
   const waiting = useAlerts(tabs, session?.id ?? null, push.state === "on", choose);
 
   useEffect(() => {
@@ -155,7 +158,7 @@ export default function LiveDashboard({
   };
 
   const offline = feed.status === "offline";
-  const unplugged = cloud && !roomKey;
+  const unplugged = cloud && !roomKey && !viewing;
   const pill = feed.status === "open" ? "на зв'язку" : unplugged ? "ще не підключено" : offline ? (cloud ? "немає зв'язку" : "Relay-сервер не запущений") : "підключаюсь…";
 
   return (
@@ -187,8 +190,19 @@ export default function LiveDashboard({
           </span>
           <span className="stat-v">{session?.count ?? 0}</span>
         </div>
-        <AlertsMenu cloud={cloud} push={push} />
+        {!viewing && <AlertsMenu cloud={cloud} push={push} />}
       </div>
+
+      {viewing && (
+        <div className="view-banner">
+          <span>
+            <b>Лише перегляд.</b> Це чуже кафе за посиланням: бачиш, що роблять агенти, але нічого не можеш змінити.
+          </span>
+          <button className="btn" onClick={leaveView}>
+            до свого кафе
+          </button>
+        </div>
+      )}
 
       {tabs.length > 0 && <ChatTabs tabs={tabs} current={session} waiting={waiting} now={now} onPick={choose} />}
 
@@ -201,8 +215,12 @@ export default function LiveDashboard({
           <CafeScene model={model} clock={clock} alert={alert} />
           {!session && (
             <div className="cafe-wait">
-              <b>{unplugged ? "Твій Claude ще не підключений" : offline ? pill : "Чекаю на твого Claude…"}</b>
-              {cloud ? (
+              <b>
+                {viewing ? "У цьому кафе зараз тихо" : unplugged ? "Твій Claude ще не підключений" : offline ? pill : "Чекаю на твого Claude…"}
+              </b>
+              {viewing ? (
+                <>Щойно власник щось попросить у Claude Code, агенти сядуть за столи.</>
+              ) : cloud ? (
                 unplugged ? (
                   <>
                     Одна фраза своєму Claude Code, і тут сядуть твої агенти: <Link href="/connect">підключити Claude</Link>.

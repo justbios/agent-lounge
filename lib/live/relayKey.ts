@@ -80,3 +80,20 @@ export async function roomOf(key: string): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+const VIEW = /[#&]v=([0-9a-f]{64})/;
+
+function subscribeHash(fn: () => void) {
+  window.addEventListener("hashchange", fn);
+  return () => window.removeEventListener("hashchange", fn);
+}
+
+/** A view link /#v=<room> shows someone's café read-only; it stays in the address bar so a reload keeps it. */
+export function useViewRoom(): string | null {
+  return useSyncExternalStore(subscribeHash, () => VIEW.exec(location.hash)?.[1] ?? null, () => null);
+}
+
+export function leaveView() {
+  history.replaceState(null, "", location.pathname + location.search);
+  window.dispatchEvent(new HashChangeEvent("hashchange"));
+}

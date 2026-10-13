@@ -5,6 +5,7 @@ import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
 import { Cat } from "./cat";
+import { clipFrame, clipWanted, sceneMounted } from "./clip";
 import { drawFrame } from "./frame";
 import { lookFor } from "./people";
 import { buildRoom, fixtures } from "./room";
@@ -47,9 +48,12 @@ export default function CafeScene({ model, clock, alert }: { model: CafeModel; c
     alertRef.current = alert;
   }, [clock, alert]);
 
+  useEffect(() => sceneMounted(), []);
+
   useEffect(() => {
-    const ctx = canvasRef.current?.getContext("2d");
-    if (!ctx) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
     const looks = agents.map((a, i) => lookFor(a.look ?? i, a.color));
     const room = buildRoom(lay, agents, model.seed);
     let raf = 0;
@@ -60,6 +64,12 @@ export default function CafeScene({ model, clock, alert }: { model: CafeModel; c
       cat.step(last ? Math.min(100, now - last) : 0, now, busy);
       last = now;
       drawFrame(ctx, { model, lay, tl, looks, room, clock, t: now / 1000, cat, alert: alertRef.current });
+      if (clipWanted()) {
+        const bubbles = agents
+          .map((_, i) => bubbleFor(model, tl, lay, i, agentView(model, tl, lay, i, clock), clock))
+          .filter((b): b is Bubble => b != null);
+        clipFrame(canvas, { lay, agents, bubbles, alert: alertRef.current, watermark: `relay · ${location.host}` });
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
