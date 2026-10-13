@@ -1,7 +1,7 @@
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel, Note, Stint, TripRequest, scheduleTrips } from "@/lib/cafe/model";
 import { AgentDef } from "@/lib/types";
-import { Attention, nextAttention } from "./attention";
+import { Attention, nextAttention, stopText } from "./attention";
 import { sessionLabel } from "./label";
 import { LiveEvent } from "./types";
 import { tokensOf } from "./usage";
@@ -31,6 +31,12 @@ export interface LiveSession {
 }
 
 /** The palette colour a subagent type usually gets in the café, for places outside the scene such as the day card. */
+/** The note a finished turn leaves: answered, or broke off on the limit or an error. */
+export function stopNote(e: LiveEvent, key: string, ts: number): Note {
+  if (!e.err) return { key, ts, text: "відповів ✓", say: { a: "answered" }, tone: "done" };
+  return { key, ts, text: stopText(e.err), say: e.say, tone: "error" };
+}
+
 export function agentColor(type: string): string {
   return PALETTE[hash(type) % PALETTE.length];
 }
@@ -239,7 +245,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
       }
       case "stop":
         close(0, t);
-        note(0, { key, ts: t, text: "відповів ✓", say: { a: "answered" }, tone: "done" });
+        note(0, stopNote(e, key, t));
         break;
       case "session_end":
         stints.forEach((_, i) => close(i, t));

@@ -1,4 +1,5 @@
 import webpush, { WebPushError } from "web-push";
+import { stopText } from "./attention";
 import { PushTarget, cloudPushGone, cloudPushTargets } from "./cloud";
 import { sessionLabel } from "./label";
 import { LiveEvent } from "./types";
@@ -40,7 +41,10 @@ export function alertFor(e: LiveEvent): PushAlert | null {
       detail: tool,
     };
   }
-  if (e.kind === "stop" && !e.agent) return { kind: "done", session: e.session, label, member, title: "Claude відповів" };
+  if (e.kind === "stop" && !e.agent) {
+    const title = e.err ? `Claude ${stopText(e.err)}` : "Claude відповів";
+    return { kind: "done", session: e.session, label, member, title };
+  }
   return null;
 }
 

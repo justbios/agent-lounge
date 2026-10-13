@@ -73,6 +73,18 @@
         ]
       }
     ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" title usage limits",
+            "async": true,
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "hooks": [

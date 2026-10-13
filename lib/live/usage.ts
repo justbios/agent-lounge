@@ -23,19 +23,36 @@ export function tokenRate(events: LiveEvent[], now: number, windowMs = 15 * 60 *
 export interface MemberLimits {
   /** the teammate's name, "" for a Claude without one */
   member: string;
-  limits: Limits;
+  /** the 5-hour and weekly windows as the status line last saw them */
+  limits?: Limits;
+  /** when Claude last broke off on the subscription limit with nothing answered since, ms */
+  hit?: number;
 }
 
-/** The freshest limits each teammate's status line reported, freshest first. */
+const FIVE_HOURS_MS = 5 * 3600 * 1000;
+
+/** The freshest limits each teammate's status line reported, and a limit Claude ran into since, freshest first. */
 export function latestLimits(events: LiveEvent[]): MemberLimits[] {
   const by = new Map<string, MemberLimits>();
+  const answered = new Map<string, number>();
   for (const e of events) {
-    if (!e.limits) continue;
-    const m = e.member ?? "";
-    const prev = by.get(m);
-    if (!prev || e.limits.at >= prev.limits.at) by.set(m, { member: m, limits: e.limits });
+    const who = e.member ?? "";
+    if (e.kind === "stop" && !e.err) answered.set(who, e.at);
+    if (!e.limits && e.err !== "rate_limit") continue;
+    const m = by.get(who) ?? { member: who };
+    by.set(who, m);
+    if (e.limits && (!m.limits || e.limits.at >= m.limits.at)) m.limits = e.limits;
+    if (e.err === "rate_limit" && e.at > (m.hit ?? 0)) m.hit = e.at;
   }
-  return [...by.values()].sort((a, b) => b.limits.at - a.limits.at);
+  for (const m of by.values()) if (m.hit && (answered.get(m.member) ?? 0) > m.hit) delete m.hit;
+  const seen = (m: MemberLimits) => Math.max((m.limits?.at ?? 0) * 1000, m.hit ?? 0);
+  return [...by.values()].filter((m) => m.limits || m.hit).sort((a, b) => seen(b) - seen(a));
+}
+
+/** When Claude ran into the limit, while that still stands: no fresher limits since, and within five hours. */
+export function hitNow(m: MemberLimits, now: number): number | null {
+  if (!m.hit || now - m.hit > FIVE_HOURS_MS) return null;
+  return m.limits && m.limits.at * 1000 > m.hit ? null : m.hit;
 }
 
 export interface WindowNow {

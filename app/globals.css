@@ -2336,6 +2336,26 @@ body {
 .limit.lm-hot .limit-track span {
   background: #ff6b6b;
 }
+.lm-hit {
+  display: block;
+  padding: 1px 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #ff8a8a;
+  text-align: center;
+  background: rgba(255, 107, 107, 0.12);
+  border-radius: 6px;
+}
+.limit-hit {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #ffb3b3;
+  background: rgba(255, 107, 107, 0.1);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  border-radius: 8px;
+}
 .limits {
   display: flex;
   flex-direction: column;

@@ -70,5 +70,9 @@ export interface LiveEvent {
   usage?: Usage;
   /** prompts and answers: the 5-hour and weekly limits, when the status line has seen them */
   limits?: Limits;
+  /** a turn that broke off instead of finishing: "rate_limit", "overloaded", "server_error", … */
+  err?: string;
+  /** the relay.sh version that sent it; absent from older installs and from the bare curl hooks before relay.sh */
+  hv?: number;
 }
 

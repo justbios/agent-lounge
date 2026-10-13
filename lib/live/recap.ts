@@ -103,7 +103,7 @@ export function aggregateHourly(events: LiveEvent[]): HourRow[] {
       add(r.agents, { [e.target ?? "agent"]: 1 });
     }
     if (e.kind === "fail") r.fails += 1;
-    if (e.kind === "stop") r.answers += 1;
+    if (e.kind === "stop" && !e.err) r.answers += 1;
     if (e.kind === "notify") r.asks += 1;
   }
   return [...rows.values()].sort((a, b) => a.hour.localeCompare(b.hour));

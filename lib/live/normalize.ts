@@ -1,4 +1,4 @@
-import { LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK } from "./hookConfig.mjs";
+import { LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK, VERSION_MARK } from "./hookConfig.mjs";
 import { plainTool } from "./plain";
 import { LimitWindow, Limits, LiveEvent, LiveKind, Usage } from "./types";
 
@@ -153,6 +153,11 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
       return agent ? ev("sub_stop") : null;
     case "Stop":
       return agent ? null : ev("stop");
+    case "StopFailure": {
+      const err = str(raw.error) ?? "unknown";
+      if (agent) return null;
+      return ev("stop", { err, say: { a: err === "rate_limit" ? "limit_hit" : "broke_off" } });
+    }
     case "Notification": {
       const n = notice(str(raw.notification_type), str(raw.message));
       return n ? ev("notify", n) : null;
@@ -166,7 +171,7 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
 
 const MAX_ROSTER = 60;
 
-const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK];
+const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK, VERSION_MARK];
 const MAX_TOKENS = 1e11;
 
 /** The text after a marker line, up to the next marker; null when the hook sent no such section. */
@@ -243,6 +248,12 @@ export interface HookBody {
   title?: string;
   usage?: Usage;
   limits?: Limits;
+  version?: number;
+}
+
+function readVersion(sec: string | null): number | undefined {
+  const v = Number(sec?.trim());
+  return Number.isInteger(v) && v > 0 && v < 1000 ? v : undefined;
 }
 
 /**
@@ -260,9 +271,10 @@ export function parseHookBody(text: string): HookBody | null {
   }
   if (!raw || typeof raw !== "object") return null;
   const extra = {
-    title: readTitle(section(text, TITLE_MARK)),
+    title: readTitle(section(text, TITLE_MARK)) ?? cleanTitle((raw as Json).session_title),
     usage: readUsage(section(text, USAGE_MARK)),
     limits: readLimits(section(text, LIMITS_MARK)),
+    version: readVersion(section(text, VERSION_MARK)),
   };
   const list = section(text, ROSTER_MARK);
   if (list == null) return { raw: raw as Json, agents: null, ...extra };
@@ -287,6 +299,7 @@ export function withExtras(ev: LiveEvent, body: HookBody, member: string | null)
     ...(body.title ? { title: body.title } : {}),
     ...(body.usage && SPENDS.has(ev.kind) ? { usage: body.usage } : {}),
     ...(body.limits && ev.kind !== "roster" ? { limits: body.limits } : {}),
+    ...(body.version ? { hv: body.version } : {}),
   };
 }
 

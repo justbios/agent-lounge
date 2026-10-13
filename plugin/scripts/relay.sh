@@ -6,6 +6,7 @@
 # Without --url the café link comes from ~/.config/relay/hook-url (written by /relay:connect).
 # Token counts and the last limits are kept in ~/.local/state/relay; nothing leaves this machine but the café's own events.
 state="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}"
+version=2
 
 field() {
   printf '%s' "$1" | grep -oE "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d'"' -f4
@@ -150,5 +151,6 @@ j=$(cat)
         ;;
     esac
   done
+  printf '\n#relay-v\n%s\n' "$version"
 } | curl -s -m 5 -o /dev/null -H 'content-type: text/plain' --data-binary @- "$url"
 exit 0

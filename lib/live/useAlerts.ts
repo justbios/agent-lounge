@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useSyncExternalStore } from "react";
-import { Attention } from "./attention";
+import { Attention, stopText } from "./attention";
 import { chime, unlockChime } from "./chime";
 import { LiveSession } from "./liveModel";
 
@@ -122,7 +122,8 @@ export function useAlerts(
   const fire = useEffectEvent((s: LiveSession, a: Attention, looking: boolean) => {
     if (p.sound) chime(a.kind);
     if (!p.desktop || pushOn || looking || !("Notification" in window) || Notification.permission !== "granted") return;
-    const n = new Notification(a.kind === "ask" ? "Claude чекає на тебе" : "Claude відповів", {
+    const title = a.kind === "ask" ? "Claude чекає на тебе" : a.err ? `Claude ${stopText(a.err)}` : "Claude відповів";
+    const n = new Notification(title, {
       body: `${s.label} · ${a.text}`,
       tag: `relay-${s.id}`,
       icon: "/icon-192.png",

@@ -2,7 +2,7 @@
 
 import { CSSProperties } from "react";
 import { memberName } from "@/lib/live/teamModel";
-import { MemberLimits, WindowNow, windowNow } from "@/lib/live/usage";
+import { MemberLimits, WindowNow, hitNow, windowNow } from "@/lib/live/usage";
 
 const WEEKDAY = ["нд", "пн", "вт", "ср", "чт", "пт", "сб"];
 const STALE_MS = 6 * 3600 * 1000;
@@ -28,19 +28,22 @@ function left(ms: number): string {
 
 const tone = (pct: number) => (pct >= 90 ? "hot" : pct >= 70 ? "warm" : "ok");
 
-/** Two thin gauges for the top bar; the full picture lives in the day recap. */
+/** Two thin gauges for the top bar, or a red «limit reached» once Claude runs into it; the rest is in the day recap. */
 export function LimitsMini({ limits, now, onOpen }: { limits: MemberLimits | null; now: number; onOpen: () => void }) {
   if (!limits) return null;
+  const hit = hitNow(limits, now);
   const rows: [string, WindowNow | null][] = [
-    ["5 год", windowNow(limits.limits.five, now)],
-    ["тиждень", windowNow(limits.limits.week, now)],
+    ["5 год", windowNow(limits.limits?.five, now)],
+    ["тиждень", windowNow(limits.limits?.week, now)],
   ];
-  const title = rows
-    .filter(([, w]) => w)
-    .map(([k, w]) => `${k}: ${Math.round(w!.pct)}%, скинеться ${at(w!.reset, now)}`)
-    .join("\n");
+  if (!hit && !rows.some(([, w]) => w)) return null;
+  const title = [
+    ...(hit ? [`Claude вперся в ліміт ${at(hit, now)}`] : []),
+    ...rows.filter(([, w]) => w).map(([k, w]) => `${k}: ${Math.round(w!.pct)}%, скинеться ${at(w!.reset, now)}`),
+  ].join("\n");
   return (
     <button className="limits-mini" onClick={onOpen} title={title}>
+      {hit && <span className="lm-row lm-hot lm-hit">ліміт вичерпано</span>}
       {rows.map(([k, w]) =>
         w ? (
           <span key={k} className={`lm-row lm-${tone(w.pct)}`}>
@@ -83,22 +86,32 @@ export function LimitsFull({ limits, now, team }: { limits: MemberLimits[]; now:
   if (!limits.length) {
     return (
       <p className="alerts-hint">
-        Ліміти підписки (5 годин і тиждень) Claude Code показує лише в статус-рядку терміналу. Увімкни статус-рядок Relay
-        на сторінці підключення, і після наступної відповіді тут буде, скільки використано, скільки лишилось і коли
-        скинеться. У десктоп-застосунку Claude статус-рядок не запускається, тож ліміти приходять лише з терміналу.
+        Відсотки лімітів підписки (5 годин і тиждень) Claude Code віддає лише своєму статус-рядку. Увімкни
+        статус-рядок Relay на сторінці підключення, і після наступної відповіді тут буде, скільки використано, скільки
+        лишилось і коли скинеться. Якщо статус-рядок не запускається (так буває в десктоп-застосунку), тут однаково
+        з&apos;явиться «ліміт вичерпано», щойно Claude у нього впреться.
       </p>
     );
   }
   return (
     <div className="limits">
       {limits.map((m) => {
-        const seen = m.limits.at * 1000;
+        const seen = (m.limits?.at ?? 0) * 1000;
+        const hit = hitNow(m, now);
         return (
           <div className="limits-who" key={m.member}>
             {team && <div className="limits-name">{memberName(m.member)}</div>}
-            <Gauge label="5 годин" w={windowNow(m.limits.five, now)} now={now} />
-            <Gauge label="тиждень" w={windowNow(m.limits.week, now)} now={now} />
-            {now - seen > STALE_MS && <p className="alerts-hint">дані {at(seen, now)}, відтоді Claude ще не відповідав</p>}
+            {hit && (
+              <p className="limit-hit">
+                Claude вперся в ліміт підписки {at(hit, now)}. Коли він скинеться, Claude Code не каже: спробуй
+                пізніше або глянь у терміналі.
+              </p>
+            )}
+            <Gauge label="5 годин" w={windowNow(m.limits?.five, now)} now={now} />
+            <Gauge label="тиждень" w={windowNow(m.limits?.week, now)} now={now} />
+            {m.limits && now - seen > STALE_MS && (
+              <p className="alerts-hint">дані {at(seen, now)}, відтоді Claude ще не відповідав</p>
+            )}
           </div>
         );
       })}

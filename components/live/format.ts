@@ -1,5 +1,6 @@
 import { AgentView } from "@/lib/cafe/timeline";
 import { Speech, chip, line, said } from "@/lib/live/speech";
+import { stopText } from "@/lib/live/attention";
 import { LiveEvent } from "@/lib/live/types";
 
 export function ago(ms: number): string {
@@ -35,7 +36,7 @@ export function logText(e: LiveEvent, sp: Speech): string {
     case "sub_stop":
       return said("returns", sp, "готово, несе результат");
     case "stop":
-      return said("answered", sp, "відповів");
+      return e.err ? said(e.say?.a ?? "broke_off", sp, stopText(e.err)) : said("answered", sp, "відповів");
     case "session_end":
       return said("closed", sp, "сесію закрито");
     default:

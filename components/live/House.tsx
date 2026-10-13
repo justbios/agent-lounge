@@ -19,6 +19,8 @@ interface Look {
   interior: Interior;
 }
 
+const FLAG_ERR = (err: string) => (err === "rate_limit" ? "! ліміт" : "! помилка");
+
 function Hall({
   id,
   scene,
@@ -26,6 +28,7 @@ function Hall({
   sub,
   ask,
   flag,
+  err,
   alert,
   busy,
   on,
@@ -39,6 +42,8 @@ function Hall({
   sub: string;
   ask?: string;
   flag?: "ask" | "done";
+  /** the turn broke off instead of finishing */
+  err?: string;
   alert?: { agent: number; kind: "ask" | "done" } | null;
   busy: boolean;
   on: boolean;
@@ -50,7 +55,9 @@ function Hall({
     <button className={`hall ${on ? "on" : ""} ${flag ? `attn-${flag}` : ""}`} onClick={() => onOpen(id)}>
       <span className="hall-pic" style={named ? ({ viewTransitionName: ZOOM_NAME } as CSSProperties) : undefined}>
         <MiniCafe model={scene.model} origin={scene.origin} alert={alert} {...look} />
-        {flag && <span className={`chat-flag flag-${flag}`}>{flag === "ask" ? "! чекає" : "✓ відповів"}</span>}
+        {flag && (
+          <span className={`chat-flag flag-${flag}`}>{flag === "ask" ? "! чекає" : err ? FLAG_ERR(err) : "✓ відповів"}</span>
+        )}
       </span>
       <span className="hall-hd">
         <span className={`chat-dot ${busy ? "busy" : ""}`} />
@@ -133,6 +140,7 @@ export default function House({
                     sub={ago(now - s.last)}
                     ask={w?.kind === "ask" ? w.text : s.ask}
                     flag={w?.kind}
+                    err={w?.err}
                     alert={alertOf(s, scene, waiting)}
                     busy={now - s.last < ACTIVE_MS}
                     on={s.id === current}

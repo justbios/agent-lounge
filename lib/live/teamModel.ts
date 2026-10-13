@@ -1,7 +1,7 @@
 import { Note, Stint } from "@/lib/cafe/model";
 import { AgentDef } from "@/lib/types";
 import { Attention } from "./attention";
-import { LiveScene, LiveSession, PALETTE, hash } from "./liveModel";
+import { LiveScene, LiveSession, PALETTE, hash, stopNote } from "./liveModel";
 import { LiveEvent } from "./types";
 import { tokensOf } from "./usage";
 
@@ -100,7 +100,7 @@ export function buildTeamModel(events: LiveEvent[], members: string[]): LiveScen
       case "stop":
         if (e.agent) break;
         leave(i, e.session, t);
-        notes[i].push({ key, ts: t, text: "відповів ✓", say: { a: "answered" }, tone: "done" });
+        notes[i].push(stopNote(e, key, t));
         break;
       case "session_end":
         leave(i, e.session, t);
