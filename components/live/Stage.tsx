@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useEffectEvent, useState } from "react";
-import { Maximize2, Minimize2, ScrollText, Users, X } from "lucide-react";
+import { Gamepad2, Maximize2, Minimize2, ScrollText, Users, X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { Guest } from "@/lib/live/social";
 import { CafeState } from "@/lib/live/useCafe";
@@ -80,6 +80,7 @@ export default function Stage({
   onReact,
   cafe,
   empty,
+  below,
   agents,
   log,
   cloud,
@@ -87,6 +88,7 @@ export default function Stage({
   viewing,
   onRecap,
   onCafe,
+  onGames,
 }: {
   title: string;
   sub: ReactNode;
@@ -100,6 +102,8 @@ export default function Stage({
   onReact: (agent: number, emoji: string) => void;
   cafe: CafeState;
   empty?: ReactNode;
+  /** under the scene: the open bets */
+  below?: ReactNode;
   agents: ReactNode;
   log: ReactNode;
   cloud: boolean;
@@ -107,6 +111,7 @@ export default function Stage({
   viewing: boolean;
   onRecap: () => void;
   onCafe: () => void;
+  onGames: () => void;
 }) {
   const [pop, setPop] = useState<Pop | null>(null);
   const [drawer, setDrawer] = useState<Side | null>(null);
@@ -140,6 +145,9 @@ export default function Stage({
         <div className="stage-tools">
           {sub}
           <Presence guests={guests} />
+          <button className="btn btn-ic" onClick={onGames} title="ігри">
+            <Gamepad2 size={14} />
+          </button>
           <button className={`btn btn-ic ${drawer === "agents" ? "on" : ""}`} onClick={() => flip("agents")} title="агенти">
             <Users size={14} />
           </button>
@@ -180,6 +188,7 @@ export default function Stage({
           }
         />
         {empty}
+        {below}
       </div>
       <Drawer side="left" title="агенти" open={drawer === "agents"} onClose={() => setDrawer(null)}>
         {agents}

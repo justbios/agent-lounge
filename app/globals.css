@@ -2575,3 +2575,249 @@ body {
 .ac-react button:active {
   transform: scale(0.92);
 }
+
+.bets {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.bet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid rgba(255, 210, 90, 0.35);
+  border-radius: 12px;
+}
+.bet.settled {
+  border-color: var(--border-2);
+}
+.bet-hd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.bet-hd svg {
+  flex: none;
+  color: #ffd25a;
+}
+.bet-hd b {
+  color: var(--text);
+}
+.bet-task {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bet-time {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11.5px;
+}
+.bet-choices {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.bet-choices button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-2);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.bet-choices button:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+.bet-choices button small {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+.bet-choices button.mine {
+  border-color: #8b6dff;
+  background: rgba(139, 109, 255, 0.14);
+}
+.bet-choices button.won {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.14);
+  opacity: 1;
+}
+.bet-res {
+  font-size: 12px;
+  color: #b8f5cf;
+}
+
+.game-sec {
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.leaders {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+.leaders li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.leaders li.me {
+  outline: 1px solid rgba(139, 109, 255, 0.6);
+}
+.ld-n {
+  width: 16px;
+  color: var(--dim);
+  font-family: var(--mono);
+}
+.ld-who {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.leaders b {
+  font-family: var(--font-pixel), var(--mono);
+  color: #ffd25a;
+}
+
+.cups {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 480px;
+}
+.cups-hud {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.cups-hud b {
+  font-family: var(--font-pixel), var(--mono);
+  color: var(--text);
+}
+.cups-stage {
+  position: relative;
+}
+.cups-stage canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 160 / 112;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  image-rendering: pixelated;
+  touch-action: none;
+  cursor: none;
+}
+.cups-go {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.ttt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.ttt-hd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.ttt-hd b {
+  color: var(--text);
+}
+.ttt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  gap: 4px;
+}
+.ttt-grid button {
+  height: 56px;
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 24px;
+  cursor: pointer;
+}
+.ttt-grid button:disabled {
+  cursor: default;
+}
+.ttt-grid button.x {
+  color: #ff9a62;
+}
+.ttt-grid button.o {
+  color: #5aa9e6;
+}
+.ttt-grid button.win {
+  border-color: #4ade80;
+  background: rgba(74, 222, 128, 0.14);
+}
+.ttt-guests,
+.ttt-wait {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+}
+
+.invite-toast {
+  position: fixed;
+  left: 50%;
+  top: 18px;
+  z-index: 90;
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 32px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 10px 14px;
+  background: var(--panel);
+  border: 1px solid rgba(139, 109, 255, 0.6);
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  font-size: 13px;
+}
+.invite-toast svg {
+  flex: none;
+  color: #8b6dff;
+}
+.invite-toast span {
+  flex: 1;
+  min-width: 0;
+}

@@ -16,6 +16,7 @@ import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
 import { REACT_MS } from "@/lib/live/social";
+import { useGames } from "@/lib/live/useGames";
 import { useSocial } from "@/lib/live/useSocial";
 import { latestLimits, tokenRate } from "@/lib/live/usage";
 import { SceneAlert } from "./cafe/CafeScene";
@@ -25,7 +26,10 @@ import CafePanel from "./live/CafePanel";
 import ChatTabs from "./live/ChatTabs";
 import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
+import BetStrip from "./live/BetStrip";
 import EmptyCafe from "./live/EmptyCafe";
+import GamesPanel from "./live/GamesPanel";
+import InviteToast from "./live/InviteToast";
 import { LimitsMini } from "./live/Limits";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
@@ -191,11 +195,23 @@ export default function LiveDashboard({
   const social = useSocial({
     key: viewing ? null : roomKey,
     room: viewing ? viewRoom : null,
-    name: team.me ?? (viewing ? "глядач" : "без імені"),
+    name: !cloud ? "ти" : (team.me ?? (viewing ? "глядач" : "без імені")),
     viewer: viewing,
     enabled: cloud,
   });
   const sceneId = whole ? "team" : (session?.id ?? "");
+  const [gamesOpen, setGamesOpen] = useState(false);
+  const games = useGames({
+    social,
+    cloud,
+    key: viewing ? null : roomKey,
+    room: viewing ? viewRoom : null,
+    events: feed.events,
+    scope: whole ? null : (session?.id ?? null),
+    now,
+    live: !playing,
+    open: gamesOpen,
+  });
   const reactions = social.reactions
     .filter((r) => r.scene === sceneId && now - r.at < REACT_MS)
     .map((r) => ({ ...r, seat: model.agents.findIndex((a) => a.id === r.agent) }))
@@ -246,6 +262,17 @@ export default function LiveDashboard({
       )}
 
       {cafeOpen && <CafePanel cafe={cafe} onClose={() => setCafeOpen(false)} />}
+      {gamesOpen && (
+        <GamesPanel
+          scores={games.scores}
+          ttt={games.ttt}
+          guests={social.guests}
+          online={cloud}
+          me={social.name}
+          onClose={() => setGamesOpen(false)}
+        />
+      )}
+      <InviteToast ttt={games.ttt} onPlay={() => setGamesOpen(true)} />
       {cafe.fresh.length > 0 && !cafeOpen && (
         <AchToast
           fresh={cafe.fresh}
@@ -316,11 +343,20 @@ export default function LiveDashboard({
         onReact={(i, emoji) => social.react(sceneId, model.agents[i].id, emoji)}
         cafe={cafe}
         empty={!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
+        below={
+          <BetStrip
+            rounds={games.bets.rounds}
+            self={social.self}
+            now={now}
+            onPick={games.bets.place}
+          />
+        }
         cloud={cloud}
         roomKey={roomKey}
         viewing={viewing}
         onRecap={() => setRecapOpen(true)}
         onCafe={() => setCafeOpen(true)}
+        onGames={() => setGamesOpen(true)}
         agents={
           <AgentList
             model={model}

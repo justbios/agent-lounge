@@ -3,21 +3,30 @@
 import { useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
+import { BUS_EVENTS, Bus } from "./bus";
 import { roomOf } from "./relayKey";
 import { Guest, Reaction, addReaction, cleanReaction, guestsOf } from "./social";
 
 const GAP_MS = 350;
 const NONE: Guest[] = [];
 
+const newId = () => crypto.randomUUID();
+const newBus = () => new Bus();
+
 export interface Social {
   guests: Guest[];
   reactions: Reaction[];
   react: (scene: string, agent: string, emoji: string) => void;
+  /** reactions and games travel here */
+  bus: Bus;
+  /** this tab's presence key, so games can address one player */
+  self: string;
+  name: string;
 }
 
 /**
- * Who else has this café open, and the reactions people toss at agents. Both ride a Realtime channel of their own
- * (presence and broadcast), apart from the hook events, and nothing is stored. A local Relay keeps reactions on screen.
+ * Who else has this café open, the reactions people toss at agents, and the games' moves. All of it rides a Realtime
+ * channel of its own (presence and broadcast), apart from the hook events, and nothing is stored there.
  */
 export function useSocial({
   key,
@@ -33,47 +42,53 @@ export function useSocial({
   enabled: boolean;
 }): Social {
   const id = room ? `v:${room}` : key ? `k:${key}` : null;
+  const [self] = useState(newId);
+  const [bus] = useState(newBus);
   const [seen, setSeen] = useState<{ id: string | null; guests: Guest[] }>({ id: null, guests: [] });
   const [reactions, setReactions] = useState<Reaction[]>([]);
-  const channel = useRef<RealtimeChannel | null>(null);
   const sent = useRef(0);
+
+  useEffect(
+    () =>
+      bus.on("react", (p) => {
+        const now = Date.now();
+        const x = cleanReaction(p, now);
+        if (x) setReactions((list) => addReaction(list, x, now));
+      }),
+    [bus],
+  );
 
   useEffect(() => {
     const sb = supabase;
     if (!enabled || !id || !sb) return;
     let live = true;
     let ch: RealtimeChannel | null = null;
-    const self = crypto.randomUUID();
     (room ? Promise.resolve(room) : roomOf(key!)).then((r) => {
       if (!live) return;
       const c = sb.channel(`relay-social:${r}`, { config: { presence: { key: self }, broadcast: { self: false } } });
       ch = c;
-      c.on("presence", { event: "sync" }, () => live && setSeen({ id, guests: guestsOf(c.presenceState(), self) }))
-        .on("broadcast", { event: "react" }, ({ payload }) => {
-          const now = Date.now();
-          const x = cleanReaction(payload, now);
-          if (x && live) setReactions((list) => addReaction(list, x, now));
-        })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") c.track({ name, viewer });
-        });
-      channel.current = c;
+      for (const ev of BUS_EVENTS) c.on("broadcast", { event: ev }, ({ payload }) => live && bus.emit(ev, payload));
+      c.on("presence", { event: "sync" }, () => live && setSeen({ id, guests: guestsOf(c.presenceState(), self) })).subscribe(
+        (status) => {
+          if (status !== "SUBSCRIBED") return;
+          c.track({ name, viewer });
+          bus.attach(c);
+        },
+      );
     });
     return () => {
       live = false;
-      channel.current = null;
+      bus.attach(null);
       if (ch) sb.removeChannel(ch);
     };
-  }, [enabled, id, key, room, name, viewer]);
+  }, [enabled, id, key, room, name, viewer, self, bus]);
 
   const react = (scene: string, agent: string, emoji: string) => {
     const now = Date.now();
     if (now - sent.current < GAP_MS) return;
     sent.current = now;
-    const r: Reaction = { id: crypto.randomUUID().slice(0, 13), scene, agent, emoji, from: name, at: now };
-    setReactions((list) => addReaction(list, r, now));
-    channel.current?.send({ type: "broadcast", event: "react", payload: { id: r.id, scene, agent, emoji, from: name } });
+    bus.send("react", { id: newId().slice(0, 13), scene, agent, emoji, from: name });
   };
 
-  return { guests: enabled && seen.id === id ? seen.guests : NONE, reactions, react };
+  return { guests: enabled && seen.id === id ? seen.guests : NONE, reactions, react, bus, self, name };
 }
