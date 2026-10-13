@@ -22,6 +22,29 @@ export interface Look {
 
 const at = <T,>(list: T[], i: number): T => list[((i % list.length) + list.length) % list.length];
 
+export const LOOK_CHOICES = { style: 4, hair: HAIR.length, skin: SKIN.length } as const;
+
+const mod = (i: number, n: number) => ((i % n) + n) % n;
+
+/** The palette indexes {@link lookFor} gives look `i` before anyone picks otherwise. */
+export const lookIndex = (i: number) => ({ style: mod(i, 4), hair: mod(i, HAIR.length), skin: mod(i * 3 + 1, SKIN.length) });
+
+/** What a café owner picked for an agent, as a {@link lookFor} override. */
+export function pickedLook(p: { style?: number; hair?: number; skin?: number } | undefined): Partial<Look> {
+  if (!p) return {};
+  const out: Partial<Look> = {};
+  if (p.style != null) out.style = at([0, 1, 2, 3], p.style);
+  if (p.hair != null) {
+    out.hair = at(HAIR, p.hair);
+    out.hairDark = shade(out.hair, 0.7);
+  }
+  if (p.skin != null) {
+    out.skin = at(SKIN, p.skin);
+    out.skinDark = shade(out.skin, 0.82);
+  }
+  return out;
+}
+
 export function lookFor(i: number, color: string, override: Partial<Look> = {}): Look {
   const hair = at(HAIR, i);
   const skin = at(SKIN, i * 3 + 1);

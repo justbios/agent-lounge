@@ -4,9 +4,11 @@ import { AgentView, CafeTimeline, Walker, agentView } from "@/lib/cafe/timeline"
 import { drawAmbient, drawBar, drawCupSteam, drawLights } from "./ambient";
 import { Cat } from "./cat";
 import { DecorSet, drawDecor, drawDecorLights } from "./decor";
+import { drawItem, itemLight } from "./furniture";
 import { GuestSeat, drawGuests } from "./guests";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
 import { Ctx, LINE, paint, px, rand, shade } from "./pixel";
+import { Standing } from "./placement";
 import { Theme } from "./theme";
 
 export interface FrameInput {
@@ -25,6 +27,31 @@ export interface FrameInput {
   theme?: Theme;
   /** people who have the café open elsewhere, on the bar stools */
   guests?: GuestSeat[];
+  furniture?: Standing[];
+  /** the piece being placed, under the pointer */
+  ghost?: Ghost | null;
+}
+
+export interface Ghost {
+  item: Standing["item"];
+  w: number;
+  h: number;
+  cx: number;
+  bottom: number;
+  ok: boolean;
+}
+
+function drawGhost(ctx: Ctx, g: Ghost, t: number) {
+  ctx.globalAlpha = g.ok ? 0.8 : 0.45;
+  drawItem(ctx, g.item, g.w, g.cx, g.bottom, t);
+  ctx.globalAlpha = 1;
+  const L = Math.round(g.cx - g.w / 2) - 2;
+  const T = Math.round(g.bottom - g.h) - 2;
+  const c = g.ok ? "#4ade80" : "#ff5d5d";
+  px(ctx, L, T, g.w + 4, 1, c);
+  px(ctx, L, T + g.h + 3, g.w + 4, 1, c);
+  px(ctx, L, T, 1, g.h + 4, c);
+  px(ctx, L + g.w + 3, T, 1, g.h + 4, c);
 }
 
 const NO_DECOR: DecorSet = new Set();
@@ -166,6 +193,8 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   drawBar(ctx, t, decor.has("goldMachine"));
   if (f.guests) drawGuests(ctx, f.guests, t);
   drawDecor(ctx, lay, decor, t);
+  const furniture = f.furniture ?? [];
+  furniture.forEach((s) => !s.floor && drawItem(ctx, s.item, s.w, s.cx, s.bottom, t));
 
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   views.forEach((v, i) => drawStation(ctx, lay.desks[i], v, model.agents[i].color, looks[i], f, i));
@@ -178,8 +207,15 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   });
   const cat = f.cat;
   if (cat) sprites.push({ y: cat.footY, draw: () => cat.draw(ctx, t, decor.has("crown")) });
+  furniture.forEach((s) => s.floor && sprites.push({ y: s.bottom, draw: () => drawItem(ctx, s.item, s.w, s.cx, s.bottom, t) }));
   sprites.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 
   drawLights(ctx, lay, views, model.agents.map((a) => a.color), t, f.theme);
   drawDecorLights(ctx, lay, decor, t);
+  if (furniture.length) {
+    ctx.globalCompositeOperation = "lighter";
+    furniture.forEach((s) => itemLight(ctx, s.item, s.cx, s.bottom, t));
+    ctx.globalCompositeOperation = "source-over";
+  }
+  if (f.ghost) drawGhost(ctx, f.ghost, t);
 }

@@ -19,6 +19,8 @@ export interface ProgressDay {
 export interface CafeSettings {
   cat_name: string | null;
   theme: string | null;
+  /** raw from the room; {@link cleanInterior} makes it safe to use */
+  interior?: unknown;
 }
 
 export interface Progress {

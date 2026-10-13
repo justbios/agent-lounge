@@ -3,7 +3,9 @@
 import { FormEvent, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Earned } from "@/lib/live/achievements";
+import { ItemId } from "@/lib/live/interior";
 import { CafeState } from "@/lib/live/useCafe";
+import Shop from "./Shop";
 import ThemePicker from "./ThemePicker";
 import { fmtTokens } from "./tokens";
 
@@ -73,7 +75,15 @@ function CatName({ cafe }: { cafe: CafeState }) {
   );
 }
 
-export default function CafePanel({ cafe, onClose }: { cafe: CafeState; onClose: () => void }) {
+export default function CafePanel({
+  cafe,
+  onClose,
+  onPlace,
+}: {
+  cafe: CafeState;
+  onClose: () => void;
+  onPlace: (item: ItemId) => void;
+}) {
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", esc);
@@ -108,6 +118,7 @@ export default function CafePanel({ cafe, onClose }: { cafe: CafeState; onClose:
         <ThemePicker cafe={cafe} />
         {cafe.editable && <CatName cafe={cafe} />}
         {cafe.error && <p className="key-paste-bad">Не вдалося дістати прогрес, спробую ще раз за хвилину.</p>}
+        {cafe.progress && <Shop cafe={cafe} onPlace={onPlace} />}
 
         {cafe.progress && (
           <div className="ach-grid">

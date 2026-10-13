@@ -15,11 +15,12 @@ import { useCafe } from "@/lib/live/useCafe";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
+import { newPid } from "@/lib/live/interior";
 import { REACT_MS } from "@/lib/live/social";
 import { useGames } from "@/lib/live/useGames";
 import { useSocial } from "@/lib/live/useSocial";
 import { latestLimits, tokenRate } from "@/lib/live/usage";
-import { SceneAlert } from "./cafe/CafeScene";
+import { Placing, SceneAlert } from "./cafe/CafeScene";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
 import CafePanel from "./live/CafePanel";
@@ -160,6 +161,7 @@ export default function LiveDashboard({
   const [recapOpen, setRecapOpen] = useState(false);
   const recap = useRecap({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events }, recapOpen);
   const [cafeOpen, setCafeOpen] = useState(false);
+  const [placing, setPlacing] = useState<Placing | null>(null);
   const cafe = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
   const earnedCount = cafe.earned.filter((e) => e.done).length;
   const [replay, setReplay] = useState<Replay | null>(null);
@@ -261,7 +263,16 @@ export default function LiveDashboard({
         />
       )}
 
-      {cafeOpen && <CafePanel cafe={cafe} onClose={() => setCafeOpen(false)} />}
+      {cafeOpen && (
+        <CafePanel
+          cafe={cafe}
+          onClose={() => setCafeOpen(false)}
+          onPlace={(item) => {
+            setPlacing({ item, pid: newPid() });
+            setCafeOpen(false);
+          }}
+        />
+      )}
       {gamesOpen && (
         <GamesPanel
           scores={games.scores}
@@ -359,6 +370,8 @@ export default function LiveDashboard({
         onRecap={() => setRecapOpen(true)}
         onCafe={() => setCafeOpen(true)}
         onGames={() => setGamesOpen(true)}
+        placing={placing}
+        onPlacing={setPlacing}
         agents={
           <AgentList
             model={model}

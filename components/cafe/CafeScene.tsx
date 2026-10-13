@@ -5,15 +5,17 @@ import { CafeLayout, cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, CafeTimeline, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
+import { ItemId, LookPick, Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { AgentCard, ScenePop } from "./AgentCard";
 import { Cat } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
 import { DecorSet } from "./decor";
-import { drawFrame } from "./frame";
+import { Ghost, drawFrame } from "./frame";
 import { GuestSeat, seatGuests } from "./guests";
 import { FixtureKind, HIT_HINT, Hit, hitTest } from "./hit";
-import { lookFor } from "./people";
+import { lookFor, pickedLook } from "./people";
+import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
 import { buildRoom, doorOf, fixtures } from "./room";
 import { GuestTags, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
@@ -38,6 +40,12 @@ export interface Anchor {
 export interface FixturePick {
   kind: FixtureKind;
   anchor: Anchor;
+}
+
+/** A piece of furniture going down: a new one from the shop, or one already standing that is being moved. */
+export interface Placing {
+  item: ItemId;
+  pid: string;
 }
 
 function anchorAt(lay: CafeLayout, x: number, top: number, bottom: number): Anchor {
@@ -95,6 +103,12 @@ export default function CafeScene({
   onReact,
   onPick,
   pops,
+  furniture,
+  looks,
+  onLook,
+  placing,
+  onPlace,
+  onFurniture,
 }: {
   model: CafeModel;
   clock: number;
@@ -113,6 +127,15 @@ export default function CafeScene({
   onPick?: (pick: FixturePick | null) => void;
   /** popovers the page hangs over the scene, positioned by an {@link Anchor} */
   pops?: ReactNode;
+  furniture?: Placed[];
+  /** looks the café owner picked, by agent id */
+  looks?: Record<string, LookPick>;
+  /** lets the agent card change an agent's look */
+  onLook?: (agent: string, pick: LookPick | null) => void;
+  placing?: Placing | null;
+  onPlace?: (p: Placed) => void;
+  /** a piece of furniture was clicked */
+  onFurniture?: (pid: string, anchor: Anchor) => void;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -127,6 +150,10 @@ export default function CafeScene({
   const lay = useMemo(() => cafeLayout(agents.length, model.seed), [agents.length, model.seed]);
   const cat = useMemo(() => new Cat(lay, model.seed), [lay, model.seed]);
   const tl = useMemo(() => buildTimeline(model), [model]);
+  const stand = useMemo(() => standing(lay, furniture ?? []), [lay, furniture]);
+  const shown = useMemo(() => (placing ? stand.filter((s) => s.pid !== placing.pid) : stand), [stand, placing]);
+  const shownRef = useRef<Standing[]>(shown);
+  const ghostRef = useRef<Ghost | null>(null);
 
   useEffect(() => {
     clockRef.current = clock;
@@ -134,7 +161,9 @@ export default function CafeScene({
     decorRef.current = decor;
     catNameRef.current = catName;
     seatsRef.current = seats;
-  }, [clock, alert, decor, catName, seats]);
+    shownRef.current = shown;
+    if (!placing) ghostRef.current = null;
+  }, [clock, alert, decor, catName, seats, shown, placing]);
 
   useEffect(() => sceneMounted(), []);
 
@@ -142,7 +171,7 @@ export default function CafeScene({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    const looks = agents.map((a, i) => lookFor(a.look ?? i, a.color));
+    const faces = agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(looks?.[a.id])));
     const room = buildRoom(lay, agents, model.seed, theme);
     let raf = 0;
     let last = 0;
@@ -152,7 +181,22 @@ export default function CafeScene({
       cat.step(last ? Math.min(100, now - last) : 0, now, busy);
       last = now;
       const t = now / 1000;
-      drawFrame(ctx, { model, lay, tl, looks, room, clock, t, cat, alert: alertRef.current, decor: decorRef.current, theme, guests: seatsRef.current });
+      drawFrame(ctx, {
+        model,
+        lay,
+        tl,
+        looks: faces,
+        room,
+        clock,
+        t,
+        cat,
+        alert: alertRef.current,
+        decor: decorRef.current,
+        theme,
+        guests: seatsRef.current,
+        furniture: shownRef.current,
+        ghost: ghostRef.current,
+      });
       const p = cat.pos;
       const label = catRef.current;
       if (label) {
@@ -177,7 +221,7 @@ export default function CafeScene({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [model, agents, lay, tl, cat, theme]);
+  }, [model, agents, lay, tl, cat, theme, looks]);
 
   const pointAt = (e: MouseEvent | PointerEvent): Point => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -187,14 +231,39 @@ export default function CafeScene({
     const views = agents.map((_, i) => agentView(model, tl, lay, i, clockRef.current));
     return hitTest(lay, views, cat.pos, p);
   };
+  const ghostAt = (p: Point): Ghost | null => {
+    const it = placing && itemOf(placing.item);
+    if (!it) return null;
+    const s = spotAt(lay, it, p, shown);
+    const base = { item: it.id, w: it.w, h: it.h };
+    return s ? { ...base, ...s, ok: true } : { ...base, cx: p.x, bottom: p.y + it.h / 2, ok: false };
+  };
   const hover = (e: PointerEvent<HTMLCanvasElement>) => {
-    const h = hitAt(pointAt(e));
     const el = e.currentTarget;
+    if (placing) {
+      ghostRef.current = ghostAt(pointAt(e));
+      el.style.cursor = ghostRef.current?.ok ? "copy" : "not-allowed";
+      el.title = "";
+      return;
+    }
+    const p = pointAt(e);
+    const h = hitAt(p);
+    if (!h && onFurniture && standingAt(shown, p)) {
+      el.style.cursor = "pointer";
+      el.title = "перемістити або прибрати";
+      return;
+    }
     el.style.cursor = h ? "pointer" : "";
     el.title = !h ? "" : h.kind === "agent" ? `${agents[h.agent].name}: ${HIT_HINT.agent}` : HIT_HINT[h.kind];
   };
   const click = (e: MouseEvent<HTMLCanvasElement>) => {
     const p = pointAt(e);
+    if (placing) {
+      const g = ghostAt(p);
+      ghostRef.current = g;
+      if (g?.ok) onPlace?.(toPlaced(lay, placing.pid, placing.item, g));
+      return;
+    }
     const h = hitAt(p);
     if (h?.kind === "agent") {
       const id = agents[h.agent].id;
@@ -203,6 +272,12 @@ export default function CafeScene({
       return;
     }
     setSel(null);
+    const f = !h && onFurniture ? standingAt(shown, p) : null;
+    if (f) {
+      const it = itemOf(f.item)!;
+      onFurniture!(f.pid, anchorAt(lay, f.cx, f.bottom - it.h, f.bottom));
+      return;
+    }
     if (h?.kind === "cat") {
       cat.pet(performance.now());
       onPick?.(null);
@@ -235,6 +310,7 @@ export default function CafeScene({
           height={lay.height}
           onClick={click}
           onPointerMove={hover}
+          onPointerLeave={() => (ghostRef.current = null)}
           aria-label="Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу. Клікни агента, кота, дошку, автомат, вікно чи двері."
         />
         <div className="cafe-overlay" aria-hidden>
@@ -292,6 +368,8 @@ export default function CafeScene({
               clock={clock}
               asking={alert?.kind === "ask" && alert.agent === selIdx ? alert.text : undefined}
               onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
+              look={looks?.[agents[selIdx].id]}
+              onLook={onLook && ((pick) => onLook(agents[selIdx].id, pick))}
             />
           </ScenePop>
         )}

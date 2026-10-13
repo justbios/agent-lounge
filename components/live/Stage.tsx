@@ -3,16 +3,22 @@
 import { ReactNode, useEffect, useEffectEvent, useState } from "react";
 import { Gamepad2, Maximize2, Minimize2, ScrollText, Users, X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
+import { Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { CafeState } from "@/lib/live/useCafe";
 import { ScenePop } from "../cafe/AgentCard";
-import CafeScene, { Anchor, FixturePick, SceneAlert } from "../cafe/CafeScene";
+import CafeScene, { Anchor, FixturePick, Placing, SceneAlert } from "../cafe/CafeScene";
 import { SeatReaction } from "../cafe/SceneSocial";
 import { THEMES, THEME_IDS, themeOf } from "../cafe/theme";
 import DoorInvite from "./DoorInvite";
 import Presence from "./Presence";
 
-type Pop = { kind: "door"; anchor: Anchor } | { kind: "note"; anchor: Anchor; text: string; id: number };
+type Pop =
+  | { kind: "door"; anchor: Anchor }
+  | { kind: "furniture"; anchor: Anchor; pid: string }
+  | { kind: "note"; anchor: Anchor; text: string; id: number };
+
+const TOP: Anchor = { x: 0.5, y: 0.08, below: true };
 type Side = "agents" | "log";
 
 function Drawer({
@@ -38,6 +44,27 @@ function Drawer({
       </div>
       <div className="drawer-body">{children}</div>
     </aside>
+  );
+}
+
+function PlacingBar({ placing, onCancel }: { placing: Placing; onCancel: () => void }) {
+  const it = itemOf(placing.item);
+  const cancel = useEffectEvent(onCancel);
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && cancel();
+    document.addEventListener("keydown", esc);
+    return () => document.removeEventListener("keydown", esc);
+  }, []);
+  return (
+    <div className="placing-bar" role="status">
+      <span>
+        {it?.place === "sill" ? "Постав" : "Став"} «{it?.name}»:{" "}
+        {it?.place === "sill" ? "клацни на підвіконні" : "клацни на вільному місці підлоги"}
+      </span>
+      <button className="btn" onClick={onCancel}>
+        скасувати
+      </button>
+    </div>
   );
 }
 
@@ -89,6 +116,8 @@ export default function Stage({
   onRecap,
   onCafe,
   onGames,
+  placing,
+  onPlacing,
 }: {
   title: string;
   sub: ReactNode;
@@ -112,6 +141,8 @@ export default function Stage({
   onRecap: () => void;
   onCafe: () => void;
   onGames: () => void;
+  placing: Placing | null;
+  onPlacing: (p: Placing | null) => void;
 }) {
   const [pop, setPop] = useState<Pop | null>(null);
   const [drawer, setDrawer] = useState<Side | null>(null);
@@ -137,6 +168,11 @@ export default function Stage({
     setPop(pop?.kind === "door" ? null : { kind: "door", anchor: p.anchor });
   };
   const flip = (s: Side) => setDrawer(drawer === s ? null : s);
+  const place = async (p: Placed) => {
+    onPlacing(null);
+    if (!(await cafe.place(p))) note(TOP, "не вдалося поставити, спробуй ще раз");
+  };
+  const furn = pop?.kind === "furniture" ? cafe.interior.placed.find((p) => p.pid === pop.pid) : undefined;
 
   return (
     <section className={`card stage-card ${full ? "stage-full" : ""}`}>
@@ -172,8 +208,40 @@ export default function Stage({
           catName={cafe.settings.cat_name}
           theme={theme}
           onPick={pick}
+          furniture={cafe.interior.placed}
+          looks={cafe.interior.looks}
+          onLook={cafe.editable ? (id, look) => void cafe.setLook(id, look) : undefined}
+          placing={placing}
+          onPlace={place}
+          onFurniture={cafe.editable ? (pid, anchor) => setPop({ kind: "furniture", pid, anchor }) : undefined}
           pops={
-            pop?.kind === "door" ? (
+            pop?.kind === "furniture" && furn ? (
+              <ScenePop anchor={pop.anchor} label={itemOf(furn.item)?.name ?? "річ"} onClose={() => setPop(null)}>
+                <div className="furn-pop">
+                  <b>{itemOf(furn.item)?.name}</b>
+                  <div>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        setPop(null);
+                        onPlacing({ item: furn.item, pid: furn.pid });
+                      }}
+                    >
+                      перемістити
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => {
+                        setPop(null);
+                        void cafe.stow(furn.pid);
+                      }}
+                    >
+                      прибрати
+                    </button>
+                  </div>
+                </div>
+              </ScenePop>
+            ) : pop?.kind === "door" ? (
               <ScenePop anchor={pop.anchor} label="запросити команду" onClose={() => setPop(null)}>
                 <DoorInvite cloud={cloud} roomKey={roomKey} viewing={viewing} />
               </ScenePop>
@@ -187,6 +255,7 @@ export default function Stage({
             ) : null
           }
         />
+        {placing && <PlacingBar placing={placing} onCancel={() => onPlacing(null)} />}
         {empty}
         {below}
       </div>

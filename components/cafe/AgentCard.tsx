@@ -4,9 +4,11 @@ import { CSSProperties, ReactNode, useEffect, useEffectEvent } from "react";
 import { X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { AgentView } from "@/lib/cafe/timeline";
+import { LookPick } from "@/lib/live/interior";
 import { REACTIONS } from "@/lib/live/social";
 import { badge, plural } from "../live/format";
 import { fmtTokens } from "../live/tokens";
+import { LOOK_CHOICES, lookIndex, pickedLook } from "./people";
 
 const LAST = 5;
 
@@ -60,6 +62,33 @@ export function ScenePop({
   );
 }
 
+const STYLES = ["навушники", "довге волосся", "гулька", "кепка"];
+
+function LookRow({ base, pick, onLook }: { base: number; pick?: LookPick; onLook: (p: LookPick | null) => void }) {
+  const def = lookIndex(base);
+  const cur = { style: pick?.style ?? def.style, hair: pick?.hair ?? def.hair, skin: pick?.skin ?? def.skin };
+  const next = (k: keyof typeof cur) => onLook({ ...pick, [k]: (cur[k] + 1) % LOOK_CHOICES[k] });
+  const sw = (c?: string) => <i className="ac-sw" style={{ background: c }} />;
+  return (
+    <div className="ac-look" role="group" aria-label="вигляд агента">
+      <button onClick={() => next("style")} title="наступна зачіска">
+        {STYLES[cur.style]}
+      </button>
+      <button onClick={() => next("hair")} title="наступний колір волосся">
+        {sw(pickedLook({ hair: cur.hair }).hair)} волосся
+      </button>
+      <button onClick={() => next("skin")} title="наступний відтінок шкіри">
+        {sw(pickedLook({ skin: cur.skin }).skin)} шкіра
+      </button>
+      {pick && (
+        <button onClick={() => onLook(null)} title="повернути як було">
+          як було
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function AgentCard({
   model,
   view,
@@ -67,6 +96,8 @@ export function AgentCard({
   clock,
   asking,
   onReact,
+  look,
+  onLook,
 }: {
   model: CafeModel;
   view: AgentView;
@@ -74,6 +105,9 @@ export function AgentCard({
   clock: number;
   asking?: string;
   onReact?: (emoji: string) => void;
+  look?: LookPick;
+  /** lets the café owner change how this agent looks */
+  onLook?: (pick: LookPick | null) => void;
 }) {
   const a = model.agents[agent];
   const notes = model.notes[agent].filter((n) => n.ts <= clock);
@@ -129,6 +163,7 @@ export function AgentCard({
           ))}
         </div>
       )}
+      {onLook && <LookRow base={a.look ?? agent} pick={look} onLook={onLook} />}
     </div>
   );
 }
