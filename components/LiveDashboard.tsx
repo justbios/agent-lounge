@@ -16,6 +16,7 @@ import { setFocus, setMe, useTeamView } from "@/lib/live/team";
 import { buildTeamModel, memberOf, teamAlert } from "@/lib/live/teamModel";
 import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
+import { awayEmpty, awaySummary, dismissAway, useAway } from "@/lib/live/away";
 import { useBeanGains } from "@/lib/live/useBeanGains";
 import { useCafe } from "@/lib/live/useCafe";
 import { useCafeSound } from "@/lib/live/useCafeSound";
@@ -41,6 +42,7 @@ import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
 import BetStrip from "./live/BetStrip";
 import EmptyCafe from "./live/EmptyCafe";
+import AwayCard from "./live/AwayCard";
 import GamesPanel from "./live/GamesPanel";
 import House, { ACTIVE_MS } from "./live/House";
 import InviteToast from "./live/InviteToast";
@@ -222,6 +224,11 @@ export default function LiveDashboard({
   const owner = inHouse || whole || !session ? null : memberOf(session) || null;
   const cafe = inHouse ? (rooms.mine ?? rooms.common) : rooms.roomOf(owner);
   const earnedCount = cafe.earned.filter((e) => e.done).length;
+  const awaySince = useAway(viewing ? (viewRoom ? `v:${viewRoom}` : null) : cloud ? roomKey : "local");
+  const away = useMemo(
+    () => (awaySince == null ? null : awaySummary(feed.events, sessions, awaySince, team.me)),
+    [awaySince, feed.events, sessions, team.me],
+  );
   const gainsFor = cafe.kind === "mine" || cafe.kind === "theirs" ? cafe.whose : null;
   const gains = useBeanGains(feed.events, gainsFor, !!cafe.progress && cafe.beans.earned > 0 && !playing);
   const cafeName = rooms.common.interior.title;
@@ -352,6 +359,18 @@ export default function LiveDashboard({
             <X size={14} />
           </button>
         </div>
+      )}
+
+      {away && !awayEmpty(away) && now > 0 && (
+        <AwayCard
+          away={away}
+          now={now}
+          onOpen={(id) => {
+            dismissAway();
+            openChat(id);
+          }}
+          onClose={dismissAway}
+        />
       )}
 
       {recapOpen && (

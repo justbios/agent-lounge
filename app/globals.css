@@ -676,6 +676,42 @@ body {
 .notice.stale-hooks .btn {
   flex: none;
 }
+.notice.away {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.notice.away p {
+  margin: 0;
+}
+.away-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.away-hd b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.away-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.away-facts b {
+  color: #fff;
+}
+.away-wait {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
 .notice code {
   font-family: var(--mono);
   background: rgba(255, 255, 255, 0.06);
