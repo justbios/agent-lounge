@@ -3,23 +3,24 @@
 import { ReactNode, useEffect, useEffectEvent } from "react";
 import { X } from "lucide-react";
 import { Guest } from "@/lib/live/social";
-import { WIN_AT } from "@/lib/live/pong";
 import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import CatchCups from "../games/CatchCups";
 import Dendy from "../games/Dendy";
 import Duels from "../games/Duels";
+import GamesHelp from "../games/GamesHelp";
 
 const TOP = 5;
-const DENDY_HINT = "Ігрова приставка в кафе: вільні ігри, які автори дозволили поширювати, або своя гра з диска (.nes).";
+
+const played = (rows: ScoreRow[], game: Game, by: "wins" | "best") =>
+  rows.filter((r) => r.game === game && (by === "best" ? r.best > 0 : r.played > 0));
 
 function Leaders({ rows, game, by, me }: { rows: ScoreRow[]; game: Game; by: "wins" | "best"; me: string }) {
-  const list = rows
-    .filter((r) => r.game === game && (by === "best" ? r.best > 0 : r.played > 0))
+  const list = played(rows, game, by)
     .sort((a, b) => (by === "best" ? b.best - a.best : b.wins - a.wins || a.played - b.played))
     .slice(0, TOP);
-  if (!list.length) return <p className="alerts-hint">Ще ніхто не грав.</p>;
+  if (!list.length) return null;
   return (
     <ol className="leaders">
       {list.map((r, i) => (
@@ -33,11 +34,10 @@ function Leaders({ rows, game, by, me }: { rows: ScoreRow[]; game: Game; by: "wi
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="recap-sec game-sec">
       <div className="share-ttl">{title}</div>
-      <p className="alerts-hint">{hint}</p>
       {children}
     </section>
   );
@@ -68,7 +68,7 @@ export default function GamesPanel({
   };
   const close = useEffectEvent(shut);
   useEffect(() => {
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && close();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && !document.fullscreenElement && close();
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
   }, []);
@@ -78,61 +78,58 @@ export default function GamesPanel({
     <div className="recap-backdrop" onClick={shut}>
       <div className="recap games" role="dialog" aria-label="ігри" onClick={(e) => e.stopPropagation()}>
         <div className="recap-hd">
-          <div>
-            <div className="recap-ttl">Ігри</div>
-            <div className="muted-sm">поки агенти працюють</div>
-          </div>
+          <div className="recap-ttl">Ігри</div>
           <button className="btn recap-x" onClick={shut} aria-label="закрити">
             <X size={15} />
           </button>
         </div>
-        {!scores.canRecord && <p className="alerts-hint">За посиланням для перегляду грати можна, але рахунок не пишеться.</p>}
 
-        <Section
-          title="Денді"
-          hint={DENDY_HINT}
-        >
+        <Section title="Денді">
           <Dendy />
         </Section>
 
-        <Section
-          title="Удвох"
-          hint={`Пінг-понг до ${WIN_AT} очок або хрестики-нулики з кимось, хто зараз теж у кафе. Ракетку веди мишкою, пальцем або стрілками.`}
-        >
-          <Duels
-            duels={duels}
-            ttt={ttt}
-            guests={guests}
-            room={room}
-            online={online}
-            onPongEnd={(win) => {
-              scores.record(me, "pong", win);
-              if (duels.match) duels.finish(duels.match.id);
-            }}
-          />
-          <div className="leaders-2">
-            <div>
-              <div className="muted-sm">пінг-понг</div>
-              <Leaders rows={scores.rows} game="pong" by="wins" me={me} />
+        <div className="games-row">
+          <Section title="Удвох">
+            <Duels
+              duels={duels}
+              ttt={ttt}
+              guests={guests}
+              room={room}
+              online={online}
+              onPongEnd={(win) => {
+                scores.record(me, "pong", win);
+                if (duels.match) duels.finish(duels.match.id);
+              }}
+            />
+            <div className="leaders-2">
+              {played(scores.rows, "pong", "wins").length > 0 && (
+                <div>
+                  <div className="muted-sm">пінг-понг</div>
+                  <Leaders rows={scores.rows} game="pong" by="wins" me={me} />
+                </div>
+              )}
+              {played(scores.rows, "ttt", "wins").length > 0 && (
+                <div>
+                  <div className="muted-sm">хрестики-нулики</div>
+                  <Leaders rows={scores.rows} game="ttt" by="wins" me={me} />
+                </div>
+              )}
             </div>
-            <div>
-              <div className="muted-sm">хрестики-нулики</div>
-              <Leaders rows={scores.rows} game="ttt" by="wins" me={me} />
-            </div>
-          </div>
-        </Section>
+          </Section>
 
-        <Section title="Лови чашки" hint="Бариста кидає чашки, ти ловиш тацею: мишкою, пальцем або стрілками. Золота чашка дає три.">
-          <CatchCups best={best} onFinish={(n) => scores.record(me, "cups", false, n)} />
-          <Leaders rows={scores.rows} game="cups" by="best" me={me} />
-        </Section>
+          <Section title="Лови чашки">
+            <CatchCups best={best} onFinish={(n) => scores.record(me, "cups", false, n)} />
+            <Leaders rows={scores.rows} game="cups" by="best" me={me} />
+          </Section>
+        </div>
 
-        <Section
-          title="Ставки"
-          hint="Коли Claude доручає задачу субагенту, під сценою з'являється ставка: скільки той працюватиме. Ставки приймаються півтори хвилини, а вгадав чи ні, видно, щойно субагент закінчить."
-        >
-          <Leaders rows={scores.rows} game="bets" by="wins" me={me} />
-        </Section>
+        {played(scores.rows, "bets", "wins").length > 0 && (
+          <Section title="Ставки">
+            <Leaders rows={scores.rows} game="bets" by="wins" me={me} />
+          </Section>
+        )}
+
+        <GamesHelp canRecord={scores.canRecord} />
       </div>
     </div>
   );

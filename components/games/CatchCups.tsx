@@ -3,6 +3,7 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Ctx, LINE, px } from "../cafe/pixel";
 import { plural } from "../live/format";
+import FullscreenButton from "./FullscreenButton";
 
 const W = 160;
 const H = 112;
@@ -52,6 +53,7 @@ function drawTray(ctx: Ctx, x: number) {
 /** «Лови чашки»: thirty seconds of the barista throwing cups; the tray follows the pointer or the arrow keys. */
 export default function CatchCups({ best, onFinish }: { best: number; onFinish: (score: number) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   const scoreRef = useRef<HTMLSpanElement>(null);
   const timeRef = useRef<HTMLSpanElement>(null);
   const [phase, setPhase] = useState<"ready" | "play" | "over">("ready");
@@ -135,7 +137,7 @@ export default function CatchCups({ best, onFinish }: { best: number; onFinish: 
   }, [phase]);
 
   return (
-    <div className="cups">
+    <div className="cups" ref={boxRef}>
       <div className="cups-hud">
         <span>
           чашок <b ref={scoreRef}>{phase === "over" ? last : 0}</b>
@@ -149,6 +151,7 @@ export default function CatchCups({ best, onFinish }: { best: number; onFinish: 
             `рекорд ${Math.max(best, last)}`
           )}
         </span>
+        <FullscreenButton target={boxRef} />
       </div>
       <div className="cups-stage">
         <canvas ref={canvasRef} width={W} height={H} aria-label="Лови чашки: веди тацю мишкою, пальцем або стрілками" />

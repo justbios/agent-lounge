@@ -1,9 +1,11 @@
 "use client";
 
+import { useRef } from "react";
 import { DUEL_NAMES, DuelKind } from "@/lib/live/duel";
 import { Guest } from "@/lib/live/social";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Ttt } from "@/lib/live/useTicTacToe";
+import FullscreenButton from "./FullscreenButton";
 import Pong from "./Pong";
 import TicTacToe from "./TicTacToe";
 
@@ -25,20 +27,26 @@ export default function Duels({
   online: boolean;
   onPongEnd: (win: boolean) => void;
 }) {
+  const board = useRef<HTMLDivElement>(null);
   const m = duels.match;
   if (m) {
     const rival = m.x.id === duels.self ? m.o : m.x;
     const note = m.over ? null : m.gone ? `${rival.name}: гру закрито` : duels.away ? `${rival.name} більше не в кафе` : null;
     return (
       <div className="duel">
-        {m.kind === "ttt" ? (
-          <TicTacToe ttt={ttt} self={duels.self} note={note} />
-        ) : (
-          <Pong key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={onPongEnd} />
-        )}
-        <button className="btn" onClick={duels.close}>
-          {m.over || note ? "закрити" : "здатись і вийти"}
-        </button>
+        <div className="duel-board" ref={board}>
+          {m.kind === "ttt" ? (
+            <TicTacToe ttt={ttt} self={duels.self} note={note} />
+          ) : (
+            <Pong key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={onPongEnd} />
+          )}
+        </div>
+        <div className="duel-tools">
+          <button className="btn" onClick={duels.close}>
+            {m.over || note ? "закрити" : "здатись і вийти"}
+          </button>
+          <FullscreenButton target={board} />
+        </div>
       </div>
     );
   }

@@ -6,6 +6,7 @@ import type { Browser, Controller } from "jsnes";
 import { Cart } from "@/lib/live/cartShelf";
 import { NES_GAMES, NesGame, fetchRom, readRom } from "@/lib/live/nesGames";
 import { CartShelf, useCartShelf } from "./CartShelf";
+import FullscreenButton from "./FullscreenButton";
 
 type Players = 1 | 2;
 type Btn = "A" | "B" | "SELECT" | "START" | "UP" | "DOWN" | "LEFT" | "RIGHT";
@@ -40,14 +41,6 @@ const TWO: Key[] = [
   [13, 2, "START", "Enter"],
   [191, 2, "SELECT", "/"],
 ];
-
-const HELP: Record<Players, string[]> = {
-  1: ["Стрілки — рух, X — A, Z — B, Enter — Start, Shift — Select."],
-  2: [
-    "Гравець 1: WASD — рух, G — A, F — B, E — Start, Q — Select.",
-    "Гравець 2: стрілки — рух, . — A, , — B, Enter — Start, / — Select.",
-  ],
-};
 
 const FAILS = {
   big: "Файл завеликий для гри з Денді.",
@@ -89,6 +82,7 @@ export default function Dendy() {
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const screen = useRef<HTMLDivElement>(null);
+  const tv = useRef<HTMLDivElement>(null);
   const emu = useRef<{ b: Browser; C: typeof Controller } | null>(null);
   const playersRef = useRef(players);
   const shelf = useCartShelf();
@@ -188,42 +182,44 @@ export default function Dendy() {
 
   return (
     <div className="dendy">
-      {NES_GAMES.length > 0 && (
-        <ul className="dendy-games">
-          {NES_GAMES.map((g) => (
-            <li key={g.id}>
-              <button className="btn" onClick={() => pickGame(g)} disabled={busy != null} title={g.about}>
-                {busy === g.id ? "вантажу…" : g.title}
-                <small>{whoPlays(g)}</small>
+      <div className="dendy-side">
+        {NES_GAMES.length > 0 && (
+          <ul className="dendy-games">
+            {NES_GAMES.map((g) => (
+              <li key={g.id}>
+                <button className="btn" onClick={() => pickGame(g)} disabled={busy != null} title={g.about}>
+                  {busy === g.id ? "вантажу…" : g.title}
+                  <small>{whoPlays(g)}</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <CartShelf carts={shelf.carts} busy={busy} onPlay={playCart} onDrop={shelf.drop} />
+        <div className="dendy-row">
+          <label className="btn">
+            <FolderOpen size={14} />
+            своя гра з диска
+            <input type="file" accept=".nes" hidden onChange={pickFile} />
+          </label>
+          <div className="viewseg" role="radiogroup" aria-label="скільки гравців">
+            {([1, 2] as const).map((n) => (
+              <button
+                key={n}
+                role="radio"
+                aria-checked={players === n}
+                className={players === n ? "on" : ""}
+                onClick={() => setPlayers(n)}
+              >
+                {n === 1 ? "1 гравець" : "2 гравці"}
               </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      <CartShelf carts={shelf.carts} busy={busy} onPlay={playCart} onDrop={shelf.drop} />
-      <div className="dendy-row">
-        <label className="btn">
-          <FolderOpen size={14} />
-          своя гра з диска
-          <input type="file" accept=".nes" hidden onChange={pickFile} />
-        </label>
-        <div className="viewseg" role="radiogroup" aria-label="скільки гравців">
-          {([1, 2] as const).map((n) => (
-            <button
-              key={n}
-              role="radio"
-              aria-checked={players === n}
-              className={players === n ? "on" : ""}
-              onClick={() => setPlayers(n)}
-            >
-              {n === 1 ? "1 гравець" : "2 гравці"}
-            </button>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
-      {fail && <p className="key-paste-bad">{fail}</p>}
-      {game && (
-        <>
+      <div className="dendy-main">
+        {fail && <p className="key-paste-bad">{fail}</p>}
+        {game && (
           <div className="dendy-bar">
             <b className="dendy-ttl">{game.title}</b>
             <button className="btn btn-ic" onClick={pause} title={paused ? "далі" : "пауза"}>
@@ -232,38 +228,20 @@ export default function Dendy() {
             <button className="btn btn-ic" onClick={again} title="спочатку" aria-label="спочатку">
               <RotateCcw size={14} />
             </button>
+            <FullscreenButton target={tv} />
             <button className="btn btn-ic" onClick={quit} title="вийти з гри" aria-label="вийти з гри">
               <X size={14} />
             </button>
           </div>
-          <div className="dendy-screen" ref={screen} key={game.n} />
-        </>
-      )}
-      <div className="alerts-hint dendy-help">
-        {HELP[players].map((l) => (
-          <p key={l}>{l}</p>
-        ))}
-        <p>
-          Геймпади підхоплюються самі. Своя гра з диска лягає на полицю «мої картриджі» лише в цьому браузері й нікуди
-          не вантажиться.
-        </p>
+        )}
+        <div className="dendy-tv" ref={tv}>
+          {game ? (
+            <div className="dendy-screen" ref={screen} key={game.n} />
+          ) : (
+            <div className="dendy-screen dendy-off">встав картридж</div>
+          )}
+        </div>
       </div>
-      {NES_GAMES.length > 0 && (
-        <ul className="dendy-credits">
-          {NES_GAMES.map((g) => (
-            <li key={g.id}>
-              {g.title}: {g.author},{" "}
-              <a href={g.licenseUrl} target="_blank" rel="noreferrer">
-                {g.license}
-              </a>
-              ,{" "}
-              <a href={g.source} target="_blank" rel="noreferrer">
-                {g.sourceLabel ?? "вихідний код"}
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
