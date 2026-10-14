@@ -31,13 +31,14 @@ export function alertFor(e: LiveEvent): PushAlert | null {
   if (e.kind === "notify") {
     const permission = e.need !== "input";
     const tool = permission ? /: (.+)$/.exec(e.text ?? "")?.[1] : undefined;
+    const asks = tool ? "просить дозвіл" : (e.text ?? "чекає на дозвіл");
     return {
       kind: "ask",
       need: permission ? "permission" : "input",
       session: e.session,
       label,
       member,
-      title: permission ? `${who} просить дозвіл` : `${who} чекає на тебе`,
+      title: permission ? `${who} ${asks}` : `${who} чекає на тебе`,
       detail: tool,
     };
   }

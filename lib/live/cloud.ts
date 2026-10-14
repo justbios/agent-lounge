@@ -1,3 +1,4 @@
+import { AskBody } from "./asks";
 import { LiveEvent } from "./types";
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -50,7 +51,7 @@ export async function cloudPushGone(roomKey: string, endpoint: string): Promise<
 /** Files a permission prompt in the café while the key's owner is away; null when they are not, or on any failure. */
 export async function cloudAsk(
   roomKey: string,
-  a: { session: string; label: string; tool: string; detail: string },
+  a: { session: string; label: string; tool: string; detail: string; body: AskBody | null },
 ): Promise<string | null> {
   const r = await rpc("relay_ask_open", {
     p_key: roomKey,
@@ -58,6 +59,7 @@ export async function cloudAsk(
     p_label: a.label,
     p_tool: a.tool,
     p_detail: a.detail,
+    p_body: a.body,
   });
   if (!r?.ok) return null;
   const id = await r.json().catch(() => null);
@@ -67,9 +69,18 @@ export async function cloudAsk(
 /** gone: the ask expired or its owner came back, so the terminal asks as usual. */
 export type AskState = "allow" | "deny" | "open" | "gone";
 
-export async function cloudAskWait(roomKey: string, id: string): Promise<AskState | null> {
-  const r = await rpc("relay_ask_wait", { p_key: roomKey, p_id: id });
+export interface AskResult {
+  state: AskState;
+  body: AskBody | null;
+  /** an answered question: each question's text to the labels picked, joined the way Claude Code reads them */
+  reply: Record<string, string> | null;
+}
+
+export async function cloudAskResult(roomKey: string, id: string): Promise<AskResult | null> {
+  const r = await rpc("relay_ask_result", { p_key: roomKey, p_id: id });
   if (!r?.ok) return null;
-  const a = await r.json().catch(() => null);
-  return a === "allow" || a === "deny" || a === "open" || a === "gone" ? a : null;
+  const x = (await r.json().catch(() => null)) as AskResult | null;
+  const s = x?.state;
+  if (s !== "allow" && s !== "deny" && s !== "open" && s !== "gone") return null;
+  return { state: s, body: x?.body ?? null, reply: x?.reply ?? null };
 }

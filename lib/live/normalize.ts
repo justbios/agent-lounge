@@ -98,8 +98,14 @@ function notice(type: string | undefined, message: string | undefined): Partial<
   if (type === "auth_success") return null;
   const m = message ?? "";
   if (type === "permission_prompt" || /permission/i.test(m)) {
-    const what = /permission to use (.+)$/i.exec(m)?.[1];
-    const tool = what ? describeTool(what.trim(), {}).tool : undefined;
+    const what = /permission to use (.+)$/i.exec(m)?.[1]?.trim();
+    if (what === "AskUserQuestion") {
+      return { tool: "ask", need: "permission", text: "чекає на твою відповідь", say: { a: "wait_you" } };
+    }
+    if (what === "ExitPlanMode") {
+      return { tool: "plan", need: "permission", text: "чекає, щоб ти затвердив план", say: { a: "wait_you" } };
+    }
+    const tool = what ? describeTool(what, {}).tool : undefined;
     const text = tool ? `чекає на дозвіл: ${tool}` : "чекає на дозвіл";
     return { tool: "дозвіл", need: "permission", text, say: { a: "wait_perm" } };
   }

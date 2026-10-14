@@ -46,11 +46,17 @@ function PushSection({ push }: { push: PushControl }) {
   );
 }
 
+const AWAY_ON =
+  "коли Claude просить дозволу, питає чи показує план, це до 10 хвилин чекає тут, а не в терміналі. " +
+  "Діє не пізніше ніж за хвилину";
+const AWAY_OFF =
+  "коли Claude просить дозволу, питає чи показує план, це прийде сюди й пушем, і ти відповіси звідси";
+
 function AwaySection({ asks }: { asks: Asks }) {
   if (!asks.ok)
     return (
       <p className="alerts-hint">
-        Відповідати Claude на дозволи звідси можна лише з особистим ключем:{" "}
+        Відповідати Claude на дозволи, питання й плани звідси можна лише з особистим ключем:{" "}
         <Link href="/connect">підключити Claude</Link> → «Особисті ключі».
       </p>
     );
@@ -62,9 +68,7 @@ function AwaySection({ asks }: { asks: Asks }) {
       <span>
         <b>Я не за комп&apos;ютером</b>
         <small>
-          {on
-            ? `до ${till}: коли Claude просить дозволу, питання до 10 хвилин чекає тут, а не в терміналі`
-            : "коли Claude просить дозволу, питання прийде сюди й пушем, і ти дозволиш чи заборониш звідси"}
+          {on ? `до ${till}: ${AWAY_ON}` : AWAY_OFF}
         </small>
       </span>
     </label>

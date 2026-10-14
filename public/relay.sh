@@ -1,13 +1,14 @@
 #!/bin/sh
 # Relay for Claude Code: forwards a hook's JSON to a Relay café, with extras after marker lines. Async, silent, exits 0.
 #   relay.sh [--url URL] [roster] [title] [usage] [limits]   hook, JSON on stdin
-#   relay.sh [--url URL] ask                                  PermissionRequest hook, the only one Claude waits for
+#   relay.sh [--url URL] ask                                  PermissionRequest, and PreToolUse of a question or a plan:
+#                                                             the only hooks Claude waits for
 #   relay.sh statusline                                       statusLine command: keeps limits and context, prints a line
 #   relay.sh limits                                           the same, silent, for chaining after another statusLine
 # Without --url the café link comes from ~/.config/relay/hook-url (written by /relay:connect).
 # Token counts and the last limits are kept in ~/.local/state/relay; nothing leaves this machine but the café's own events.
 state="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}"
-version=4
+version=5
 
 field() {
   printf '%s' "$1" | grep -oE "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d'"' -f4
@@ -126,34 +127,62 @@ title_of() {
   [ -f "$t" ] && tail -c 1048576 "$t" | grep -oE '"customTitle":"([^"\\]|\\.)*"' | tail -n 1
 }
 
-decide() {
-  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"%s"%s}}}' "$1" "$2"
+# A permission prompt gets PermissionRequest's answer; a question or a plan gets PreToolUse's, which the café's
+# reply fills in: the question's own options or the plan as Claude wrote it, nothing else.
+reply() {
+  if [ "$1" = PermissionRequest ]; then
+    m=""
+    [ "$2" = deny ] && m=',"message":"The user denied this from the Relay café."'
+    printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"%s"%s}}}' "$2" "$m"
+    exit 0
+  fi
+  if [ "$2" = deny ]; then
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",%s}}' \
+      '"permissionDecisionReason":"The user rejected this plan from the Relay café. Stay in plan mode and revise it."'
+    exit 0
+  fi
+  u=$(printf '%s' "$3" | sed -n 's/^{"a":"allow","u":\(.*\)}$/\1/p')
+  [ -n "$u" ] &&
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":%s}}' "$u"
   exit 0
 }
 
-# Only while you have turned on «я не за комп'ютером» in the café does it answer: the café shows the request, waits
-# up to 10 minutes for «дозволити» or «заборонити», and answers Claude with that. Otherwise, after those 10 minutes,
-# or on any failure it prints nothing, and the terminal asks as usual. Never «always allow», never a changed command.
+# Only while you have turned on «я не за комп'ютером» in the café does it answer: the café shows the request, the
+# question or the plan, waits up to 10 minutes for your answer there, and gives Claude that. Otherwise, after those
+# 10 minutes, or on any failure it prints nothing, and the terminal asks as usual. Never «always allow», never a
+# changed command. When the café says you are at the computer, the next minute's prompts don't ask it again.
 ask() {
   j=$(cat)
-  case "$(field "$j" tool_name)" in '' | AskUserQuestion | ExitPlanMode) exit 0 ;; esac
+  ev=$(field "$j" hook_event_name)
+  case "$ev:$(field "$j" tool_name)" in
+    PreToolUse:AskUserQuestion | PreToolUse:ExitPlanMode) ;;
+    PermissionRequest: | PermissionRequest:AskUserQuestion | PermissionRequest:ExitPlanMode) exit 0 ;;
+    PermissionRequest:*) ;;
+    *) exit 0 ;;
+  esac
   case "$url" in https://*/api/claude-hook\?*) ;; *) exit 0 ;; esac
   base="${url%%/api/claude-hook*}/api/claude-ask?${url#*\?}"
-  id=$({
+  here="$state/here-$(printf '%s' "$url" | cksum | cut -d' ' -f1)"
+  seen=0
+  [ -f "$here" ] && read -r seen < "$here"
+  case "$seen" in '' | *[!0-9]*) seen=0 ;; esac
+  [ "$(($(date +%s) - seen))" -lt 60 ] && exit 0
+  r=$({
     printf '%s' "$j"
     printf '\n#relay-title\n'
     title_of "$j"
     printf '\n#relay-v\n%s\n' "$version"
-  } | curl -s -m 4 -H 'content-type: text/plain' --data-binary @- "$base" |
-    grep -oE '"id":"[0-9a-f-]{36}"' | cut -d'"' -f4)
+  } | curl -s -m 4 -w '\n%{http_code}' -H 'content-type: text/plain' --data-binary @- "$base")
+  case "$r" in *204) mkdir -p "$state" 2>/dev/null && date +%s > "$here" ;; esac
+  id=$(printf '%s' "$r" | grep -oE '"id":"[0-9a-f-]{36}"' | cut -d'"' -f4)
   [ -n "$id" ] || exit 0
   end=$(($(date +%s) + 600))
   fails=0
   while [ "$(date +%s)" -lt "$end" ]; do
-    a=$(curl -s -m 30 "$base&id=$id" | grep -oE '"a":"[a-z]+"' | cut -d'"' -f4)
+    r=$(curl -s -m 30 "$base&id=$id")
+    a=$(printf '%s' "$r" | grep -oE '"a":"[a-z]+"' | head -n 1 | cut -d'"' -f4)
     case "$a" in
-      allow) decide allow "" ;;
-      deny) decide deny ',"message":"The user denied this from the Relay café."' ;;
+      allow | deny) reply "$ev" "$a" "$r" ;;
       gone) exit 0 ;;
       open) fails=0 ;;
       *)

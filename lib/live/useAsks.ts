@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Ask } from "./asks";
+import { Ask, AskBody } from "./asks";
 
 const AWAY_POLL_MS = 3_000;
 const IDLE_POLL_MS = 60_000;
@@ -16,6 +16,8 @@ export interface Asks {
   busy: boolean;
   setAway: (on: boolean) => void;
   answer: (id: string, allow: boolean) => void;
+  /** a question's answers: each question's text to the option labels picked */
+  reply: (id: string, answers: Record<string, string[]>) => void;
 }
 
 interface Row {
@@ -25,6 +27,7 @@ interface Row {
   tool: string;
   detail: string;
   at: string;
+  body: AskBody | null;
 }
 
 /**
@@ -84,12 +87,22 @@ export function useAsks(key: string | null, personal: boolean): Asks {
     if (!on) setAsks([]);
   };
 
-  const answer = (id: string, allow: boolean) => {
-    if (!ok) return;
+  const done = (id: string) => {
     answered.current.add(id);
     setAsks((list) => list.filter((a) => a.id !== id));
+  };
+
+  const answer = (id: string, allow: boolean) => {
+    if (!ok) return;
+    done(id);
     supabase!.rpc("relay_ask_answer", { p_key: key, p_id: id, p_allow: allow }).then(() => undefined);
   };
 
-  return { ok, until: ok ? until : null, asks: ok ? asks : [], busy, setAway, answer };
+  const reply = (id: string, answers: Record<string, string[]>) => {
+    if (!ok) return;
+    done(id);
+    supabase!.rpc("relay_ask_reply", { p_key: key, p_id: id, p_answers: answers }).then(() => undefined);
+  };
+
+  return { ok, until: ok ? until : null, asks: ok ? asks : [], busy, setAway, answer, reply };
 }

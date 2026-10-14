@@ -1,5 +1,5 @@
 {
-  "description": "Forwards hook events, the chat name, token counts and the last usage limits to the Relay café saved by /relay:connect, silent and async; while you are away, the café can also answer Claude's permission prompts.",
+  "description": "Forwards hook events, the chat name, token counts and the last usage limits to the Relay café saved by /relay:connect, silent and async; while you are away, the café can also answer Claude's permission prompts, questions and plans.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -21,6 +21,16 @@
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\"",
             "async": true,
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "AskUserQuestion|ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" ask",
+            "timeout": 630
           }
         ]
       }

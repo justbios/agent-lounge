@@ -1,14 +1,100 @@
 "use client";
 
+import { useState } from "react";
 import { ShieldQuestion } from "lucide-react";
-import { ASK_MS } from "@/lib/live/asks";
+import { Ask, ASK_MS, AskQuestion } from "@/lib/live/asks";
 import { Asks } from "@/lib/live/useAsks";
 
 const clock = (t: number) => new Date(t).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
 
+const WANTS = { AskUserQuestion: "питає", ExitPlanMode: "пропонує план" } as const;
+
+function Questions({
+  questions,
+  onReply,
+}: {
+  questions: AskQuestion[];
+  onReply: (answers: Record<string, string[]>) => void;
+}) {
+  const [picked, setPicked] = useState<Record<string, string[]>>({});
+  const pick = (q: AskQuestion, label: string) =>
+    setPicked((p) => {
+      const was = p[q.question] ?? [];
+      if (!q.multiSelect) return { ...p, [q.question]: [label] };
+      return { ...p, [q.question]: was.includes(label) ? was.filter((l) => l !== label) : [...was, label] };
+    });
+  const ready = questions.every((q) => picked[q.question]?.length);
+
+  return (
+    <>
+      {questions.map((q) => (
+        <div className="ask-q" key={q.question}>
+          <div className="ask-q-text">
+            {q.header && <b>{q.header}</b>} {q.question}
+            {q.multiSelect && <small> · можна кілька</small>}
+          </div>
+          <div className="ask-opts" role={q.multiSelect ? "group" : "radiogroup"} aria-label={q.question}>
+            {q.options.map((o) => {
+              const on = !!picked[q.question]?.includes(o.label);
+              return (
+                <button
+                  key={o.label}
+                  className={on ? "ask-opt on" : "ask-opt"}
+                  role={q.multiSelect ? "checkbox" : "radio"}
+                  aria-checked={on}
+                  onClick={() => pick(q, o.label)}
+                >
+                  <span>{o.label}</span>
+                  {o.description && <small>{o.description}</small>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      <div className="ask-btns">
+        <button className="btn ask-yes" disabled={!ready} onClick={() => onReply(picked)}>
+          відповісти
+        </button>
+      </div>
+    </>
+  );
+}
+
+function AskRow({ a, now, asks, onOpen }: { a: Ask; now: number; asks: Asks; onOpen: (session: string) => void }) {
+  const body = a.body;
+  const left = Math.max(1, Math.ceil((a.at + ASK_MS - now) / 60_000));
+  return (
+    <div className="ask">
+      <div className="ask-what">
+        <span>
+          <button className="ask-chat" onClick={() => onOpen(a.session)}>
+            {a.label}
+          </button>{" "}
+          {body ? WANTS[body.tool] : "просить дозволу"} · ще {left} хв, потім спитає в терміналі
+        </span>
+        {!body && <code>{a.detail}</code>}
+        {body?.tool === "ExitPlanMode" && <pre className="ask-plan">{body.input.plan}</pre>}
+      </div>
+      {body?.tool === "AskUserQuestion" ? (
+        <Questions questions={body.input.questions} onReply={(answers) => asks.reply(a.id, answers)} />
+      ) : (
+        <div className="ask-btns">
+          <button className="btn ask-yes" onClick={() => asks.answer(a.id, true)}>
+            {body ? "затвердити план" : "дозволити раз"}
+          </button>
+          <button className="btn" onClick={() => asks.answer(a.id, false)}>
+            {body ? "ні, хай планує далі" : "заборонити"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
- * While the user is away from the computer: the switch's state with a way back, and each permission prompt Claude is
- * waiting on, to allow once or deny. `settled` holds the ones the terminal has already answered.
+ * While the user is away from the computer: the switch's state with a way back, and each permission prompt, question
+ * or plan Claude is waiting on, to answer from here. `settled` holds the ones the terminal has already answered.
  */
 export default function AskCard({
   asks,
@@ -29,33 +115,14 @@ export default function AskCard({
       <div className="away-hd">
         <span>
           <ShieldQuestion size={14} /> Ти не за комп&apos;ютером до {clock(asks.until)}: коли Claude просить дозволу,
-          питання чекає тут.
+          питає чи показує план, це чекає тут.
         </span>
         <button className="btn" disabled={asks.busy} onClick={() => asks.setAway(false)}>
           я повернувся
         </button>
       </div>
       {open.map((a) => (
-        <div className="ask" key={a.id}>
-          <div className="ask-what">
-            <span>
-              <button className="ask-chat" onClick={() => onOpen(a.session)}>
-                {a.label}
-              </button>{" "}
-              просить дозволу · ще {Math.max(1, Math.ceil((a.at + ASK_MS - now) / 60_000))} хв, потім спитає в
-              терміналі
-            </span>
-            <code>{a.detail}</code>
-          </div>
-          <div className="ask-btns">
-            <button className="btn ask-yes" onClick={() => asks.answer(a.id, true)}>
-              дозволити раз
-            </button>
-            <button className="btn" onClick={() => asks.answer(a.id, false)}>
-              заборонити
-            </button>
-          </div>
-        </div>
+        <AskRow key={a.id} a={a} now={now} asks={asks} onOpen={onOpen} />
       ))}
     </div>
   );

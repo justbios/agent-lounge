@@ -1,6 +1,6 @@
 import { after } from "next/server";
-import { askDetail } from "@/lib/live/asks";
-import { cloudAsk, cloudAskWait, cloudEnabled, cloudIngest } from "@/lib/live/cloud";
+import { ASK_BODY_MAX, ASK_TOOLS, askBody, askDetail } from "@/lib/live/asks";
+import { AskResult, cloudAsk, cloudAskResult, cloudEnabled, cloudIngest } from "@/lib/live/cloud";
 import { ROOM_KEY } from "@/lib/live/hookConfig.mjs";
 import { sessionLabel } from "@/lib/live/label";
 import { cleanMember } from "@/lib/live/member";
@@ -17,7 +17,10 @@ const STEP_MS = 1_500;
 
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 
-/** relay.sh on a PermissionRequest: the ask's id while its owner is away, so the café answers; 204 otherwise. */
+/**
+ * relay.sh on a PermissionRequest, or on the PreToolUse of a question or a plan: the ask's id while its owner is away,
+ * so the café answers; 204 when they are at the computer, which the script believes for a minute.
+ */
 export async function POST(req: Request) {
   const params = new URL(req.url).searchParams;
   const key = params.get("k");
@@ -26,12 +29,17 @@ export async function POST(req: Request) {
   const raw = body?.raw;
   const session = str(raw?.session_id);
   const tool = str(raw?.tool_name);
-  if (!body || !raw || raw.hook_event_name !== "PermissionRequest" || !session || !tool) {
+  const asking = !!tool && ASK_TOOLS.has(tool);
+  const event = asking ? "PreToolUse" : "PermissionRequest";
+  if (!body || !raw || raw.hook_event_name !== event || !session || !tool) {
     return new Response(null, { status: 400 });
   }
   const cwd = str(raw.cwd);
   const input = (raw.tool_input && typeof raw.tool_input === "object" ? raw.tool_input : {}) as Record<string, unknown>;
-  const id = await cloudAsk(key, { session, label: body.title ?? sessionLabel(cwd), ...askDetail(tool, input, cwd) });
+  const whole = asking ? askBody(tool, input) : null;
+  if (asking && (!whole || JSON.stringify(whole).length > ASK_BODY_MAX)) return new Response(null, { status: 422 });
+  const label = body.title ?? sessionLabel(cwd);
+  const id = await cloudAsk(key, { session, label, ...askDetail(tool, input, cwd), body: whole });
   if (!id) return new Response(null, { status: 204 });
 
   const note = normalizeHook(
@@ -59,6 +67,18 @@ export async function POST(req: Request) {
   return Response.json({ id });
 }
 
+/**
+ * What relay.sh prints for an answer: a permission's allow or deny as is; a question's answers or an approved plan as
+ * Claude's own input to pass back, under `u`, which the script expects right after `a`; a rejected plan as deny.
+ */
+function verdict(r: AskResult): { a: string; u?: unknown } {
+  if (r.state !== "allow" && r.state !== "deny") return { a: r.state };
+  if (!r.body) return { a: r.state };
+  if (r.body.tool === "ExitPlanMode") return r.state === "allow" ? { a: "allow", u: r.body.input } : { a: "deny" };
+  if (r.state === "allow" && r.reply) return { a: "allow", u: { ...r.body.input, answers: r.reply } };
+  return { a: "gone" };
+}
+
 /** relay.sh waiting on its ask: holds up to 20 s for the café's answer, so the script calls rarely. */
 export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
@@ -69,8 +89,9 @@ export async function GET(req: Request) {
   }
   const end = Date.now() + HOLD_MS;
   for (;;) {
-    const a = await cloudAskWait(key, id);
-    if (a !== "open" || Date.now() + STEP_MS > end) return Response.json({ a: a ?? "fail" });
+    const r = await cloudAskResult(key, id);
+    if (!r) return Response.json({ a: "fail" });
+    if (r.state !== "open" || Date.now() + STEP_MS > end) return Response.json(verdict(r));
     await new Promise((r) => setTimeout(r, STEP_MS));
   }
 }

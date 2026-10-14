@@ -141,7 +141,7 @@ const STALE_OLD =
   "і не всі назви чатів.";
 const STALE_ASKS =
   "Підключення Claude Code в тебе старої версії: з новою кафе вміє відповідати Claude на запити дозволу, " +
-  "поки ти не за комп'ютером.";
+  "питання й плани, поки ти не за комп'ютером.";
 
 function useNow(): number {
   const [now, setNow] = useState(0);
