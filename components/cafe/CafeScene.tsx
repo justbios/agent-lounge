@@ -58,6 +58,7 @@ export default function CafeScene({
   onPick,
   pops,
   interior = EMPTY_INTERIOR,
+  name,
   onLook,
   placing,
   onPlacing,
@@ -88,6 +89,8 @@ export default function CafeScene({
   pops?: ReactNode;
   /** what the owner bought and put down, the looks they picked, the sign and the second cat */
   interior?: Interior;
+  /** the big line of the sign, when it is not the room's own name */
+  name?: string;
   /** lets the agent card change an agent's look */
   onLook?: (agent: string, pick: LookPick | null) => void;
   placing?: Placing | null;
@@ -114,7 +117,7 @@ export default function CafeScene({
   const sign = owns(interior, "neon") ? interior.sign : undefined;
   const hasCat2 = owns(interior, "cat2");
   const cat2Name = hasCat2 ? interior.cat2Name : undefined;
-  const title = interior.title ?? BRAND;
+  const title = name ?? interior.title ?? BRAND;
   const namesRef = useRef({ cat: catName, cat2: cat2Name, sign, title });
   const seats = useMemo(() => seatGuests(guests ?? []), [guests]);
   const seatsRef = useRef<GuestSeat[]>(seats);

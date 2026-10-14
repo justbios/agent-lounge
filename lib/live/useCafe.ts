@@ -2,26 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { CafeSettings, Decor, Earned, Progress, decorOf, evaluate, localDay, progressFromHourly } from "./achievements";
-import {
-  BEANS_FROM,
-  BeanWork,
-  Interior,
-  ItemId,
-  LookPick,
-  Placed,
-  beansEarned,
-  beansSpent,
-  cleanInterior,
-  itemOf,
-} from "./interior";
+import { useAccess } from "./access";
+import { CafeSettings, Earned, Progress, progressFromHourly } from "./achievements";
+import { CafeState, NO_SETTINGS, RoomKind, cafeRoom } from "./cafeRoom";
+import { BEANS_FROM, BeanWork } from "./interior";
 import { HourRow, aggregateHourly } from "./recap";
 import { LiveEvent } from "./types";
+import { useMemberRooms } from "./useMemberRooms";
+
+export type { CafeState } from "./cafeRoom";
 
 const REFRESH_MS = 60 * 1000;
 const SETTINGS_KEY = "relay.cafe";
 const SEEN_KEY = "relay.seenAch";
-const NO_SETTINGS: CafeSettings = { cat_name: null, theme: null };
+const NO_PROGRESS: Progress = { days: [], agents: 0, tools: 0, projects: 0, chats: 0, room: null };
+const NO_WORK: BeanWork = { prompts: 0, tools: 0, dispatches: 0, answers: 0, minutes: 0 };
 
 type Seen = Record<string, string[]>;
 
@@ -74,42 +69,31 @@ export interface CafeSource {
   viewing: boolean;
 }
 
-export interface CafeState {
-  progress: Progress | null;
-  earned: Earned[];
-  decor: Set<Decor>;
-  settings: CafeSettings;
-  error: boolean;
-  editable: boolean;
-  save: (patch: Partial<CafeSettings>) => Promise<boolean>;
-  /** achievements earned since this browser last looked, for the toast */
+export interface CafeRooms {
+  /** the café itself: its only room off personal keys, the shared lobby on them */
+  common: CafeState;
+  /** on personal keys every teammate's chats sit in a room of their own */
+  personal: boolean;
+  /** your own room on personal keys */
+  mine: CafeState | null;
+  /** the room a teammate's chats sit in; the café itself off personal keys, or for a chat with no name */
+  roomOf: (member: string | null) => CafeState;
+  /** achievements earned since this browser last looked, for the toast: your own on personal keys */
   fresh: Earned[];
   dismiss: () => void;
-  interior: Interior;
-  /** counted from {@link BEANS_FROM}: earned since, spent on what was bought since, and what is left */
-  beans: { earned: number; spent: number; left: number };
-  buy: (item: ItemId) => Promise<boolean>;
-  /** puts a piece down, or moves the one with the same pid */
-  place: (p: Placed) => Promise<boolean>;
-  stow: (pid: string) => Promise<boolean>;
-  setLook: (agent: string, pick: LookPick | null) => Promise<boolean>;
-  /** the neon sign's own line, the second cat's name, the café's name and whether its pet is a dog */
-  setNames: (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) => Promise<boolean>;
 }
 
 interface Remote {
   id: string;
+  at: number;
   progress: Progress | null;
   work: BeanWork | null;
   error: boolean;
 }
 
-/** The local day the beans started over on: achievements reached after it pay beans. */
-const FROM_DAY = localDay(Date.parse(BEANS_FROM));
-
 function workSince(hours: HourRow[], since: string): BeanWork {
   const from = Date.parse(since);
-  const w: BeanWork = { prompts: 0, tools: 0, dispatches: 0, answers: 0, minutes: 0 };
+  const w: BeanWork = { ...NO_WORK };
   for (const h of hours) {
     if (Date.parse(h.hour) < from) continue;
     w.prompts += h.prompts;
@@ -122,29 +106,25 @@ function workSince(hours: HourRow[], since: string): BeanWork {
 }
 
 /**
- * The days since the restart with at least one question. The restart day counts only when the work since the restart
- * holds more questions than the later days, as its earlier hours earn nothing.
+ * Lifetime progress, the decor it unlocks and the café's own settings: from Relay in the cloud, from memory and this
+ * browser locally. On personal keys each teammate also has a room of their own, and the café itself is the lobby.
  */
-function daysAsked(p: Progress | null, w: BeanWork | null): number {
-  if (!p || !w) return 0;
-  const after = p.days.filter((d) => d.day > FROM_DAY && d.prompts > 0);
-  const later = after.reduce((s, d) => s + d.prompts, 0);
-  return after.length + (w.prompts > later ? 1 : 0);
-}
-
-/** Lifetime progress, the decor it unlocks and the café's own settings: from Relay in the cloud, from memory and this browser locally. */
-export function useCafe({ cloud, key, room, events, viewing }: CafeSource): CafeState {
+export function useCafe({ cloud, key, room, events, viewing }: CafeSource): CafeRooms {
   const id = viewing ? (room ? `v:${room}` : "") : key ? `k:${key}` : "";
   const [remote, setRemote] = useState<Remote | null>(null);
-  const [saved, setSaved] = useState<{ id: string; room: CafeSettings } | null>(null);
+  const [saved, setSaved] = useState<{ id: string; at: number; room: CafeSettings } | null>(null);
   const localSettings = useSyncExternalStore(subscribe, localSnap, () => NO_SETTINGS);
   const seenAll = useSyncExternalStore(subscribe, seenSnap, () => null);
+  const access = useAccess(cloud && !viewing ? key : null);
+  const me = access?.locked ? access.name : null;
+  const team = useMemberRooms({ on: cloud && (viewing || !!me), key, room, viewing });
 
   useEffect(() => {
     const sb = supabase;
     if (!cloud || !id || !sb) return;
     let live = true;
     const load = async () => {
+      const at = Date.now();
       const p_tz_min = -new Date().getTimezoneOffset();
       const [prog, work] = await Promise.all([
         viewing
@@ -158,6 +138,7 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
       const error = !!prog.error || !!work.error;
       setRemote({
         id,
+        at,
         progress: error ? null : (prog.data as Progress),
         work: error ? null : (work.data as BeanWork),
         error,
@@ -174,33 +155,12 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
     };
   }, [cloud, id, key, room, viewing]);
 
-  const local = useMemo(() => {
+  const localData = useMemo(() => {
     if (cloud) return null;
     const hours = aggregateHourly(events);
     return { progress: progressFromHourly(hours, null), work: workSince(hours, BEANS_FROM) };
   }, [cloud, events]);
-  const mine = remote?.id === id ? remote : null;
-  const progress = cloud ? (mine?.progress ?? null) : (local?.progress ?? null);
-  const work = cloud ? (mine?.work ?? null) : (local?.work ?? null);
-  const error = cloud && !!mine?.error;
-  const settings = cloud ? (saved?.id === id ? saved.room : (progress?.room ?? NO_SETTINGS)) : localSettings;
-  const earned = useMemo(() => (progress ? evaluate(progress) : []), [progress]);
-  const decor = useMemo(() => decorOf(earned), [earned]);
 
-  const scope = viewing ? null : cloud ? (key ? `c:${key.slice(0, 8)}` : null) : "local";
-  const known = scope && seenAll ? seenAll[scope] : undefined;
-  const done = useMemo(() => earned.filter((e) => e.done), [earned]);
-
-  useEffect(() => {
-    if (scope && progress && seenAll && !seenAll[scope]) markSeen(scope, done.map((e) => e.def.id));
-  }, [scope, progress, seenAll, done]);
-
-  const fresh = useMemo(() => (known ? done.filter((e) => !known.includes(e.def.id)) : []), [known, done]);
-  const dismiss = useCallback(() => {
-    if (scope) markSeen(scope, fresh.map((e) => e.def.id));
-  }, [scope, fresh]);
-
-  const editable = !viewing && (!cloud || !!key);
   const save = useCallback(
     async (patch: Partial<CafeSettings>) => {
       if (!cloud) {
@@ -208,56 +168,89 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
         return true;
       }
       if (!supabase || !key || viewing) return false;
+      const at = Date.now();
       const { data, error } = await supabase.rpc("relay_room_set", { p_key: key, p_patch: patch });
       if (error) return false;
-      setSaved({ id, room: data as CafeSettings });
+      setSaved({ id, at, room: data as CafeSettings });
       return true;
     },
     [cloud, key, viewing, id],
   );
 
-  const interior = useMemo(() => cleanInterior(settings.interior), [settings.interior]);
-  const reached = done.filter((e) => e.day && e.day > FROM_DAY).length;
-  const earnedBeans = beansEarned(work, reached, daysAsked(progress, work));
-  const spent = beansSpent(interior);
-  const beans = { earned: earnedBeans, spent, left: earnedBeans - spent };
-  const fit = (next: Interior) => save({ interior: next });
-  const buy = async (item: ItemId) => {
-    const it = itemOf(item);
-    const one = it?.place === "perk" || it?.rare;
-    if (!it || !editable || beans.left < it.price || (one && interior.owned.includes(item))) return false;
-    return fit({ ...interior, owned: [...interior.owned, item], paid: [...(interior.paid ?? []), item] });
-  };
-  const place = (p: Placed) => {
-    const rest = interior.placed.filter((q) => q.pid !== p.pid);
-    return fit({ ...interior, placed: [...rest, p] });
-  };
-  const stow = (pid: string) => fit({ ...interior, placed: interior.placed.filter((q) => q.pid !== pid) });
-  const setLook = (agent: string, pick: LookPick | null) => {
-    const looks = { ...interior.looks };
-    if (pick) looks[agent] = pick;
-    else delete looks[agent];
-    return fit({ ...interior, looks });
-  };
-  const setNames = (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) =>
-    fit(cleanInterior({ ...interior, ...patch }));
+  const personal = cloud && team.locked && (viewing || !!me);
+  const mineRemote = remote?.id === id ? remote : null;
+  const progress = cloud ? (mineRemote?.progress ?? null) : (localData?.progress ?? null);
+  const work = cloud ? (mineRemote?.work ?? null) : (localData?.work ?? null);
+  const error = cloud && !!mineRemote?.error;
+  const fresher = saved?.id === id && (!mineRemote || saved.at > mineRemote.at);
+  const settings = cloud ? (fresher ? saved!.room : (progress?.room ?? NO_SETTINGS)) : localSettings;
+  const editable = !viewing && (!cloud || !!key);
 
-  return {
-    progress,
-    earned,
-    decor,
-    settings,
-    error,
-    editable,
-    save,
-    fresh,
-    dismiss,
-    interior,
-    beans,
-    buy,
-    place,
-    stow,
-    setLook,
-    setNames,
-  };
+  const common = useMemo(
+    () =>
+      cafeRoom({
+        kind: personal ? "lobby" : "cafe",
+        whose: null,
+        progress,
+        work,
+        settings,
+        error,
+        editable,
+        save,
+      }),
+    [personal, progress, work, settings, error, editable, save],
+  );
+
+  const members = team.members;
+  const mySaved = team.saved;
+  const memberSave = team.save;
+  const teamError = team.error;
+  const rooms = useMemo(() => {
+    const m = new Map<string, CafeState>();
+    if (!personal) return m;
+    const names = new Set([...Object.keys(members ?? {}), ...(me ? [me] : [])]);
+    for (const name of names) {
+      const data = members?.[name];
+      const own = name === me;
+      const kind: RoomKind = own ? "mine" : "theirs";
+      m.set(
+        name,
+        cafeRoom({
+          kind,
+          whose: name,
+          progress: members ? (data?.progress ?? NO_PROGRESS) : null,
+          work: members ? (data?.work ?? NO_WORK) : null,
+          settings: (own ? mySaved : null) ?? data?.progress.room ?? NO_SETTINGS,
+          error: teamError,
+          editable: own && !viewing,
+          cafeTitle: common.interior.title,
+          save: own && !viewing ? memberSave : async () => false,
+        }),
+      );
+    }
+    return m;
+  }, [personal, members, me, mySaved, memberSave, teamError, viewing, common.interior.title]);
+
+  const mine = me ? (rooms.get(me) ?? null) : null;
+  const roomOf = useCallback(
+    (member: string | null) => (personal && member ? (rooms.get(member) ?? common) : common),
+    [personal, rooms, common],
+  );
+
+  const watched = personal ? mine : common;
+  const slot = key ? `${personal ? "p" : "c"}:${key.slice(0, 8)}` : null;
+  const scope = viewing || !watched ? null : !cloud ? "local" : slot;
+  const known = scope && seenAll ? seenAll[scope] : undefined;
+  const done = useMemo(() => watched?.earned.filter((e) => e.done) ?? [], [watched]);
+
+  useEffect(() => {
+    if (scope && watched?.progress && seenAll && !seenAll[scope]) markSeen(scope, done.map((e) => e.def.id));
+  }, [scope, watched, seenAll, done]);
+
+  const fresh = useMemo(() => (known ? done.filter((e) => !known.includes(e.def.id)) : []), [known, done]);
+  const dismiss = useCallback(() => {
+    if (scope) markSeen(scope, fresh.map((e) => e.def.id));
+  }, [scope, fresh]);
+
+  return { common, personal, mine, roomOf, fresh, dismiss };
 }

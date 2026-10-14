@@ -172,7 +172,8 @@ export default function Stage({
     setTimeout(() => setPop((p) => (p?.kind === "note" && p.id === id ? null : p)), 2400);
   };
   const nextTheme = async (anchor: Anchor) => {
-    if (!cafe.editable) return note(anchor, "вид за вікном змінює власник кафе");
+    const keeper = cafe.kind === "theirs" ? cafe.whose : "власник кафе";
+    if (!cafe.editable) return note(anchor, `вид за вікном змінює ${keeper}`);
     const next = THEME_IDS[(THEME_IDS.indexOf(theme.id) + 1) % THEME_IDS.length];
     note(anchor, `за вікном: ${THEMES[next].name.toLowerCase()}`);
     if (!(await cafe.save({ theme: next }))) note(anchor, "не вдалося змінити, спробуй ще раз");
@@ -325,6 +326,7 @@ export default function Stage({
           theme={theme}
           onPick={pick}
           interior={cafe.interior}
+          name={cafe.title}
           onLook={cafe.editable ? (id, look) => void cafe.setLook(id, look) : undefined}
           placing={placing}
           onPlacing={cafe.editable ? onPlacing : undefined}

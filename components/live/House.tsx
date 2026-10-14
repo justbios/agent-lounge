@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import { Floor, LOBBY } from "@/lib/live/house";
 import { BRAND, Interior } from "@/lib/live/interior";
 import { LiveScene, LiveSession } from "@/lib/live/liveModel";
+import { memberOf } from "@/lib/live/teamModel";
 import { DecorSet } from "../cafe/decor";
 import MiniCafe from "../cafe/MiniCafe";
 import { Theme } from "../cafe/theme";
@@ -81,7 +82,8 @@ export default function House({
   current,
   waiting,
   now,
-  look,
+  title,
+  lookOf,
   tools,
   onOpen,
 }: {
@@ -94,7 +96,10 @@ export default function House({
   current: string | null;
   waiting: Set<string>;
   now: number;
-  look: Look;
+  /** the café's own name, on the roof */
+  title?: string;
+  /** a room's look: its teammate's on personal keys, null for the lobby */
+  lookOf: (member: string | null) => Look;
   tools?: ReactNode;
   onOpen: (id: string) => void;
 }) {
@@ -110,7 +115,7 @@ export default function House({
   return (
     <section className="card house-card">
       <div className="card-hd">
-        <span className="card-ttl">{look.interior.title ?? "інтернет-кафе"}</span>
+        <span className="card-ttl">{title ?? "інтернет-кафе"}</span>
         <div className="stage-tools">
           <span className="muted-sm">
             {rooms} {plural(rooms, "зала", "зали", "зал")}
@@ -121,7 +126,7 @@ export default function House({
       </div>
       <div className="house">
         <div className="house-roof" aria-hidden>
-          <span className="house-sign">{look.interior.title ?? BRAND}</span>
+          <span className="house-sign">{title ?? BRAND}</span>
         </div>
         {floors.map((f) => (
           <div key={f.key} className="house-floor" style={{ "--c": f.color } as CSSProperties}>
@@ -145,7 +150,7 @@ export default function House({
                     busy={now - s.last < ACTIVE_MS}
                     on={s.id === current}
                     named={s.id === named}
-                    look={look}
+                    look={lookOf(memberOf(s) || null)}
                     onOpen={open}
                   />
                 );
@@ -167,7 +172,7 @@ export default function House({
                 busy={false}
                 on={current === LOBBY}
                 named={named === LOBBY}
-                look={look}
+                look={lookOf(null)}
                 onOpen={open}
               />
             </div>

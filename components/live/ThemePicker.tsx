@@ -4,6 +4,13 @@ import { CSSProperties, useState } from "react";
 import { THEMES, THEME_IDS, ThemeId, themeOf } from "@/components/cafe/theme";
 import { CafeState } from "@/lib/live/useCafe";
 
+function heading(cafe: CafeState): string {
+  if (cafe.kind === "mine") return "Тема твоєї кімнати";
+  if (cafe.kind === "theirs") return `Тема кімнати: обирає ${cafe.whose}`;
+  const what = cafe.kind === "lobby" ? "Тема спільної зали" : "Тема кафе";
+  return cafe.editable ? what : `${what}: обирає власник кафе`;
+}
+
 function swatch(id: ThemeId): CSSProperties {
   const th = THEMES[id];
   return {
@@ -31,7 +38,7 @@ export default function ThemePicker({ cafe }: { cafe: CafeState }) {
   };
   return (
     <div className="theme-pick">
-      <span className="theme-pick-ttl">Тема кафе{cafe.editable ? "" : ": обирає власник кафе"}</span>
+      <span className="theme-pick-ttl">{heading(cafe)}</span>
       <div className="theme-grid" role="radiogroup" aria-label="тема кафе">
         {THEME_IDS.map((id) => (
           <button

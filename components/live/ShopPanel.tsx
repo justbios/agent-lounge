@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import { BRAND, ItemId, TITLE_MAX } from "@/lib/live/interior";
 import { CafeState } from "@/lib/live/useCafe";
+import { RoomKind } from "@/lib/live/cafeRoom";
 import Sheet from "./Sheet";
 import Shop, { beans } from "./Shop";
 import ThemePicker from "./ThemePicker";
@@ -95,7 +96,14 @@ function PetPicker({ cafe }: { cafe: CafeState }) {
   );
 }
 
-/** Furniture for coffee beans, and the café's own look: the view, its name, the pet and its name. */
+const OWN: Record<RoomKind, (whose: string | null) => string> = {
+  cafe: () => "Твоє кафе",
+  lobby: () => "Спільна зала",
+  mine: () => "Твоя кімната",
+  theirs: (whose) => `Кімната: ${whose}`,
+};
+
+/** Furniture for coffee beans, and the room's own look: the view, the café's name, the pet and its name. */
 export default function ShopPanel({
   cafe,
   onClose,
@@ -122,12 +130,20 @@ export default function ShopPanel({
       }
       onClose={onClose}
     >
+      {cafe.kind === "theirs" && (
+        <p className="alerts-hint">
+          Це кімната, яку обставляє {cafe.whose}, за свої зерна. Дивитися можна, змінювати ні.
+        </p>
+      )}
+      {cafe.kind === "lobby" && (
+        <p className="alerts-hint">Спільну залу обставляє вся команда: зерна на неї заробляють усі разом.</p>
+      )}
       {cafe.error && <p className="key-paste-bad">Не вдалося дістати зерна, спробую ще раз за хвилину.</p>}
       {cafe.progress && <Shop cafe={cafe} onPlace={onPlace} />}
       <section className="shop-own">
-        <div className="share-ttl">Твоє кафе</div>
+        <div className="share-ttl">{OWN[cafe.kind](cafe.whose)}</div>
         <ThemePicker cafe={cafe} />
-        {cafe.editable && (
+        {cafe.editable && (cafe.kind === "cafe" || cafe.kind === "lobby") && (
           <NameForm
             id="cafe-title"
             label="Назва кафе"

@@ -197,10 +197,9 @@ export default function LiveDashboard({
   const viewRoom = useViewRoom();
   const [recapOpen, setRecapOpen] = useState(false);
   const recap = useRecap({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events }, recapOpen);
-  const [sheet, setSheet] = useState<"ach" | "shop" | null>(null);
+  const [sheet, setSheet] = useState<"ach" | "myAch" | "shop" | null>(null);
   const [placing, setPlacing] = useState<Placing | null>(null);
-  const cafe = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
-  const earnedCount = cafe.earned.filter((e) => e.done).length;
+  const rooms = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
   const [replay, setReplay] = useState<Replay | null>(null);
   const rp = replay && now ? replayAt(replay, now) : null;
   const shown = rp?.shown ?? 0;
@@ -210,6 +209,15 @@ export default function LiveDashboard({
   const whole = team.all && !playing;
   const houseOn = !playing && !!session && (chats.length > 1 || team.on);
   const inHouse = houseOn && view === "house";
+  const owner = inHouse || whole || !session ? null : memberOf(session) || null;
+  const cafe = inHouse ? (rooms.mine ?? rooms.common) : rooms.roomOf(owner);
+  const earnedCount = cafe.earned.filter((e) => e.done).length;
+  const cafeName = rooms.common.interior.title;
+  const whoseTip = cafe.whose ? `: ${cafe.kind === "mine" ? "твої" : cafe.whose}` : "";
+  const lookOf = (m: string | null) => {
+    const r = rooms.roomOf(m);
+    return { theme: themeOf(r.settings.theme), decor: r.decor, interior: r.interior };
+  };
   const scenes = useHouseScenes(feed.events, chats.map((s) => s.id).join("|"), team.on ? team.members : null, inHouse);
   const zoom = (next: View, act?: () => void) => {
     const go = () =>
@@ -306,10 +314,14 @@ export default function LiveDashboard({
         <SpeechPick />
         {cafe.progress && (
           <>
-            <button className="btn" onClick={() => setSheet("ach")} title="досягнення">
+            <button className="btn" onClick={() => setSheet("ach")} title={`досягнення${whoseTip}`}>
               <Trophy size={14} /> {earnedCount}/{cafe.earned.length}
             </button>
-            <button className="btn" onClick={() => setSheet("shop")} title="кав'ярня: меблі за кавові зерна">
+            <button
+              className="btn"
+              onClick={() => setSheet("shop")}
+              title={`кав'ярня: меблі за кавові зерна${whoseTip}`}
+            >
               <ShoppingBag size={14} /> ☕ {Math.max(0, cafe.beans.left).toLocaleString("uk-UA")}
             </button>
           </>
@@ -345,7 +357,9 @@ export default function LiveDashboard({
         />
       )}
 
-      {sheet === "ach" && <AchPanel cafe={cafe} onClose={() => setSheet(null)} />}
+      {(sheet === "ach" || sheet === "myAch") && (
+        <AchPanel cafe={sheet === "myAch" ? (rooms.mine ?? cafe) : cafe} onClose={() => setSheet(null)} />
+      )}
       {sheet === "shop" && (
         <ShopPanel
           cafe={cafe}
@@ -379,14 +393,14 @@ export default function LiveDashboard({
         />
       )}
       <InviteToast duels={games.duels} onPlay={() => setGamesOpen(true)} />
-      {cafe.fresh.length > 0 && sheet !== "ach" && (
+      {rooms.fresh.length > 0 && sheet !== "ach" && sheet !== "myAch" && (
         <AchToast
-          fresh={cafe.fresh}
+          fresh={rooms.fresh}
           onOpen={() => {
-            cafe.dismiss();
-            setSheet("ach");
+            rooms.dismiss();
+            setSheet("myAch");
           }}
-          onDismiss={cafe.dismiss}
+          onDismiss={rooms.dismiss}
         />
       )}
 
@@ -421,7 +435,8 @@ export default function LiveDashboard({
           current={whole ? LOBBY : (session?.id ?? null)}
           waiting={flagged}
           now={now}
-          look={{ theme: themeOf(cafe.settings.theme), decor: cafe.decor, interior: cafe.interior }}
+          title={cafeName}
+          lookOf={lookOf}
           tools={
             <>
               <Presence guests={social.guests} />
@@ -446,7 +461,7 @@ export default function LiveDashboard({
         />
       ) : (
         <Stage
-          title={whole ? "уся команда" : session ? session.label : (cafe.interior.title ?? "інтернет-кафе")}
+          title={whole ? "уся команда" : session ? session.label : (cafeName ?? "інтернет-кафе")}
           sub={
             replay && replay.session === session?.id ? (
               <ReplayBar
