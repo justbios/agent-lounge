@@ -712,6 +712,66 @@ body {
   align-items: center;
   gap: 6px;
 }
+.notice.asks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.notice.asks .away-hd span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.notice.asks .btn {
+  flex: none;
+}
+.notice.asks-now {
+  color: #ffe9b8;
+  background: rgba(255, 196, 64, 0.1);
+  border-color: rgba(255, 196, 64, 0.45);
+}
+.ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ask-what {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 260px;
+}
+.ask-what code {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 6px 8px;
+}
+.ask-chat {
+  font: inherit;
+  font-weight: 700;
+  color: #fff;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ask-btns {
+  display: flex;
+  gap: 6px;
+}
+.btn.ask-yes {
+  color: #0c1a10;
+  background: #7fe0a0;
+  border-color: #7fe0a0;
+}
 .notice code {
   font-family: var(--mono);
   background: rgba(255, 255, 255, 0.06);

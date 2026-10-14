@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Bell, BellRing, Send } from "lucide-react";
 import { chime, unlockChime } from "@/lib/live/chime";
 import { setAlertPrefs, useAlertPrefs } from "@/lib/live/useAlerts";
+import { Asks } from "@/lib/live/useAsks";
 import { PushControl } from "@/lib/live/usePush";
 
 function PushSection({ push }: { push: PushControl }) {
@@ -44,7 +46,32 @@ function PushSection({ push }: { push: PushControl }) {
   );
 }
 
-export default function AlertsMenu({ cloud, push }: { cloud: boolean; push: PushControl }) {
+function AwaySection({ asks }: { asks: Asks }) {
+  if (!asks.ok)
+    return (
+      <p className="alerts-hint">
+        Відповідати Claude на дозволи звідси можна лише з особистим ключем:{" "}
+        <Link href="/connect">підключити Claude</Link> → «Особисті ключі».
+      </p>
+    );
+  const on = asks.until != null;
+  const till = on ? new Date(asks.until!).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }) : "";
+  return (
+    <label className="alerts-row">
+      <input type="checkbox" checked={on} disabled={asks.busy} onChange={(e) => asks.setAway(e.target.checked)} />
+      <span>
+        <b>Я не за комп&apos;ютером</b>
+        <small>
+          {on
+            ? `до ${till}: коли Claude просить дозволу, питання до 10 хвилин чекає тут, а не в терміналі`
+            : "коли Claude просить дозволу, питання прийде сюди й пушем, і ти дозволиш чи заборониш звідси"}
+        </small>
+      </span>
+    </label>
+  );
+}
+
+export default function AlertsMenu({ cloud, push, asks }: { cloud: boolean; push: PushControl; asks: Asks | null }) {
   const prefs = useAlertPrefs();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -62,7 +89,7 @@ export default function AlertsMenu({ cloud, push }: { cloud: boolean; push: Push
     };
   }, [open]);
 
-  const anyOn = prefs.sound || (cloud ? push.state === "on" : prefs.desktop);
+  const anyOn = prefs.sound || (cloud ? push.state === "on" : prefs.desktop) || asks?.until != null;
 
   return (
     <div className="alerts" ref={box}>
@@ -114,6 +141,7 @@ export default function AlertsMenu({ cloud, push }: { cloud: boolean; push: Push
               </span>
             </label>
           )}
+          {asks && <AwaySection asks={asks} />}
           {push.note && <p className="alerts-note">{push.note}</p>}
         </div>
       )}

@@ -11,13 +11,19 @@ const HIDE_KEY = "relay.staleHidden";
  * only unnamed events, the ones a single person's setup sends, do.
  */
 export function staleHooks(events: LiveEvent[], me: string | null): boolean {
+  return staleVersion(events, me) != null;
+}
+
+/** The version of this person's outdated hooks, 0 for ones from before versions; null when they are current. */
+export function staleVersion(events: LiveEvent[], me: string | null): number | null {
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i];
     if ((e.kind !== "prompt" && e.kind !== "stop") || e.agent || e.session === CHECK_SESSION) continue;
     if (e.member && e.member !== me) continue;
-    return e.via !== "http" && (e.hv ?? 0) < HOOK_VERSION;
+    const v = e.hv ?? 0;
+    return e.via !== "http" && v < HOOK_VERSION ? v : null;
   }
-  return false;
+  return null;
 }
 
 export interface HooksSeen {

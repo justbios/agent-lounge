@@ -8,7 +8,7 @@ import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
 import { openTracks } from "@/lib/live/achievements";
-import { hideStale, staleHooks, useStaleHidden } from "@/lib/live/hookHealth";
+import { hideStale, staleVersion, useStaleHidden } from "@/lib/live/hookHealth";
 import { LOBBY, houseFloors, useHouseScenes } from "@/lib/live/house";
 import { CLAUDE_COLOR, LiveSession, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
 import { leaveView, useViewRoom } from "@/lib/live/relayKey";
@@ -16,6 +16,9 @@ import { setFocus, setMe, useTeamView } from "@/lib/live/team";
 import { buildTeamModel, memberOf, teamAlert } from "@/lib/live/teamModel";
 import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
+import { useAsks } from "@/lib/live/useAsks";
+import { useAccess } from "@/lib/live/access";
+import { settledAsks } from "@/lib/live/asks";
 import { awayEmpty, awaySummary, dismissAway, useAway } from "@/lib/live/away";
 import { useBeanGains } from "@/lib/live/useBeanGains";
 import { useCafe } from "@/lib/live/useCafe";
@@ -42,6 +45,7 @@ import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
 import BetStrip from "./live/BetStrip";
 import EmptyCafe from "./live/EmptyCafe";
+import AskCard from "./live/AskCard";
 import AwayCard from "./live/AwayCard";
 import GamesPanel from "./live/GamesPanel";
 import House, { ACTIVE_MS } from "./live/House";
@@ -131,6 +135,13 @@ function useRoster(cwd: string | undefined): string[] {
   }, [cwd]);
   return roster && roster.cwd === cwd ? roster.agents : NONE;
 }
+
+const STALE_OLD =
+  "Підключення Claude Code в тебе старої версії: Relay не бачить лімітів підписки, заповнення контексту " +
+  "і не всі назви чатів.";
+const STALE_ASKS =
+  "Підключення Claude Code в тебе старої версії: з новою кафе вміє відповідати Claude на запити дозволу, " +
+  "поки ти не за комп'ютером.";
 
 function useNow(): number {
   const [now, setNow] = useState(0);
@@ -229,6 +240,10 @@ export default function LiveDashboard({
     () => (awaySince == null ? null : awaySummary(feed.events, sessions, awaySince, team.me)),
     [awaySince, feed.events, sessions, team.me],
   );
+  const own = cloud && !viewing ? roomKey : null;
+  const access = useAccess(own);
+  const asks = useAsks(own, !!access?.name);
+  const settled = useMemo(() => settledAsks(asks.asks, feed.events), [asks.asks, feed.events]);
   const gainsFor = cafe.kind === "mine" || cafe.kind === "theirs" ? cafe.whose : null;
   const gains = useBeanGains(feed.events, gainsFor, !!cafe.progress && cafe.beans.earned > 0 && !playing);
   const cafeName = rooms.common.interior.title;
@@ -309,7 +324,7 @@ export default function LiveDashboard({
     .filter((r) => r.seat >= 0);
   const myLimits = limits.find((l) => l.member === (team.me ?? "")) ?? limits[0] ?? null;
   const staleHidden = useStaleHidden();
-  const stale = useMemo(() => !viewing && staleHooks(feed.events, team.me), [viewing, feed.events, team.me]);
+  const stale = useMemo(() => (viewing ? null : staleVersion(feed.events, team.me)), [viewing, feed.events, team.me]);
 
   const offline = feed.status === "offline";
   const unplugged = cloud && !roomKey && !viewing;
@@ -345,21 +360,22 @@ export default function LiveDashboard({
             </button>
           </>
         )}
-        {!viewing && <AlertsMenu cloud={cloud} push={push} />}
+        {!viewing && <AlertsMenu cloud={cloud} push={push} asks={own && access ? asks : null} />}
       </StatBar>
 
-      {stale && !staleHidden && (
+      {stale != null && !staleHidden && (
         <div className="notice stale-hooks">
           <span>
-            Підключення Claude Code в тебе старої версії: Relay не бачить лімітів підписки, заповнення контексту
-            і не всі назви чатів. Онови його тією самою фразою на сторінці{" "}
-            <Link href="/connect">підключити Claude</Link>, це пів хвилини.
+            {stale >= 3 ? STALE_ASKS : STALE_OLD}{" "}
+            Онови його тією самою фразою на сторінці <Link href="/connect">підключити Claude</Link>, це пів хвилини.
           </span>
           <button className="btn btn-ic" onClick={hideStale} aria-label="сховати">
             <X size={14} />
           </button>
         </div>
       )}
+
+      {now > 0 && <AskCard asks={asks} now={now} settled={settled} onOpen={openChat} />}
 
       {away && !awayEmpty(away) && now > 0 && (
         <AwayCard

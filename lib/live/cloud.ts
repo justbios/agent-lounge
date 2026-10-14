@@ -46,3 +46,30 @@ export async function cloudPushTargets(roomKey: string, session: string): Promis
 export async function cloudPushGone(roomKey: string, endpoint: string): Promise<void> {
   await rpc("relay_push_unsubscribe", { p_key: roomKey, p_endpoint: endpoint });
 }
+
+/** Files a permission prompt in the café while the key's owner is away; null when they are not, or on any failure. */
+export async function cloudAsk(
+  roomKey: string,
+  a: { session: string; label: string; tool: string; detail: string },
+): Promise<string | null> {
+  const r = await rpc("relay_ask_open", {
+    p_key: roomKey,
+    p_session: a.session,
+    p_label: a.label,
+    p_tool: a.tool,
+    p_detail: a.detail,
+  });
+  if (!r?.ok) return null;
+  const id = await r.json().catch(() => null);
+  return typeof id === "string" ? id : null;
+}
+
+/** gone: the ask expired or its owner came back, so the terminal asks as usual. */
+export type AskState = "allow" | "deny" | "open" | "gone";
+
+export async function cloudAskWait(roomKey: string, id: string): Promise<AskState | null> {
+  const r = await rpc("relay_ask_wait", { p_key: roomKey, p_id: id });
+  if (!r?.ok) return null;
+  const a = await r.json().catch(() => null);
+  return a === "allow" || a === "deny" || a === "open" || a === "gone" ? a : null;
+}

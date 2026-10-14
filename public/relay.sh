@@ -1,12 +1,13 @@
 #!/bin/sh
 # Relay for Claude Code: forwards a hook's JSON to a Relay café, with extras after marker lines. Async, silent, exits 0.
 #   relay.sh [--url URL] [roster] [title] [usage] [limits]   hook, JSON on stdin
+#   relay.sh [--url URL] ask                                  PermissionRequest hook, the only one Claude waits for
 #   relay.sh statusline                                       statusLine command: keeps limits and context, prints a line
 #   relay.sh limits                                           the same, silent, for chaining after another statusLine
 # Without --url the café link comes from ~/.config/relay/hook-url (written by /relay:connect).
 # Token counts and the last limits are kept in ~/.local/state/relay; nothing leaves this machine but the café's own events.
 state="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}"
-version=3
+version=4
 
 field() {
   printf '%s' "$1" | grep -oE "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d'"' -f4
@@ -119,6 +120,52 @@ save_ctx() {
   printf '%s %s\n' "${used:-0}" "${size%.*}" > "$state/ctx/$(safe "$sid")"
 }
 
+# The chat's name, which Claude Code writes into the transcript as it changes.
+title_of() {
+  t=$(field "$1" transcript_path)
+  [ -f "$t" ] && tail -c 1048576 "$t" | grep -oE '"customTitle":"([^"\\]|\\.)*"' | tail -n 1
+}
+
+decide() {
+  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"%s"%s}}}' "$1" "$2"
+  exit 0
+}
+
+# Only while you have turned on «я не за комп'ютером» in the café does it answer: the café shows the request, waits
+# up to 10 minutes for «дозволити» or «заборонити», and answers Claude with that. Otherwise, after those 10 minutes,
+# or on any failure it prints nothing, and the terminal asks as usual. Never «always allow», never a changed command.
+ask() {
+  j=$(cat)
+  case "$(field "$j" tool_name)" in '' | AskUserQuestion | ExitPlanMode) exit 0 ;; esac
+  case "$url" in https://*/api/claude-hook\?*) ;; *) exit 0 ;; esac
+  base="${url%%/api/claude-hook*}/api/claude-ask?${url#*\?}"
+  id=$({
+    printf '%s' "$j"
+    printf '\n#relay-title\n'
+    title_of "$j"
+    printf '\n#relay-v\n%s\n' "$version"
+  } | curl -s -m 4 -H 'content-type: text/plain' --data-binary @- "$base" |
+    grep -oE '"id":"[0-9a-f-]{36}"' | cut -d'"' -f4)
+  [ -n "$id" ] || exit 0
+  end=$(($(date +%s) + 600))
+  fails=0
+  while [ "$(date +%s)" -lt "$end" ]; do
+    a=$(curl -s -m 30 "$base&id=$id" | grep -oE '"a":"[a-z]+"' | cut -d'"' -f4)
+    case "$a" in
+      allow) decide allow "" ;;
+      deny) decide deny ',"message":"The user denied this from the Relay café."' ;;
+      gone) exit 0 ;;
+      open) fails=0 ;;
+      *)
+        fails=$((fails + 1))
+        [ "$fails" -ge 3 ] && exit 0
+        sleep 3
+        ;;
+    esac
+  done
+  exit 0
+}
+
 clock() {
   date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null
 }
@@ -153,6 +200,7 @@ case "$url" in
   https://*/api/claude-hook* | http://127.0.0.1:*/api/claude-hook*) ;;
   *) cat >/dev/null; exit 0 ;;
 esac
+[ "$1" = "ask" ] && ask
 if [ $# -eq 0 ]; then
   curl -s -m 3 -o /dev/null -H 'content-type: application/json' --data-binary @- "$url"
   exit 0
@@ -168,8 +216,7 @@ j=$(cat)
         ;;
       title)
         printf '\n#relay-title\n'
-        t=$(field "$j" transcript_path)
-        [ -f "$t" ] && tail -c 1048576 "$t" | grep -oE '"customTitle":"([^"\\]|\\.)*"' | tail -n 1
+        title_of "$j"
         ;;
       usage)
         usage "$j"
