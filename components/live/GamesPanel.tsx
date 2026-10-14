@@ -63,7 +63,7 @@ export default function GamesPanel({
   onClose: () => void;
 }) {
   const shut = () => {
-    if (duels.match?.kind === "pong") duels.close();
+    if (duels.match && duels.match.kind !== "ttt") duels.close();
     onClose();
   };
   const close = useEffectEvent(shut);
@@ -96,8 +96,8 @@ export default function GamesPanel({
               guests={guests}
               room={room}
               online={online}
-              onPongEnd={(win) => {
-                scores.record(me, "pong", win);
+              onEnd={(kind, win) => {
+                scores.record(me, kind, win);
                 if (duels.match) duels.finish(duels.match.id);
               }}
             />
@@ -106,6 +106,12 @@ export default function GamesPanel({
                 <div>
                   <div className="muted-sm">пінг-понг</div>
                   <Leaders rows={scores.rows} game="pong" by="wins" me={me} />
+                </div>
+              )}
+              {played(scores.rows, "cables", "wins").length > 0 && (
+                <div>
+                  <div className="muted-sm">кабелі</div>
+                  <Leaders rows={scores.rows} game="cables" by="wins" me={me} />
                 </div>
               )}
               {played(scores.rows, "ttt", "wins").length > 0 && (

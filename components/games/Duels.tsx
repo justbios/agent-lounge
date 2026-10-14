@@ -5,11 +5,12 @@ import { DUEL_NAMES, DuelKind } from "@/lib/live/duel";
 import { Guest } from "@/lib/live/social";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Ttt } from "@/lib/live/useTicTacToe";
+import Cables from "./Cables";
 import FullscreenButton from "./FullscreenButton";
 import Pong from "./Pong";
 import TicTacToe from "./TicTacToe";
 
-const KINDS: DuelKind[] = ["pong", "ttt"];
+const KINDS: DuelKind[] = ["pong", "cables", "ttt"];
 
 /** The match being played, or who in the café can be called to one and the invite in flight. */
 export default function Duels({
@@ -18,14 +19,15 @@ export default function Duels({
   guests,
   room,
   online,
-  onPongEnd,
+  onEnd,
 }: {
   duels: DuelsState;
   ttt: Ttt;
   guests: Guest[];
   room: string | null;
   online: boolean;
-  onPongEnd: (win: boolean) => void;
+  /** a real-time match was played to the end */
+  onEnd: (kind: "pong" | "cables", win: boolean) => void;
 }) {
   const board = useRef<HTMLDivElement>(null);
   const m = duels.match;
@@ -37,8 +39,10 @@ export default function Duels({
         <div className="duel-board" ref={board}>
           {m.kind === "ttt" ? (
             <TicTacToe ttt={ttt} self={duels.self} note={note} />
+          ) : m.kind === "cables" ? (
+            <Cables key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("cables", w)} />
           ) : (
-            <Pong key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={onPongEnd} />
+            <Pong key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("pong", w)} />
           )}
         </div>
         <div className="duel-tools">

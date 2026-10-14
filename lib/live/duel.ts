@@ -1,6 +1,6 @@
-export type DuelKind = "ttt" | "pong";
+export type DuelKind = "ttt" | "pong" | "cables";
 
-export const DUEL_NAMES: Record<DuelKind, string> = { ttt: "хрестики-нулики", pong: "пінг-понг" };
+export const DUEL_NAMES: Record<DuelKind, string> = { ttt: "хрестики-нулики", pong: "пінг-понг", cables: "кабелі" };
 
 export interface Player {
   id: string;
@@ -40,7 +40,7 @@ export type DuelMsg =
   | { t: "accept"; kind: DuelKind; game: string; x: Player; o: Player }
   | { t: "leave"; game: string; by: string };
 
-const kindOf = (v: unknown): DuelKind | null => (v === "ttt" || v === "pong" ? v : null);
+const kindOf = (v: unknown): DuelKind | null => (v === "ttt" || v === "pong" || v === "cables" ? v : null);
 
 export function cleanDuel(p: unknown): DuelMsg | null {
   const m = p as Record<string, unknown> | null;
