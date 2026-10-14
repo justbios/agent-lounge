@@ -1,4 +1,4 @@
-import { CafeSettings, Decor, Earned, Progress, decorOf, evaluate, localDay } from "./achievements";
+import { CafeSettings, Decor, Earned, Progress, ProgressDay, decorOf, evaluate, localDay } from "./achievements";
 import {
   BEANS_FROM,
   BEAN_ERA,
@@ -12,6 +12,7 @@ import {
   cleanInterior,
   itemOf,
 } from "./interior";
+import { QUEST_BEANS, questsWon } from "./quest";
 
 export const NO_SETTINGS: CafeSettings = { cat_name: null, theme: null };
 
@@ -56,6 +57,8 @@ export interface RoomSource {
   editable: boolean;
   /** the café's own name, for a room that has none */
   cafeTitle?: string;
+  /** the whole café's days, whose weekly quests pay this room too; a room's own days when absent */
+  teamDays?: ProgressDay[];
   save: (patch: Partial<CafeSettings>) => Promise<boolean>;
 }
 
@@ -79,7 +82,8 @@ export function cafeRoom(src: RoomSource): CafeState {
   const earned = progress ? evaluate(progress) : [];
   const done = earned.filter((e) => e.done);
   const interior = cleanInterior(settings.interior);
-  const rewards = done.filter((e) => e.day && e.day > FROM_DAY).reduce((s, e) => s + e.def.reward, 0);
+  const quests = questsWon(src.teamDays ?? progress?.days ?? [], FROM_DAY) * QUEST_BEANS;
+  const rewards = quests + done.filter((e) => e.day && e.day > FROM_DAY).reduce((s, e) => s + e.def.reward, 0);
   const earnedBeans = beansEarned(work, rewards, daysAsked(progress, work));
   const spent = beansSpent(interior);
   const beans = { earned: earnedBeans, spent, left: earnedBeans - spent };

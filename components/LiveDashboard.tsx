@@ -406,7 +406,11 @@ export default function LiveDashboard({
       )}
 
       {(sheet === "ach" || sheet === "myAch") && (
-        <AchPanel cafe={sheet === "myAch" ? (rooms.mine ?? cafe) : cafe} onClose={() => setSheet(null)} />
+        <AchPanel
+          cafe={sheet === "myAch" ? (rooms.mine ?? cafe) : cafe}
+          week={{ days: rooms.common.progress?.days ?? [], members: rooms.teamDays }}
+          onClose={() => setSheet(null)}
+        />
       )}
       {sheet === "shop" && (
         <ShopPanel

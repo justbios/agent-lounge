@@ -4,17 +4,12 @@ const DAY_MS = 86_400_000;
 /** Weeks the heat map shows, this one included. */
 export const MAP_WEEKS = 26;
 
-const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY_MS);
-const dayStr = (n: number) => new Date(n * DAY_MS).toISOString().slice(0, 10);
+export const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY_MS);
+export const dayStr = (n: number) => new Date(n * DAY_MS).toISOString().slice(0, 10);
 /** Monday-based week number: 1970-01-01 was a Thursday. */
-const weekOf = (n: number) => Math.floor((n + 3) / 7);
-
-/** Today in the viewer's own calendar, the same way the server counts local days. */
-export const localToday = (now: number) => {
-  const d = new Date(now);
-  const two = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
-};
+export const weekOf = (n: number) => Math.floor((n + 3) / 7);
+/** The Monday that starts week `w`. */
+export const weekMonday = (w: number) => w * 7 - 3;
 
 /** How much got done in a day: questions asked and tool calls made. */
 export const dayWork = (d: ProgressDay) => d.prompts + d.tools;
@@ -66,7 +61,7 @@ export interface Cell {
 export function heatWeeks(days: ProgressDay[], today: string): Cell[][] {
   const work = new Map(days.map((d) => [dayNum(d.day), dayWork(d)]));
   const t = dayNum(today);
-  const first = (weekOf(t) - MAP_WEEKS + 1) * 7 - 3;
+  const first = weekMonday(weekOf(t) - MAP_WEEKS + 1);
   const seen = [...work.entries()].filter(([n, w]) => n >= first && n <= t && w > 0).map(([, w]) => w);
   const sorted = seen.sort((a, b) => a - b);
   const cut = [0.25, 0.5, 0.75].map((q) => sorted[Math.floor(q * (sorted.length - 1))] ?? 0);

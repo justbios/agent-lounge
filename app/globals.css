@@ -1888,6 +1888,53 @@ body {
 .days-legend .days-cell {
   width: 10px;
 }
+.quest {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.quest.met {
+  border-color: rgba(127, 224, 160, 0.5);
+}
+.quest-hd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.quest-text {
+  font-size: 13px;
+  color: var(--muted);
+}
+.quest-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.quest-bar span {
+  display: block;
+  height: 100%;
+  background: #7fe0a0;
+}
+.barista-hd {
+  margin: 4px 0 6px;
+}
+.barista {
+  margin: 0 0 10px;
+  padding-left: 22px;
+  font-size: 13px;
+}
+.barista li {
+  padding: 2px 0;
+}
+.barista li span:first-child {
+  margin-right: 8px;
+}
 .ach {
   display: flex;
   gap: 10px;

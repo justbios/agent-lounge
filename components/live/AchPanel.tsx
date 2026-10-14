@@ -1,12 +1,13 @@
 "use client";
 
-import { Earned } from "@/lib/live/achievements";
+import { Earned, ProgressDay } from "@/lib/live/achievements";
 import { THEMES } from "@/components/cafe/theme";
 import { trackInfo } from "@/lib/live/tracks";
 import { CafeState } from "@/lib/live/useCafe";
 import { VISITORS, VISITOR_KINDS, useGuestBook } from "@/lib/live/visitors";
 import DaysMap from "./DaysMap";
 import Sheet from "./Sheet";
+import WeekQuest from "./WeekQuest";
 import { fmtTokens } from "./tokens";
 
 const num = (n: number) => (n >= 1e6 ? fmtTokens(n) : n.toLocaleString("uk-UA"));
@@ -86,7 +87,14 @@ function GuestBook() {
   );
 }
 
-export default function AchPanel({ cafe, onClose }: { cafe: CafeState; onClose: () => void }) {
+export interface TeamWeek {
+  /** the whole café's days */
+  days: ProgressDay[];
+  /** each teammate's days, on personal keys */
+  members: Record<string, ProgressDay[]> | null;
+}
+
+export default function AchPanel({ cafe, week, onClose }: { cafe: CafeState; week: TeamWeek; onClose: () => void }) {
   const done = cafe.earned.filter((e) => e.done).length;
   const decor = cafe.earned.filter((e) => e.def.decor);
   const learn = cafe.earned.filter((e) => e.def.learn);
@@ -103,13 +111,14 @@ export default function AchPanel({ cafe, onClose }: { cafe: CafeState; onClose: 
         {cafe.kind === "theirs" && `${cafe.whose}: досягнення лише з власної роботи. `}
         {cafe.kind === "lobby" && "Досягнення всієї команди разом. "}
         Кожне досягнення рахується з хуків за весь час і дає від 50 до 300 зерен, якщо отримане після нового відліку
-        зерен. Деякі додають у кімнату нову річ, відкривають тему чи платівку на автоматі. Перші шість навчають
-        прийомів Claude Code, яких легко не помітити.
+        зерен; квест тижня дає ще 100. Деякі додають у кімнату нову річ, відкривають тему чи платівку на автоматі.
+        Перші шість навчають прийомів Claude Code, яких легко не помітити.
       </p>
       {cafe.error && <p className="key-paste-bad">Не вдалося дістати прогрес, спробую ще раз за хвилину.</p>}
       {cafe.progress && (
         <>
           <DaysMap days={cafe.progress.days} />
+          <WeekQuest days={week.days} members={week.members} />
           <div className="share-ttl">Спробуй у Claude Code</div>
           <div className="ach-grid">
             {learn.map((e) => (

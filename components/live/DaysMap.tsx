@@ -1,15 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ProgressDay } from "@/lib/live/achievements";
-import { currentStreak, heatWeeks, localToday } from "@/lib/live/streak";
+import { ProgressDay, localDay } from "@/lib/live/achievements";
+import { currentStreak, heatWeeks } from "@/lib/live/streak";
 import { plural } from "./format";
 
 const dayLabel = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
 
 /** The days with agents at work, GitHub style, and the run of them that reaches today. */
 export default function DaysMap({ days }: { days: ProgressDay[] }) {
-  const [today] = useState(() => localToday(Date.now()));
+  const [today] = useState(() => localDay(Date.now()));
   const weeks = useMemo(() => heatWeeks(days, today), [days, today]);
   const s = useMemo(() => currentStreak(days, today), [days, today]);
 

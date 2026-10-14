@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useAccess } from "./access";
-import { CafeSettings, Earned, Progress, progressFromHourly } from "./achievements";
+import { CafeSettings, Earned, Progress, ProgressDay, progressFromHourly } from "./achievements";
 import { CafeState, NO_SETTINGS, RoomKind, cafeRoom } from "./cafeRoom";
 import { BEANS_FROM, BEAN_RULES, BeanWork, NO_WORK, beanWork } from "./interior";
 import { HourRow, aggregateHourly } from "./recap";
@@ -77,6 +77,8 @@ export interface CafeRooms {
   mine: CafeState | null;
   /** the room a teammate's chats sit in; the café itself off personal keys, or for a chat with no name */
   roomOf: (member: string | null) => CafeState;
+  /** on personal keys, each teammate's days, for the barista of the week */
+  teamDays: Record<string, ProgressDay[]> | null;
   /** achievements earned since this browser last looked, for the toast: your own on personal keys */
   fresh: Earned[];
   dismiss: () => void;
@@ -222,12 +224,18 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
           error: teamError,
           editable: own && !viewing,
           cafeTitle: common.interior.title,
+          teamDays: progress?.days ?? [],
           save: own && !viewing ? memberSave : async () => false,
         }),
       );
     }
     return m;
-  }, [personal, members, me, mySaved, memberSave, teamError, viewing, common.interior.title]);
+  }, [personal, members, me, mySaved, memberSave, teamError, viewing, common.interior.title, progress]);
+
+  const teamDays = useMemo(() => {
+    if (!personal || !members) return null;
+    return Object.fromEntries(Object.entries(members).map(([name, d]) => [name, d.progress.days]));
+  }, [personal, members]);
 
   const mine = me ? (rooms.get(me) ?? null) : null;
   const roomOf = useCallback(
@@ -250,5 +258,5 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
     if (scope) markSeen(scope, fresh.map((e) => e.def.id));
   }, [scope, fresh]);
 
-  return { common, personal, mine, roomOf, fresh, dismiss };
+  return { common, personal, mine, roomOf, teamDays, fresh, dismiss };
 }
