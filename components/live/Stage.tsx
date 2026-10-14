@@ -1,7 +1,17 @@
 "use client";
 
 import { ReactNode, useEffect, useEffectEvent, useState } from "react";
-import { Building2, Gamepad2, Maximize2, MessageCircle, Minimize2, ScrollText, Users, X } from "lucide-react";
+import {
+  Building2,
+  Gamepad2,
+  LayoutGrid,
+  Maximize2,
+  MessageCircle,
+  Minimize2,
+  ScrollText,
+  Users,
+  X,
+} from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { openTracks } from "@/lib/live/achievements";
 import { ItemId, Placed, itemOf } from "@/lib/live/interior";
@@ -125,6 +135,7 @@ export default function Stage({
   viewing,
   onRecap,
   onShop,
+  onPlan,
   onGames,
   placing,
   onPlacing,
@@ -159,6 +170,8 @@ export default function Stage({
   viewing: boolean;
   onRecap: () => void;
   onShop: () => void;
+  /** the room's plan: pieces, character packs and the plan code; the keeper's alone */
+  onPlan: () => void;
   onGames: () => void;
   placing: Placing | null;
   onPlacing: (p: Placing | null) => void;
@@ -200,6 +213,7 @@ export default function Stage({
     { icon: <Gamepad2 size={14} />, label: "ігри", onClick: onGames },
     { icon: <Users size={14} />, label: "агенти", onClick: () => flip("agents") },
     { icon: <ScrollText size={14} />, label: "журнал подій", onClick: () => flip("log") },
+    ...(cafe.editable ? [{ icon: <LayoutGrid size={14} />, label: "план кафе", onClick: onPlan }] : []),
   ];
   const place = async (p: Placed) => {
     onPlacing(null);

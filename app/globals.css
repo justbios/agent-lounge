@@ -1997,6 +1997,78 @@ body {
 .barista li span:first-child {
   margin-right: 8px;
 }
+.plan-undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.plan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 14px;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.plan-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.plan-list li > span {
+  flex: 1;
+  min-width: 120px;
+}
+.plan-packs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  margin: 8px 0;
+}
+.plan-pack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  font-size: 13px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.plan-pack .btn {
+  align-self: flex-start;
+  margin-top: 4px;
+}
+.plan-swatches {
+  display: flex;
+  gap: 4px;
+}
+.plan-swatches span {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.plan-paste {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+.plan-paste textarea {
+  flex: 1;
+  min-width: 0;
+  resize: vertical;
+  padding: 7px 9px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--border-2);
+  border-radius: 10px;
+}
 .ach {
   display: flex;
   gap: 10px;

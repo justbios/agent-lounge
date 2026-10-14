@@ -21,6 +21,7 @@ import { useAccess } from "@/lib/live/access";
 import { settledAsks } from "@/lib/live/asks";
 import { awayEmpty, awaySummary, dismissAway, useAway } from "@/lib/live/away";
 import { useBeanGains } from "@/lib/live/useBeanGains";
+import { useArrangeHistory } from "@/lib/live/useArrangeHistory";
 import { useCafe } from "@/lib/live/useCafe";
 import { useCafeSound } from "@/lib/live/useCafeSound";
 import { useChat } from "@/lib/live/useChat";
@@ -41,6 +42,7 @@ import ChatPanel from "./live/ChatPanel";
 import JukeboxMenu from "./live/Jukebox";
 import TunePlayer from "./live/TunePlayer";
 import ShopPanel from "./live/ShopPanel";
+import PlanPanel from "./live/PlanPanel";
 import AgentList from "./live/AgentList";
 import EventLog from "./live/EventLog";
 import BetStrip from "./live/BetStrip";
@@ -220,7 +222,7 @@ export default function LiveDashboard({
   const viewRoom = useViewRoom();
   const [recapOpen, setRecapOpen] = useState(false);
   const recap = useRecap({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events }, recapOpen);
-  const [sheet, setSheet] = useState<"ach" | "myAch" | "shop" | null>(null);
+  const [sheet, setSheet] = useState<"ach" | "myAch" | "shop" | "plan" | null>(null);
   const [placing, setPlacing] = useState<Placing | null>(null);
   const rooms = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
   const [replay, setReplay] = useState<Replay | null>(null);
@@ -234,6 +236,8 @@ export default function LiveDashboard({
   const inHouse = houseOn && view === "house";
   const owner = inHouse || whole || !session ? null : memberOf(session) || null;
   const cafe = inHouse ? (rooms.mine ?? rooms.common) : rooms.roomOf(owner);
+  const { placed, looks } = cafe.interior;
+  const arrangeHistory = useArrangeHistory(`${cafe.kind}:${cafe.whose ?? ""}`, { placed, looks }, cafe.arrange);
   const earnedCount = cafe.earned.filter((e) => e.done).length;
   const awaySince = useAway(viewing ? (viewRoom ? `v:${viewRoom}` : null) : cloud ? roomKey : "local");
   const away = useMemo(
@@ -422,6 +426,18 @@ export default function LiveDashboard({
           }}
         />
       )}
+      {sheet === "plan" && cafe.editable && (
+        <PlanPanel
+          cafe={cafe}
+          agents={model.agents.map((a) => a.id)}
+          history={arrangeHistory}
+          onClose={() => setSheet(null)}
+          onMove={(p) => {
+            setPlacing({ item: p.item, pid: p.pid });
+            setSheet(null);
+          }}
+        />
+      )}
       {gamesOpen && (
         <GamesPanel
           scores={games.scores}
@@ -557,6 +573,7 @@ export default function LiveDashboard({
           viewing={viewing}
           onRecap={() => setRecapOpen(true)}
           onShop={() => setSheet("shop")}
+          onPlan={() => setSheet("plan")}
           onGames={() => setGamesOpen(true)}
           placing={placing}
           onPlacing={setPlacing}

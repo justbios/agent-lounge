@@ -45,6 +45,8 @@ export interface CafeState {
   setLook: (agent: string, pick: LookPick | null) => Promise<boolean>;
   /** the neon sign's own line, the second cat's name, the café's name and whether its pet is a dog */
   setNames: (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) => Promise<boolean>;
+  /** puts every piece and look as given at once: only pieces the room owns stand, and nothing is bought */
+  arrange: (next: Pick<Interior, "placed" | "looks">) => Promise<boolean>;
 }
 
 export interface RoomSource {
@@ -108,6 +110,8 @@ export function cafeRoom(src: RoomSource): CafeState {
   };
   const setNames = (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) =>
     fit(cleanInterior({ ...interior, ...patch }));
+  const arrange = (next: Pick<Interior, "placed" | "looks">) =>
+    fit(cleanInterior({ ...interior, placed: next.placed, looks: next.looks }));
 
   return {
     kind,
@@ -127,5 +131,6 @@ export function cafeRoom(src: RoomSource): CafeState {
     stow,
     setLook,
     setNames,
+    arrange,
   };
 }
