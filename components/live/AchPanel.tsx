@@ -5,6 +5,7 @@ import { THEMES } from "@/components/cafe/theme";
 import { trackInfo } from "@/lib/live/tracks";
 import { CafeState } from "@/lib/live/useCafe";
 import { VISITORS, VISITOR_KINDS, useGuestBook } from "@/lib/live/visitors";
+import DaysMap from "./DaysMap";
 import Sheet from "./Sheet";
 import { fmtTokens } from "./tokens";
 
@@ -108,6 +109,7 @@ export default function AchPanel({ cafe, onClose }: { cafe: CafeState; onClose: 
       {cafe.error && <p className="key-paste-bad">Не вдалося дістати прогрес, спробую ще раз за хвилину.</p>}
       {cafe.progress && (
         <>
+          <DaysMap days={cafe.progress.days} />
           <div className="share-ttl">Спробуй у Claude Code</div>
           <div className="ach-grid">
             {learn.map((e) => (

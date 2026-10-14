@@ -1837,6 +1837,57 @@ body {
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
+.days-streak {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin-bottom: 4px;
+}
+.days-streak b {
+  font-size: 15px;
+}
+.days-map {
+  display: grid;
+  grid-template-columns: repeat(26, 1fr);
+  grid-template-rows: repeat(7, auto);
+  grid-auto-flow: column;
+  gap: 3px;
+  margin: 8px 0 6px;
+}
+.days-cell {
+  display: block;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.06);
+}
+.days-cell.l1 {
+  background: rgba(127, 224, 160, 0.3);
+}
+.days-cell.l2 {
+  background: rgba(127, 224, 160, 0.5);
+}
+.days-cell.l3 {
+  background: rgba(127, 224, 160, 0.75);
+}
+.days-cell.l4 {
+  background: #7fe0a0;
+}
+.days-cell.frozen {
+  background: rgba(92, 225, 255, 0.55);
+}
+.days-cell.future {
+  background: transparent;
+}
+.days-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  margin-bottom: 14px;
+}
+.days-legend .days-cell {
+  width: 10px;
+}
 .ach {
   display: flex;
   gap: 10px;
