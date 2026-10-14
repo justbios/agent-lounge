@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
+import { KEEP, thinFeed } from "./thin";
 import { LiveEvent } from "./types";
 
-const MAX_EVENTS = 6000;
+/** thinning walks the whole feed, so it waits for this many spare events instead of running on every one */
+const SLACK = 200;
 const FILE = path.join(process.cwd(), "data", "live-events.jsonl");
 
 interface Store {
@@ -16,9 +18,10 @@ const g = globalThis as typeof globalThis & { __relayLive?: Store };
 function load(): LiveEvent[] {
   try {
     const lines = fs.readFileSync(FILE, "utf8").split("\n").filter(Boolean);
-    const keep = lines.slice(-MAX_EVENTS);
-    if (keep.length < lines.length) fs.writeFileSync(FILE, keep.join("\n") + "\n");
-    return keep.map((l) => JSON.parse(l) as LiveEvent).sort((a, b) => a.seq - b.seq);
+    const all = lines.map((l) => JSON.parse(l) as LiveEvent).sort((a, b) => a.seq - b.seq);
+    const keep = thinFeed(all);
+    if (keep.length < all.length) fs.writeFileSync(FILE, keep.map((e) => JSON.stringify(e)).join("\n") + "\n");
+    return keep;
   } catch {
     return [];
   }
@@ -42,7 +45,7 @@ export function nextSeq(): number {
 export function publish(e: LiveEvent) {
   const s = liveStore();
   s.events.push(e);
-  if (s.events.length > MAX_EVENTS) s.events.splice(0, s.events.length - MAX_EVENTS);
+  if (s.events.length > KEEP.tools + KEEP.story + SLACK) s.events = thinFeed(s.events);
   fs.mkdir(path.dirname(FILE), { recursive: true }, () => fs.appendFile(FILE, JSON.stringify(e) + "\n", () => {}));
   for (const fn of s.subs) fn(e);
 }

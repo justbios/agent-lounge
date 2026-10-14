@@ -3,10 +3,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { refreshAccess, useAccess } from "./access";
+import { thinFeed } from "./thin";
 import { LiveEvent } from "./types";
 import { FeedStatus, LiveFeed } from "./useLiveFeed";
-
-const MAX_EVENTS = 6000;
 
 interface State {
   id: string | null;
@@ -36,11 +35,9 @@ export function useCloudFeed(src: CloudSource, enabled: boolean): LiveFeed {
 
     const merge = (list: LiveEvent[]) => {
       for (const e of list) if (e && typeof e.seq === "number") byseq.set(e.seq, e);
-      let events = [...byseq.values()].sort((a, b) => a.seq - b.seq);
-      if (events.length > MAX_EVENTS) {
-        events = events.slice(-MAX_EVENTS);
-        byseq = new Map(events.map((e) => [e.seq, e]));
-      }
+      const all = [...byseq.values()].sort((a, b) => a.seq - b.seq);
+      const events = thinFeed(all);
+      if (events.length < all.length) byseq = new Map(events.map((e) => [e.seq, e]));
       if (live) setState({ id, status: "open", events });
     };
     const mark = (status: FeedStatus) => live && setState((s) => ({ ...s, id, status }));
