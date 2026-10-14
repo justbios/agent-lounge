@@ -24,6 +24,7 @@ export default function MiniCafe({
   decor,
   interior,
   alert,
+  asleep,
 }: {
   model: CafeModel;
   /** when the chat's clock starts */
@@ -32,6 +33,8 @@ export default function MiniCafe({
   decor?: DecorSet;
   interior: Interior;
   alert?: { agent: number; kind: "ask" | "done" } | null;
+  /** the whole café has been quiet for an hour: only then does the night close it */
+  asleep?: boolean;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const alertRef = useRef(alert);
@@ -70,13 +73,13 @@ export default function MiniCafe({
         decor,
         theme: th,
         furniture,
-        closed: phase === "night" && a?.kind !== "ask" && !busy,
+        closed: !!asleep && phase === "night" && a?.kind !== "ask" && !busy,
       });
     };
     draw();
     const id = setInterval(draw, FRAME_MS);
     return () => clearInterval(id);
-  }, [model, lay, tl, origin, th, phase, decor, interior]);
+  }, [model, lay, tl, origin, th, phase, decor, interior, asleep]);
 
   return <canvas ref={ref} width={lay.width} height={lay.height} aria-hidden />;
 }

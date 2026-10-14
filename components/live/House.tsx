@@ -35,6 +35,7 @@ function Hall({
   on,
   named,
   look,
+  asleep,
   onOpen,
 }: {
   id: string;
@@ -50,12 +51,13 @@ function Hall({
   on: boolean;
   named: boolean;
   look: Look;
+  asleep: boolean;
   onOpen: (id: string) => void;
 }) {
   return (
     <button className={`hall ${on ? "on" : ""} ${flag ? `attn-${flag}` : ""}`} onClick={() => onOpen(id)}>
       <span className="hall-pic" style={named ? ({ viewTransitionName: ZOOM_NAME } as CSSProperties) : undefined}>
-        <MiniCafe model={scene.model} origin={scene.origin} alert={alert} {...look} />
+        <MiniCafe model={scene.model} origin={scene.origin} alert={alert} asleep={asleep} {...look} />
         {flag && (
           <span className={`chat-flag flag-${flag}`}>{flag === "ask" ? "! чекає" : err ? FLAG_ERR(err) : "✓ твоя черга"}</span>
         )}
@@ -84,6 +86,7 @@ export default function House({
   now,
   title,
   lookOf,
+  asleep,
   tools,
   onOpen,
 }: {
@@ -100,6 +103,8 @@ export default function House({
   title?: string;
   /** a room's look: its teammate's on personal keys, null for the lobby */
   lookOf: (member: string | null) => Look;
+  /** the whole café has been quiet for an hour */
+  asleep: boolean;
   tools?: ReactNode;
   onOpen: (id: string) => void;
 }) {
@@ -151,6 +156,7 @@ export default function House({
                     on={s.id === current}
                     named={s.id === named}
                     look={lookOf(memberOf(s) || null)}
+                    asleep={asleep}
                     onOpen={open}
                   />
                 );
@@ -173,6 +179,7 @@ export default function House({
                 on={current === LOBBY}
                 named={named === LOBBY}
                 look={lookOf(null)}
+                asleep={asleep}
                 onOpen={open}
               />
             </div>

@@ -67,6 +67,7 @@ export default function CafeScene({
   onMachine,
   playing,
   beans,
+  asleep,
 }: {
   model: CafeModel;
   clock: number;
@@ -105,6 +106,8 @@ export default function CafeScene({
   playing?: string | null;
   /** coffee beans left, a sack over the counter that opens the shop */
   beans?: number | null;
+  /** the whole café has been quiet for an hour: only then does the night close it */
+  asleep?: boolean;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -133,7 +136,10 @@ export default function CafeScene({
   const phase = usePhase();
   const th = useMemo(() => themeAt(theme, phase), [theme, phase]);
   const views = agents.map((_, i) => agentView(model, tl, lay, i, clock));
-  const closed = phase === "night" && alert?.kind !== "ask" && !views.some((v) => v.screen === "work" || v.walker);
+  const working = views.some((v) => v.screen === "work" || v.walker);
+  const closed = !!asleep && phase === "night" && alert?.kind !== "ask" && !working;
+  const late = phase === "night" && working;
+  const sub = closed ? "зачинено до ранку" : (sign ?? (late ? "нічна зміна" : SIGN_TEXT));
   const closedRef = useRef(closed);
   const stand = useMemo(() => standing(lay, interior.placed, decor ?? NO_DECOR), [lay, interior.placed, decor]);
   const shown = useMemo(() => (placing ? stand.filter((s) => s.pid !== placing.pid) : stand), [stand, placing]);
@@ -374,7 +380,7 @@ export default function CafeScene({
             <span className="cafe-neon-main" style={{ "--fit": titleFit(title) } as CSSProperties}>
               {title}
             </span>
-            <span className="cafe-neon-sub">{closed ? "зачинено до ранку" : (sign ?? SIGN_TEXT)}</span>
+            <span className="cafe-neon-sub">{sub}</span>
           </div>
           {closed && (
             <span className="cafe-closed" style={pos(door.x + door.w / 2, door.y - 3)}>

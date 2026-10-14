@@ -127,6 +127,7 @@ export default function Stage({
   placing,
   onPlacing,
   onHouse,
+  asleep,
 }: {
   title: string;
   sub: ReactNode;
@@ -160,6 +161,8 @@ export default function Stage({
   onPlacing: (p: Placing | null) => void;
   /** zooms back out to the whole house, when the café has more than one room */
   onHouse?: () => void;
+  /** the whole café has been quiet for an hour */
+  asleep?: boolean;
 }) {
   const [pop, setPop] = useState<Pop | null>(null);
   const [drawer, setDrawer] = useState<Side | null>(null);
@@ -316,6 +319,7 @@ export default function Stage({
           model={model}
           clock={clock}
           alert={alert}
+          asleep={asleep}
           rate={rate}
           guests={bar}
           chatUnread={chatUnread}

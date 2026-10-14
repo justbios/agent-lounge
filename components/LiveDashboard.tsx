@@ -58,6 +58,8 @@ const VIEW_KEY = "relay.view";
 const RECENT_MS = 6 * 60 * 60 * 1000;
 /** a chat quiet this long has finished its work and leaves the house; one still asking the user stays */
 const QUIET_MS = 20 * 60 * 1000;
+/** a café whose every chat has been quiet this long is closed for the night; one that never woke up is just waiting */
+const ASLEEP_MS = 60 * 60 * 1000;
 const NONE: string[] = [];
 
 const EMPTY: CafeModel = {
@@ -167,6 +169,8 @@ export default function LiveDashboard({
   const busy = (s: LiveSession) =>
     !s.ended && (now - s.last < QUIET_MS || (s.attn?.kind === "ask" && now - s.last < RECENT_MS));
   const chats = sessions.filter(busy);
+  const lastAny = sessions.reduce((t, s) => Math.max(t, s.last), 0);
+  const asleep = lastAny > 0 && now - lastAny > ASLEEP_MS;
   const push = usePush(roomKey, cloud && !viewing, team.me);
   const openChat = (id: string) => {
     const s = sessions.find((x) => x.id === id);
@@ -441,6 +445,7 @@ export default function LiveDashboard({
           now={now}
           title={cafeName}
           lookOf={lookOf}
+          asleep={asleep}
           tools={
             <>
               <Presence guests={social.guests} />
@@ -511,6 +516,7 @@ export default function LiveDashboard({
           placing={placing}
           onPlacing={setPlacing}
           onHouse={houseOn ? () => zoom("house") : undefined}
+          asleep={asleep}
           agents={
             <AgentList
               model={model}
