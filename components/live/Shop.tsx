@@ -74,6 +74,10 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
   const [busy, setBusy] = useState<ItemId | null>(null);
   const [bad, setBad] = useState(false);
   const stock = inStock(cafe.interior);
+  const room = cafe.kind === "mine" || cafe.kind === "theirs";
+  const per = room ? "кімнату" : "кафе";
+  const here = room ? "кімнаті" : "кафе";
+  const keeper = cafe.kind === "theirs" ? cafe.whose : cafe.kind === "lobby" ? "команда" : "власник кафе";
   const r = BEAN_RULES;
   const since = new Date(BEANS_FROM).toLocaleString("uk-UA", {
     day: "numeric",
@@ -93,13 +97,14 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
     const have = stock.get(it.id) ?? 0;
     const perk = it.place === "perk";
     const got = (perk || !!it.rare) && cafe.interior.owned.includes(it.id);
+    const where = perk ? `один на ${per}` : WHERE[it.place];
     return (
       <li key={it.id} className={`shop-item ${it.rare ? "rare" : ""}`}>
         <Preview it={it} />
         <div className="shop-body">
           <b>{it.name}</b>
           <span className="muted-sm">
-            {WHERE[it.place]} · ☕ {it.price.toLocaleString("uk-UA")}
+            {where} · ☕ {it.price.toLocaleString("uk-UA")}
           </span>
           {cafe.editable && (!got || (!perk && have > 0)) && (
             <div className="shop-acts">
@@ -137,7 +142,7 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
               onSave={(cat2Name) => cafe.setNames({ cat2Name })}
             />
           )}
-          {got && (!cafe.editable || (!perk && have === 0)) && <span className="muted-sm">уже в кафе</span>}
+          {got && (!cafe.editable || (!perk && have === 0)) && <span className="muted-sm">уже в {here}</span>}
         </div>
       </li>
     );
@@ -152,11 +157,11 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
         питання дня ще {r.firstOfDay}.
         {cafe.editable
           ? " Поставлене, і зароблений декор теж, можна перетягнути або клацнути, щоб перемістити чи прибрати."
-          : " Купує й ставить власник кафе."}
+          : ` Купує й ставить ${keeper}.`}
       </p>
       {bad && <p className="key-paste-bad">Не вдалося купити, спробуй ще раз.</p>}
       <ul className="shop-grid">{SHOP.filter((it) => !it.rare).map(row)}</ul>
-      <h3 className="shop-rare-hd">✦ Рідкісне: по одному на кафе</h3>
+      <h3 className="shop-rare-hd">✦ Рідкісне: по одному на {per}</h3>
       <ul className="shop-grid">{SHOP.filter((it) => it.rare).map(row)}</ul>
     </section>
   );
