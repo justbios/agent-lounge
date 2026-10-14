@@ -6,6 +6,8 @@ export interface NesGame {
   file: string;
   players: 1 | 2;
   twoOnly?: boolean;
+  /** shown instead of the player count, for a game that is not played on one or two pads at once */
+  playersNote?: string;
   about: string;
   author: string;
   license: string;
@@ -15,6 +17,8 @@ export interface NesGame {
 }
 
 const GPL3 = "https://www.gnu.org/licenses/gpl-3.0.html";
+const ZLIB = "https://opensource.org/license/zlib";
+const FSFAP = "https://www.gnu.org/prep/maintain/html_node/License-Notices-for-Other-Files.html";
 
 /** Only games whose authors let anyone share them; never a cartridge someone sells or owns the rights to. */
 export const NES_GAMES: NesGame[] = [
@@ -28,6 +32,17 @@ export const NES_GAMES: NesGame[] = [
     license: "код GPL-3.0, графіка й рівні CC BY-NC-SA 4.0",
     licenseUrl: "https://github.com/NovaSquirrel/NovaTheSquirrel#license",
     source: "https://github.com/NovaSquirrel/NovaTheSquirrel",
+  },
+  {
+    id: "dabg",
+    title: "Double Action Blaster Guys",
+    file: "dabg.nes",
+    players: 2,
+    about: "Платформер у дусі Bubble Bobble: 52 рівні, понад 25 видів ворогів, можна вдвох разом.",
+    author: "NovaSquirrel",
+    license: "zlib",
+    licenseUrl: ZLIB,
+    source: "https://github.com/NovaSquirrel/DABG",
   },
   {
     id: "thwaite",
@@ -60,7 +75,7 @@ export const NES_GAMES: NesGame[] = [
     about: "Сусіди воюють за меблі: обстав свій дім, вкради меблі в сусіда, полагодь стіни. Лише вдвох.",
     author: "Damian Yerrick",
     license: "FSFAP",
-    licenseUrl: "https://www.gnu.org/prep/maintain/html_node/License-Notices-for-Other-Files.html",
+    licenseUrl: FSFAP,
     source: "https://github.com/pinobatch/rhde-nes",
   },
   {
@@ -74,6 +89,32 @@ export const NES_GAMES: NesGame[] = [
     licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
     source: "https://github.com/nesdev-org/homebrew-db/tree/master/entries/cybercoaster",
     sourceLabel: "сторінка в каталозі nesdev",
+  },
+  {
+    id: "rfk",
+    title: "robotfindskitten",
+    file: "rfk.nes",
+    players: 2,
+    about: "Ти робот #, шукаєш кошеня серед дивних предметів (описи англійською). Удвох у кожного свій робот.",
+    author: "Damian Yerrick",
+    license: "zlib",
+    licenseUrl: ZLIB,
+    source: "https://github.com/pinobatch/rfk-nes",
+  },
+  {
+    id: "roulette",
+    title: "Russian Roulette",
+    file: "roulette.nes",
+    players: 1,
+    playersNote: "2–6 по черзі",
+    about:
+      "У барабані шість гнізд, в одному капсула з фарбою. Тисни A й передай клавіатуру далі. " +
+      "Кого забризкало, той вибув.",
+    author: "Damian Yerrick",
+    license: "FSFAP",
+    licenseUrl: FSFAP,
+    source: "https://pineight.com/nes/roulette-0.02.zip",
+    sourceLabel: "вихідний код (zip)",
   },
 ];
 
