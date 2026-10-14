@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Radio, ArrowLeft, Copy, Check, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw, Puzzle } from "lucide-react";
+import { Radio, ArrowLeft, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw, Puzzle } from "lucide-react";
 import {
   HOOK_URL,
   RELAY_SH,
@@ -19,28 +19,11 @@ import pack from "@/lib/live/pluginPack.json";
 import { newKey, saveKey, useHosted, useRelayKey } from "@/lib/live/relayKey";
 import { useMe } from "@/lib/live/team";
 import { CafeSwitcher, JoinTeam, MemberName, TeamInvite, useTeamInvite } from "./connect/TeamConnect";
+import Code from "./connect/Code";
+import Disconnect from "./connect/Disconnect";
 import HookStatus from "./connect/HookStatus";
 import TeamKeys from "./connect/TeamKeys";
 import KeyLost from "./live/KeyLost";
-
-function Code({ text, wrap }: { text: string; wrap?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className={wrap ? "codeblock wrap" : "codeblock"}>
-      <button
-        className="copybtn"
-        onClick={() => {
-          navigator.clipboard?.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1400);
-        }}
-      >
-        {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? "скопійовано" : "копіювати"}
-      </button>
-      <pre>{text}</pre>
-    </div>
-  );
-}
 
 function cloudPrompt(site: string, url: string): string {
   const check = `echo '{"session_id":"relay-check","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"перевірка Relay"}' | curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- '${url}'`;
@@ -188,17 +171,16 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
       {access && <TeamKeys site={site} roomKey={roomKey} access={access} />}
 
       <details className="step-more">
-        <summary className="step-ttl">Новий ключ або відключення</summary>
+        <summary className="step-ttl">Новий ключ</summary>
         <div className="step-body">
-          <p className="step-p">
-            {access?.locked ? LOST_LOCKED : LOST_SHARED} Щоб відключитись зовсім, попроси Claude прибрати з{" "}
-            <code>~/.claude/settings.json</code> хуки, що містять <code>/api/claude-hook</code>.
-          </p>
+          <p className="step-p">{access?.locked ? LOST_LOCKED : LOST_SHARED}</p>
           <button className="btn" onClick={() => saveKey(newKey())}>
             <RefreshCw size={13} /> {access?.locked ? "нове порожнє кафе" : "новий ключ"}
           </button>
         </div>
       </details>
+
+      <Disconnect />
     </>
   );
 }
