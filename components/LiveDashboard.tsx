@@ -56,6 +56,8 @@ import { ago } from "./live/format";
 const PICK_KEY = "relay.session";
 const VIEW_KEY = "relay.view";
 const RECENT_MS = 6 * 60 * 60 * 1000;
+/** a chat quiet this long has finished its work and leaves the house; one still asking the user stays */
+const QUIET_MS = 20 * 60 * 1000;
 const NONE: string[] = [];
 
 const EMPTY: CafeModel = {
@@ -162,7 +164,9 @@ export default function LiveDashboard({
   const session = (pick && sessions.find((s) => s.id === pick)) || pool[0] || null;
   const recent = (s: LiveSession) => s === session || (!s.ended && now - s.last < RECENT_MS);
   const mine = (s: LiveSession) => !team.me || !s.member || s.member === team.me;
-  const chats = sessions.filter(recent);
+  const busy = (s: LiveSession) =>
+    !s.ended && (now - s.last < QUIET_MS || (s.attn?.kind === "ask" && now - s.last < RECENT_MS));
+  const chats = sessions.filter(busy);
   const push = usePush(roomKey, cloud && !viewing, team.me);
   const openChat = (id: string) => {
     const s = sessions.find((x) => x.id === id);

@@ -57,7 +57,7 @@ function Hall({
       <span className="hall-pic" style={named ? ({ viewTransitionName: ZOOM_NAME } as CSSProperties) : undefined}>
         <MiniCafe model={scene.model} origin={scene.origin} alert={alert} {...look} />
         {flag && (
-          <span className={`chat-flag flag-${flag}`}>{flag === "ask" ? "! чекає" : err ? FLAG_ERR(err) : "✓ відповів"}</span>
+          <span className={`chat-flag flag-${flag}`}>{flag === "ask" ? "! чекає" : err ? FLAG_ERR(err) : "✓ твоя черга"}</span>
         )}
       </span>
       <span className="hall-hd">
