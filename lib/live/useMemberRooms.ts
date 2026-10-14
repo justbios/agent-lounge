@@ -3,14 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CafeSettings, Progress } from "./achievements";
-import { BEANS_FROM, BeanWork } from "./interior";
+import { BEANS_FROM } from "./interior";
 
 const REFRESH_MS = 60 * 1000;
 
 /** A teammate's room as Relay keeps it: their progress, with the room's settings inside, and work since the restart. */
 export interface MemberData {
   progress: Progress;
-  work: BeanWork;
+  /** raw from Relay; {@link beanWork} reads it */
+  work: unknown;
 }
 
 interface Reply {

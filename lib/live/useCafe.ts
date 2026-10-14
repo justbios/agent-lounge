@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useAccess } from "./access";
 import { CafeSettings, Earned, Progress, progressFromHourly } from "./achievements";
 import { CafeState, NO_SETTINGS, RoomKind, cafeRoom } from "./cafeRoom";
-import { BEANS_FROM, BeanWork } from "./interior";
+import { BEANS_FROM, BEAN_RULES, BeanWork, NO_WORK, beanWork } from "./interior";
 import { HourRow, aggregateHourly } from "./recap";
 import { LiveEvent } from "./types";
 import { useMemberRooms } from "./useMemberRooms";
@@ -16,7 +16,6 @@ const REFRESH_MS = 60 * 1000;
 const SETTINGS_KEY = "relay.cafe";
 const SEEN_KEY = "relay.seenAch";
 const NO_PROGRESS: Progress = { days: [], agents: 0, tools: 0, projects: 0, chats: 0, room: null };
-const NO_WORK: BeanWork = { prompts: 0, tools: 0, dispatches: 0, answers: 0, minutes: 0 };
 
 type Seen = Record<string, string[]>;
 
@@ -97,10 +96,9 @@ function workSince(hours: HourRow[], since: string): BeanWork {
   for (const h of hours) {
     if (Date.parse(h.hour) < from) continue;
     w.prompts += h.prompts;
-    w.tools += h.tools;
     w.dispatches += h.dispatches;
-    w.answers += h.answers;
-    w.minutes += Object.keys(h.mins).length;
+    w.out += h.tok_out ?? 0;
+    if (Object.keys(h.agents).length >= BEAN_RULES.crowd) w.crowded += 1;
   }
   return w;
 }
@@ -140,7 +138,7 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
         id,
         at,
         progress: error ? null : (prog.data as Progress),
-        work: error ? null : (work.data as BeanWork),
+        work: error ? null : beanWork(work.data),
         error,
       });
     };
@@ -219,7 +217,7 @@ export function useCafe({ cloud, key, room, events, viewing }: CafeSource): Cafe
           kind,
           whose: name,
           progress: members ? (data?.progress ?? NO_PROGRESS) : null,
-          work: members ? (data?.work ?? NO_WORK) : null,
+          work: members ? beanWork(data?.work) : null,
           settings: (own ? mySaved : null) ?? data?.progress.room ?? NO_SETTINGS,
           error: teamError,
           editable: own && !viewing,

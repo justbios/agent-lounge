@@ -1,6 +1,8 @@
 "use client";
 
 import { Earned } from "@/lib/live/achievements";
+import { THEMES } from "@/components/cafe/theme";
+import { trackInfo } from "@/lib/live/tracks";
 import { CafeState } from "@/lib/live/useCafe";
 import Sheet from "./Sheet";
 import { fmtTokens } from "./tokens";
@@ -33,6 +35,17 @@ function Card({ e }: { e: Earned }) {
           <span className="ach-when">ще ні</span>
         )}
         {def.decorName && <span className="ach-decor">{e.done ? `у кафе: ${def.decorName}` : `відкриє: ${def.decorName}`}</span>}
+        {def.theme && (
+          <span className="ach-decor">
+            {e.done ? "відкрито" : "відкриє"} тему «{THEMES[def.theme].name}»
+          </span>
+        )}
+        {def.track && (
+          <span className="ach-decor">
+            {e.done ? "відкрито" : "відкриє"} платівку «{trackInfo(def.track).name}»
+          </span>
+        )}
+        <span className="ach-reward">+{def.reward} зерен</span>
       </div>
     </div>
   );
@@ -52,8 +65,8 @@ export default function AchPanel({ cafe, onClose }: { cafe: CafeState; onClose: 
         {cafe.kind === "mine" && "Твої власні досягнення, лише з твоєї роботи. "}
         {cafe.kind === "theirs" && `${cafe.whose}: досягнення лише з власної роботи. `}
         {cafe.kind === "lobby" && "Досягнення всієї команди разом. "}
-        Кожне досягнення рахується з хуків за весь час. Деякі додають у кімнату нову річ: гірлянду, акваріум, сову на
-        підвіконні.
+        Кожне досягнення рахується з хуків за весь час і дає від 50 до 300 зерен, якщо отримане після нового відліку
+        зерен. Деякі додають у кімнату нову річ, відкривають тему чи платівку на автоматі.
       </p>
       {cafe.error && <p className="key-paste-bad">Не вдалося дістати прогрес, спробую ще раз за хвилину.</p>}
       {cafe.progress && (

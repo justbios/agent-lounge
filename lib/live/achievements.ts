@@ -1,4 +1,6 @@
+import type { ThemeId } from "@/components/cafe/theme";
 import { HourRow } from "./recap";
+import type { TrackId } from "./tracks";
 
 /** One local day of a room, the shape relay_progress returns and progressFromHourly builds for a local Relay. */
 export interface ProgressDay {
@@ -43,6 +45,8 @@ interface Stats {
   streak: number;
   minutes: number;
   peak: number;
+  dayDispatches: number;
+  dayTokens: number;
   night: number;
   early: number;
   agents: number;
@@ -61,29 +65,39 @@ export interface AchievementDef {
   lifetime?: boolean;
   decor?: Decor;
   decorName?: string;
+  /** coffee beans it pays when reached after the beans started over */
+  reward: number;
+  /** a theme it opens; the night café is open from the start */
+  theme?: ThemeId;
+  /** a record it opens on the jukebox; lo-fi and the keyboards play from the start */
+  track?: TrackId;
 }
 
 export const ACHIEVEMENTS: AchievementDef[] = [
-  { id: "first_question", icon: "💬", title: "Перше питання", hint: "постав Claude перше питання", goal: 1, value: (s) => s.prompts },
-  { id: "first_handoff", icon: "🤝", title: "Перше доручення", hint: "Claude вперше доручив роботу агенту", goal: 1, value: (s) => s.dispatches, decor: "plant", decorName: "рослина в кутку" },
-  { id: "questions_100", icon: "💯", title: "Сотня питань", hint: "100 питань за весь час", goal: 100, value: (s) => s.prompts },
-  { id: "questions_1000", icon: "👑", title: "Тисяча питань", hint: "1000 питань за весь час", goal: 1000, value: (s) => s.prompts, decor: "crown", decorName: "корона для кота" },
-  { id: "tools_1000", icon: "🏆", title: "Тисяча дій", hint: "1000 дій інструментами", goal: 1000, value: (s) => s.tools, decor: "trophy", decorName: "кубок на автоматі" },
-  { id: "tools_10000", icon: "🚀", title: "Десять тисяч дій", hint: "10 000 дій інструментами", goal: 10000, value: (s) => s.tools },
-  { id: "team_5", icon: "👾", title: "Команда з п'яти", hint: "5 різних агентів отримали роботу", goal: 5, value: (s) => s.agents, lifetime: true, decor: "arcade", decorName: "аркадний автомат" },
-  { id: "team_10", icon: "🎉", title: "Повна зала", hint: "10 різних агентів отримали роботу", goal: 10, value: (s) => s.agents, lifetime: true },
-  { id: "rush_hour", icon: "⚡", title: "Година пік", hint: "10 доручень агентам за одну годину", goal: 10, value: (s) => s.peak, decor: "goldMachine", decorName: "золота кавоварка" },
-  { id: "polyglot", icon: "🐠", title: "На всі руки", hint: "15 різних інструментів", goal: 15, value: (s) => s.toolKinds, lifetime: true, decor: "aquarium", decorName: "акваріум" },
-  { id: "projects_5", icon: "📁", title: "П'ять проєктів", hint: "Claude працював у 5 різних проєктах", goal: 5, value: (s) => s.projects, lifetime: true },
-  { id: "night_owl", icon: "🦉", title: "Нічна сова", hint: "питання між північчю і п'ятою ранку", goal: 1, value: (s) => s.night, decor: "owl", decorName: "сова на підвіконні" },
-  { id: "early_bird", icon: "🐦", title: "Рання пташка", hint: "питання між п'ятою і сьомою ранку", goal: 1, value: (s) => s.early },
-  { id: "streak_3", icon: "🔥", title: "Три дні поспіль", hint: "питання три дні поспіль", goal: 3, value: (s) => s.streak, decor: "garland", decorName: "гірлянда" },
-  { id: "streak_7", icon: "📅", title: "Тиждень поспіль", hint: "питання сім днів поспіль", goal: 7, value: (s) => s.streak },
-  { id: "streak_30", icon: "🌙", title: "Місяць поспіль", hint: "питання тридцять днів поспіль", goal: 30, value: (s) => s.streak },
-  { id: "marathon", icon: "🏃", title: "Марафон", hint: "5 годин роботи за один день", goal: 300, value: (s) => s.minutes },
-  { id: "tokens_1m", icon: "🪙", title: "Мільйон токенів", hint: "Claude і агенти разом витратили мільйон токенів", goal: 1e6, value: (s) => s.tokens },
-  { id: "tokens_1b", icon: "💎", title: "Мільярд токенів", hint: "мільярд токенів за весь час, разом із кешем", goal: 1e9, value: (s) => s.tokens },
-  { id: "fails_50", icon: "🧯", title: "Загартований", hint: "50 невдалих викликів інструментів", goal: 50, value: (s) => s.fails, decor: "extinguisher", decorName: "вогнегасник" },
+  { id: "first_question", icon: "💬", title: "Перше питання", hint: "постав Claude перше питання", goal: 1, value: (s) => s.prompts, reward: 50 },
+  { id: "first_handoff", icon: "🤝", title: "Перше доручення", hint: "Claude вперше доручив роботу агенту", goal: 1, value: (s) => s.dispatches, decor: "plant", decorName: "рослина в кутку", reward: 50 },
+  { id: "questions_100", icon: "💯", title: "Сотня питань", hint: "100 питань за весь час", goal: 100, value: (s) => s.prompts, reward: 100, track: "jazz" },
+  { id: "questions_1000", icon: "👑", title: "Тисяча питань", hint: "1000 питань за весь час", goal: 1000, value: (s) => s.prompts, decor: "crown", decorName: "корона для кота", reward: 300 },
+  { id: "tools_1000", icon: "🏆", title: "Тисяча дій", hint: "1000 дій інструментами", goal: 1000, value: (s) => s.tools, decor: "trophy", decorName: "кубок на автоматі", reward: 100, track: "synth" },
+  { id: "tools_10000", icon: "🚀", title: "Десять тисяч дій", hint: "10 000 дій інструментами", goal: 10000, value: (s) => s.tools, reward: 200 },
+  { id: "team_5", icon: "👾", title: "Команда з п'яти", hint: "5 різних агентів отримали роботу", goal: 5, value: (s) => s.agents, lifetime: true, decor: "arcade", decorName: "аркадний автомат", reward: 100, track: "chip" },
+  { id: "team_10", icon: "🎉", title: "Повна зала", hint: "10 різних агентів отримали роботу", goal: 10, value: (s) => s.agents, lifetime: true, reward: 200 },
+  { id: "rush_hour", icon: "⚡", title: "Година пік", hint: "10 доручень агентам за одну годину", goal: 10, value: (s) => s.peak, decor: "goldMachine", decorName: "золота кавоварка", reward: 200, theme: "space" },
+  { id: "rush_50", icon: "🌪", title: "Шторм", hint: "50 доручень агентам за одну годину", goal: 50, value: (s) => s.peak, reward: 300 },
+  { id: "factory", icon: "🏭", title: "Фабрика", hint: "300 доручень агентам за один день", goal: 300, value: (s) => s.dayDispatches, reward: 300 },
+  { id: "polyglot", icon: "🐠", title: "На всі руки", hint: "15 різних інструментів", goal: 15, value: (s) => s.toolKinds, lifetime: true, decor: "aquarium", decorName: "акваріум", reward: 100 },
+  { id: "projects_5", icon: "📁", title: "П'ять проєктів", hint: "Claude працював у 5 різних проєктах", goal: 5, value: (s) => s.projects, lifetime: true, reward: 100 },
+  { id: "night_owl", icon: "🦉", title: "Нічна сова", hint: "питання між північчю і п'ятою ранку", goal: 1, value: (s) => s.night, decor: "owl", decorName: "сова на підвіконні", reward: 50, track: "rain" },
+  { id: "early_bird", icon: "🐦", title: "Рання пташка", hint: "питання між п'ятою і сьомою ранку", goal: 1, value: (s) => s.early, reward: 50 },
+  { id: "streak_3", icon: "🔥", title: "Три дні поспіль", hint: "питання три дні поспіль", goal: 3, value: (s) => s.streak, decor: "garland", decorName: "гірлянда", reward: 100, theme: "forest" },
+  { id: "streak_7", icon: "📅", title: "Тиждень поспіль", hint: "питання сім днів поспіль", goal: 7, value: (s) => s.streak, reward: 200 },
+  { id: "streak_30", icon: "🌙", title: "Місяць поспіль", hint: "питання тридцять днів поспіль", goal: 30, value: (s) => s.streak, reward: 300 },
+  { id: "marathon", icon: "🏃", title: "Марафон", hint: "5 годин роботи за один день", goal: 300, value: (s) => s.minutes, reward: 200, theme: "winter" },
+  { id: "ultra", icon: "🏔", title: "Ультрамарафон", hint: "16 годин роботи за один день", goal: 960, value: (s) => s.minutes, reward: 300 },
+  { id: "tokens_1m", icon: "🪙", title: "Мільйон токенів", hint: "Claude і агенти разом витратили мільйон токенів", goal: 1e6, value: (s) => s.tokens, reward: 50 },
+  { id: "tokens_day_2b", icon: "🍩", title: "Ненажера", hint: "два мільярди токенів за один день, разом із кешем", goal: 2e9, value: (s) => s.dayTokens, reward: 300 },
+  { id: "tokens_1b", icon: "💎", title: "Мільярд токенів", hint: "мільярд токенів за весь час, разом із кешем", goal: 1e9, value: (s) => s.tokens, reward: 300 },
+  { id: "fails_50", icon: "🧯", title: "Загартований", hint: "50 невдалих викликів інструментів", goal: 50, value: (s) => s.fails, decor: "extinguisher", decorName: "вогнегасник", reward: 50 },
 ];
 
 export interface Earned {
@@ -99,7 +113,7 @@ const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY_MS);
 
 /** Walks the days in order and records the first day each achievement crossed its goal. */
 export function evaluate(p: Progress): Earned[] {
-  const s: Stats = { tokens: 0, prompts: 0, tools: 0, dispatches: 0, fails: 0, streak: 0, minutes: 0, peak: 0, night: 0, early: 0, agents: p.agents, toolKinds: p.tools, projects: p.projects };
+  const s: Stats = { tokens: 0, prompts: 0, tools: 0, dispatches: 0, fails: 0, streak: 0, minutes: 0, peak: 0, dayDispatches: 0, dayTokens: 0, night: 0, early: 0, agents: p.agents, toolKinds: p.tools, projects: p.projects };
   const day = new Map<string, string>();
   let run = 0;
   let prev: number | null = null;
@@ -111,6 +125,8 @@ export function evaluate(p: Progress): Earned[] {
     s.fails += d.fails;
     s.minutes = Math.max(s.minutes, d.minutes);
     s.peak = Math.max(s.peak, d.peak_hour);
+    s.dayDispatches = Math.max(s.dayDispatches, d.dispatches);
+    s.dayTokens = Math.max(s.dayTokens, d.tokens ?? 0);
     if (d.night) s.night = 1;
     if (d.early) s.early = 1;
     const n = dayNum(d.day);
@@ -125,6 +141,22 @@ export function evaluate(p: Progress): Earned[] {
     const value = def.value(s);
     return { def, value, done: value >= def.goal, day: day.get(def.id) ?? null };
   });
+}
+
+/** The achievement that opens a theme, or none for one open from the start. */
+export const themeKey = (id: ThemeId) => ACHIEVEMENTS.find((a) => a.theme === id) ?? null;
+
+/** The achievement that opens a record, or none for one open from the start. */
+export const trackKey = (id: TrackId) => ACHIEVEMENTS.find((a) => a.track === id) ?? null;
+
+/** Themes this room may pick: the night café and every one its achievements opened. */
+export function openThemes(earned: Earned[]): Set<ThemeId> {
+  return new Set<ThemeId>(["cafe", ...earned.filter((e) => e.done && e.def.theme).map((e) => e.def.theme!)]);
+}
+
+/** Records this room may put on: lo-fi, the keyboards and every one its achievements opened. */
+export function openTracks(earned: Earned[]): Set<TrackId> {
+  return new Set<TrackId>(["lofi", "keys", ...earned.filter((e) => e.done && e.def.track).map((e) => e.def.track!)]);
 }
 
 export function decorOf(earned: Earned[]): Set<Decor> {

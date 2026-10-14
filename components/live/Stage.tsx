@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useEffectEvent, useState } from "react";
 import { Building2, Gamepad2, Maximize2, MessageCircle, Minimize2, ScrollText, Users, X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
+import { openTracks } from "@/lib/live/achievements";
 import { ItemId, Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { CafeState } from "@/lib/live/useCafe";
@@ -256,7 +257,7 @@ export default function Stage({
           ) : (
             <>
               <b>Музичний автомат</b>
-              <JukeboxList sound={sound} />
+              <JukeboxList sound={sound} open={openTracks(cafe.earned)} />
             </>
           )}
           {cafe.editable && (

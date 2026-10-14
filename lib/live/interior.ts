@@ -80,6 +80,8 @@ export interface Interior {
   owned: ItemId[];
   /** the copies bought since the beans started over: only these cost beans, the older ones are the café's to keep */
   paid?: ItemId[];
+  /** the economy {@link paid} was counted in: copies paid for in an older one are the café's to keep */
+  era?: number;
   placed: Placed[];
   looks: Record<string, LookPick>;
   /** the second line of the neon sign */
@@ -160,12 +162,12 @@ export function cleanInterior(v: unknown): Interior {
   const out: Interior = { owned, placed, looks };
   const unpaid = new Map<string, number>();
   owned.forEach((id) => unpaid.set(id, (unpaid.get(id) ?? 0) + 1));
-  const paid = (Array.isArray(o.paid) ? o.paid : []).filter((id): id is ItemId => {
+  const paid = (o.era === BEAN_ERA && Array.isArray(o.paid) ? o.paid : []).filter((id): id is ItemId => {
     if (typeof id !== "string" || !unpaid.get(id)) return false;
     unpaid.set(id, unpaid.get(id)! - 1);
     return true;
   });
-  if (paid.length) out.paid = paid;
+  if (paid.length) Object.assign(out, { paid, era: BEAN_ERA });
   const sign = text(o.sign, SIGN_MAX);
   const cat2Name = text(o.cat2Name, 24);
   const title = text(o.title, TITLE_MAX);
@@ -179,36 +181,48 @@ export function cleanInterior(v: unknown): Interior {
 export const owns = (i: Interior, id: ItemId) => i.owned.includes(id);
 
 export const BEAN_RULES = {
-  prompt: 3,
-  dispatch: 5,
-  answer: 1,
-  minute: 1,
-  toolsPerBean: 4,
-  achievement: 30,
-  firstOfDay: 100,
+  outPerBean: 20_000,
+  dispatch: 2,
+  crowdedHour: 10,
+  /** how many different agents make an hour crowded, Claude itself among them */
+  crowd: 3,
+  firstOfDay: 20,
 } as const;
 
 /** When every café's beans started over from zero: only work after this hour earns them. */
-export const BEANS_FROM = "2026-10-13T18:00:00Z";
+export const BEANS_FROM = "2026-10-14T14:00:00Z";
+/** Bumped with each restart, so what was paid for before it stops costing beans. */
+export const BEAN_ERA = 2;
 
 /** What a café did since {@link BEANS_FROM}, summed over its hours. */
 export interface BeanWork {
   prompts: number;
-  tools: number;
   dispatches: number;
-  answers: number;
-  minutes: number;
+  /** tokens Claude and the agents wrote */
+  out: number;
+  /** hours with at least {@link BEAN_RULES.crowd} different agents at work */
+  crowded: number;
+}
+
+export const NO_WORK: BeanWork = { prompts: 0, dispatches: 0, out: 0, crowded: 0 };
+
+const count = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0);
+
+/** The work as Relay sent it; a database that does not count tokens or crowds yet reads as none of them. */
+export function beanWork(v: unknown): BeanWork {
+  const o = (v ?? {}) as Record<string, unknown>;
+  return { prompts: count(o.prompts), dispatches: count(o.dispatches), out: count(o.out), crowded: count(o.crowded) };
 }
 
 /**
- * Coffee beans the café has earned since the restart: what Claude did, each achievement reached since, and a bonus for
- * the first question of every day it worked.
+ * Coffee beans the café has earned since the restart: the tokens it wrote, the work it handed out, the hours a crowd
+ * worked, a bonus for the first question of every day it worked and what each achievement reached since pays.
  */
-export function beansEarned(w: BeanWork | null, achievements: number, days: number): number {
+export function beansEarned(w: BeanWork | null, rewards: number, days: number): number {
   if (!w) return 0;
   const r = BEAN_RULES;
-  const work = w.prompts * r.prompt + w.dispatches * r.dispatch + w.answers * r.answer + w.minutes * r.minute;
-  return achievements * r.achievement + days * r.firstOfDay + work + Math.floor(w.tools / r.toolsPerBean);
+  const work = Math.floor(w.out / r.outPerBean) + w.dispatches * r.dispatch + w.crowded * r.crowdedHour;
+  return rewards + days * r.firstOfDay + work;
 }
 
 export const beansSpent = (i: Interior): number => (i.paid ?? []).reduce((s, id) => s + (itemOf(id)?.price ?? 0), 0);

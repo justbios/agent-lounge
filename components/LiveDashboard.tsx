@@ -7,6 +7,7 @@ import { CalendarDays, Gamepad2, MessageCircle, ShoppingBag, Trophy, X } from "l
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
+import { openTracks } from "@/lib/live/achievements";
 import { hideStale, staleHooks, useStaleHidden } from "@/lib/live/hookHealth";
 import { LOBBY, houseFloors, useHouseScenes } from "@/lib/live/house";
 import { CLAUDE_COLOR, LiveSession, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
@@ -318,7 +319,7 @@ export default function LiveDashboard({
         <button className="btn" onClick={() => setRecapOpen(true)}>
           <CalendarDays size={14} /> підсумок
         </button>
-        <JukeboxMenu sound={sound} />
+        <JukeboxMenu sound={sound} tracks={openTracks(cafe.earned)} />
         <SpeechPick />
         {cafe.progress && (
           <>

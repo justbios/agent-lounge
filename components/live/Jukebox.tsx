@@ -2,7 +2,8 @@
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Link2, Music, Pause, Play } from "lucide-react";
-import { TRACKS, trackInfo } from "@/lib/live/tracks";
+import { trackKey } from "@/lib/live/achievements";
+import { TRACKS, TrackId, trackInfo } from "@/lib/live/tracks";
 import { parseTune, tuneSource, tuneSyncs } from "@/lib/live/tune";
 import { CafeSound } from "@/lib/live/useCafeSound";
 
@@ -76,7 +77,8 @@ function TuneRow({ sound }: { sound: CafeSound }) {
 }
 
 /** The jukebox's records: a click plays one, a click on the playing one pauses it. */
-export function JukeboxList({ sound }: { sound: CafeSound }) {
+/** `open`: the records this room's achievements let it put on; one already playing can always be heard. */
+export function JukeboxList({ sound, open }: { sound: CafeSound; open?: Set<TrackId> }) {
   return (
     <div className="juke">
       {sound.shared && (
@@ -91,12 +93,13 @@ export function JukeboxList({ sound }: { sound: CafeSound }) {
         {TRACKS.map((t) => {
           const picked = !sound.tune && sound.track === t.id;
           const playing = sound.on && picked;
+          const key = open && !open.has(t.id) && !picked ? trackKey(t.id) : null;
           return (
             <li key={t.id}>
               <button
                 className={`juke-row ${picked ? "picked" : ""} ${playing ? "on" : ""}`}
                 onClick={() => (playing || (picked && !sound.canPick) ? sound.toggle() : sound.play(t.id))}
-                disabled={!sound.canPick && !picked}
+                disabled={(!sound.canPick && !picked) || !!key}
                 aria-pressed={playing}
               >
                 <span className="juke-ic" aria-hidden>
@@ -104,7 +107,9 @@ export function JukeboxList({ sound }: { sound: CafeSound }) {
                 </span>
                 <span className="juke-name">
                   <b>{t.name}</b>
-                  <small>{picked && sound.by ? `ставить ${sound.by}` : t.mood}</small>
+                  <small>
+                    {picked && sound.by ? `ставить ${sound.by}` : key ? `🔒 відкриє «${key.title}»` : t.mood}
+                  </small>
                 </span>
                 {playing ? (
                   <span className="juke-eq" aria-hidden>
@@ -140,7 +145,7 @@ export function JukeboxList({ sound }: { sound: CafeSound }) {
 }
 
 /** The jukebox from the top bar, for when the café has none standing or it is out of view. */
-export default function JukeboxMenu({ sound }: { sound: CafeSound }) {
+export default function JukeboxMenu({ sound, tracks }: { sound: CafeSound; tracks?: Set<TrackId> }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
@@ -169,7 +174,7 @@ export default function JukeboxMenu({ sound }: { sound: CafeSound }) {
       {open && (
         <div className="alerts-pop" role="dialog" aria-label="музичний автомат">
           <div className="share-ttl">Музичний автомат</div>
-          <JukeboxList sound={sound} />
+          <JukeboxList sound={sound} open={tracks} />
         </div>
       )}
     </div>

@@ -1,6 +1,7 @@
 import { CafeSettings, Decor, Earned, Progress, decorOf, evaluate, localDay } from "./achievements";
 import {
   BEANS_FROM,
+  BEAN_ERA,
   BeanWork,
   Interior,
   ItemId,
@@ -78,8 +79,8 @@ export function cafeRoom(src: RoomSource): CafeState {
   const earned = progress ? evaluate(progress) : [];
   const done = earned.filter((e) => e.done);
   const interior = cleanInterior(settings.interior);
-  const reached = done.filter((e) => e.day && e.day > FROM_DAY).length;
-  const earnedBeans = beansEarned(work, reached, daysAsked(progress, work));
+  const rewards = done.filter((e) => e.day && e.day > FROM_DAY).reduce((s, e) => s + e.def.reward, 0);
+  const earnedBeans = beansEarned(work, rewards, daysAsked(progress, work));
   const spent = beansSpent(interior);
   const beans = { earned: earnedBeans, spent, left: earnedBeans - spent };
   const fit = (next: Interior) => save({ interior: next });
@@ -87,7 +88,8 @@ export function cafeRoom(src: RoomSource): CafeState {
     const it = itemOf(item);
     const one = it?.place === "perk" || it?.rare;
     if (!it || !editable || beans.left < it.price || (one && interior.owned.includes(item))) return false;
-    return fit({ ...interior, owned: [...interior.owned, item], paid: [...(interior.paid ?? []), item] });
+    const paid = [...(interior.paid ?? []), item];
+    return fit({ ...interior, owned: [...interior.owned, item], paid, era: BEAN_ERA });
   };
   const place = (p: Placed) => {
     const rest = interior.placed.filter((q) => q.pid !== p.pid);

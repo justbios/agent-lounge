@@ -1752,6 +1752,11 @@ body {
   color: var(--muted);
   background: rgba(255, 255, 255, 0.05);
 }
+.ach-reward {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--muted);
+}
 .ach-toast {
   position: fixed;
   left: 50%;

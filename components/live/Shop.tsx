@@ -5,6 +5,7 @@ import { BEANS_FROM, BEAN_RULES, ItemDef, ItemId, ItemPlace, SHOP, SIGN_MAX, inS
 import { CafeState } from "@/lib/live/useCafe";
 import { drawItem } from "../cafe/furniture";
 import { plural } from "./format";
+import { fmtTokens } from "./tokens";
 
 const PAD = 2;
 
@@ -152,9 +153,10 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
     <section className="shop">
       <p className="alerts-hint">
         Рахунок зерен почався заново {since}: їх дає лише робота відтоді, а куплене раніше лишилось у кафе. Кавові зерна
-        дає робота Claude: питання {r.prompt}, доручення агенту {r.dispatch}, відповідь {r.answer}, хвилина в
-        роботі {r.minute}, кожні {r.toolsPerBean} дії інструментами ще одна, досягнення {r.achievement}, а перше
-        питання дня ще {r.firstOfDay}.
+        дає робота Claude: зернина за кожні {fmtTokens(r.outPerBean)} токенів, які написали Claude й агенти,{" "}
+        {r.dispatch} за доручення агенту, {r.crowdedHour} за годину, коли працювали щонайменше {r.crowd} різні
+        агенти, {r.firstOfDay} за перше питання дня, а кожне досягнення ще від 50 до 300. Теми й платівки відкривають
+        досягнення.
         {cafe.editable
           ? " Поставлене, і зароблений декор теж, можна перетягнути або клацнути, щоб перемістити чи прибрати."
           : ` Купує й ставить ${keeper}.`}
