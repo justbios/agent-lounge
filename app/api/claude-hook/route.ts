@@ -14,6 +14,7 @@ export async function POST(req: Request) {
   const params = new URL(req.url).searchParams;
   const roomKey = params.get("k");
   const member = cleanMember(params.get("m"));
+  const http = params.get("via") === "http";
   const body = parseHookBody(await req.text().catch(() => ""));
   if (!body) return new Response(null, { status: 400 });
   const at = Date.now();
@@ -25,14 +26,22 @@ export async function POST(req: Request) {
       normalizeHook(body.raw, 0, at),
     ]
       .filter((e): e is LiveEvent => e != null)
-      .map((e) => withExtras(e, body, member));
-    const sent = events.length ? await cloudIngest(roomKey, events) : "ok";
-    if (sent !== "ok") return new Response(null, { status: sent === "gone" ? 410 : 502 });
+      .map((e) => withExtras(e, body, member))
+      .map((e) => (http ? { ...e, via: "http" as const } : e));
     const alert = pushEnabled() ? events.map(alertFor).find((a) => a != null) : null;
-    if (alert) {
-      const origin = new URL(req.url).origin;
-      after(() => sendPush(roomKey, alert, origin).catch(() => 0));
+    const origin = new URL(req.url).origin;
+    const push = () => (alert ? sendPush(roomKey, alert, origin).catch(() => 0) : 0);
+    const ingest = () => (events.length ? cloudIngest(roomKey, events) : Promise.resolve("ok" as const));
+    // an HTTP hook holds Claude until it is answered, so it is answered at once and the café catches up after
+    if (http) {
+      after(async () => {
+        if ((await ingest()) === "ok") await push();
+      });
+      return new Response(null, { status: 204 });
     }
+    const sent = await ingest();
+    if (sent !== "ok") return new Response(null, { status: sent === "gone" ? 410 : 502 });
+    if (alert) after(push);
     return new Response(null, { status: 204 });
   }
 

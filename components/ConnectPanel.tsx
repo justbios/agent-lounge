@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Radio, ArrowLeft, Copy, Check, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw, Puzzle } from "lucide-react";
 import {
   HOOK_URL,
@@ -10,6 +10,7 @@ import {
   cloudHookSettings,
   cloudHookUrl,
   hookSettings,
+  httpHookSettings,
   pluginSteps,
   statusChain,
 } from "@/lib/live/hookConfig.mjs";
@@ -18,6 +19,7 @@ import pack from "@/lib/live/pluginPack.json";
 import { newKey, saveKey, useHosted, useRelayKey } from "@/lib/live/relayKey";
 import { useMe } from "@/lib/live/team";
 import { CafeSwitcher, JoinTeam, MemberName, TeamInvite, useTeamInvite } from "./connect/TeamConnect";
+import HookStatus from "./connect/HookStatus";
 import TeamKeys from "./connect/TeamKeys";
 import KeyLost from "./live/KeyLost";
 
@@ -56,10 +58,25 @@ ${statusChain("<стара команда>")}
 4. Перевір підключення командою нижче, вона має вивести 204:
 ${check}
 Якщо виведе 410, ключ у посиланні вже не діє: кафе перейшло на особисті ключі або власник прибрав цей ключ. Тоді скажи мені попросити у власника кафе нове особисте запрошення.
-5. Скажи мені відкрити ${site} і перемкнутись на «наживо».
+5. Скажи мені відкрити ${site}/connect: щойно ти зробиш будь-яку дію, там з'явиться «Claude підключений».
 
 ${JSON.stringify(cloudHookSettings(url), null, 2)}`;
 }
+
+function httpPrompt(site: string, url: string): string {
+  return `Підключи мій Claude Code до Relay — сайту, який показує моїх агентів наживо. Скриптів не треба: Claude Code сам надсилає подію хука на сайт, а сайт відповідає одразу.
+
+1. Додай у ~/.claude/settings.json (на Windows це %USERPROFILE%\\.claude\\settings.json) хуки з JSON нижче. Усі інші налаштування й хуки залиш як є. Якщо там уже є хуки, що містять "/api/claude-hook", заміни їх цими. Перед зміною збережи копію файлу як settings.json.bak-relay.
+2. Скажи мені відкрити ${site}/connect: щойно ти зробиш будь-яку дію, там з'явиться «Claude підключений». Якщо за хвилину нічого, скажи мені відкрити новий чат Claude Code.
+
+${JSON.stringify(httpHookSettings(url), null, 2)}`;
+}
+
+const OSES = [
+  ["nix", "macOS · Linux"],
+  ["win", "Windows"],
+] as const;
+const noSub = () => () => {};
 
 const LOST_LOCKED =
   "Особистий ключ потрапив не туди? Власник кафе прибирає його і дає нове запрошення. " +
@@ -72,6 +89,9 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
   const me = useMe(roomKey);
   const access = useAccess(roomKey);
   const url = cloudHookUrl(site, roomKey, access?.name ?? me);
+  const winUA = useSyncExternalStore(noSub, () => /Windows/i.test(navigator.userAgent), () => false);
+  const [os, setOs] = useState<"nix" | "win" | null>(null);
+  const win = (os ?? (winUA ? "win" : "nix")) === "win";
   if (access?.lost) return <KeyLost kind={access.lost} current={roomKey} />;
   return (
     <>
@@ -89,12 +109,33 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
         </div>
         <div className="step-body">
           <div className="step-ttl">Віддай це своєму Claude</div>
-          <p className="step-p">
-            Встав у будь-який чат Claude Code. Він збереже короткий скрипт хуків у <code>~/.config/relay</code>,
-            допише хуки й статус-рядок у налаштування і перевірить зв&apos;язок, це з пів хвилини.
-          </p>
+          <div className="viewseg os-pick" role="radiogroup" aria-label="система">
+            {OSES.map(([id, label]) => (
+              <button
+                key={id}
+                role="radio"
+                aria-checked={win === (id === "win")}
+                className={win === (id === "win") ? "on" : ""}
+                onClick={() => setOs(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {win ? (
+            <p className="step-p">
+              Встав у будь-який чат Claude Code. Він допише хуки в налаштування, і далі Claude Code сам слатиме сюди
+              кожну подію, без скриптів і bash. Кафе бачитиме всі дії агентів, але без назв чатів, токенів і лімітів
+              підписки: їх читає скрипт, а йому потрібен sh. Стоїть Git Bash? Тоді бери «macOS · Linux».
+            </p>
+          ) : (
+            <p className="step-p">
+              Встав у будь-який чат Claude Code. Він збереже короткий скрипт хуків у <code>~/.config/relay</code>,
+              допише хуки й статус-рядок у налаштування і перевірить зв&apos;язок, це з пів хвилини.
+            </p>
+          )}
           <MemberName roomKey={roomKey} fixed={access?.name ?? null} />
-          <Code text={cloudPrompt(site, url)} wrap />
+          <Code text={win ? httpPrompt(site, url) : cloudPrompt(site, url)} wrap />
           <p className="step-p">
             Далі просто працюй, а тут, на вкладці «наживо», за столами сидітимуть твої агенти. Кожен чат на окремій
             вкладці, у кожного агента свої токени. Відсотки лімітів підписки приходять зі статус-рядка. Якщо Claude
@@ -102,6 +143,8 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
           </p>
         </div>
       </div>
+
+      <HookStatus roomKey={roomKey} me={access?.name ?? me} />
 
       <div className="step">
         <div className="step-n">

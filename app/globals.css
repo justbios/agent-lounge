@@ -3882,3 +3882,48 @@ body {
 .dendy-credits a {
   color: inherit;
 }
+.os-pick {
+  margin: 4px 0 2px;
+}
+.hook-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.hook-dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: hook-wait 1.4s ease-in-out infinite;
+}
+.hook-dot.on {
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  animation: none;
+}
+@keyframes hook-wait {
+  50% {
+    opacity: 0.25;
+  }
+}
+.hook-stuck {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.hook-stuck summary {
+  cursor: pointer;
+}
+.hook-stuck ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hook-dot {
+    animation: none;
+  }
+}

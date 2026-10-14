@@ -74,5 +74,7 @@ export interface LiveEvent {
   err?: string;
   /** the relay.sh version that sent it; absent from older installs and from the bare curl hooks before relay.sh */
   hv?: number;
+  /** Claude Code's own HTTP hook sent it, with no script: no chat names, tokens or limits ride along */
+  via?: "http";
 }
 

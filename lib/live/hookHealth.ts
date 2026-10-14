@@ -15,9 +15,27 @@ export function staleHooks(events: LiveEvent[], me: string | null): boolean {
     const e = events[i];
     if ((e.kind !== "prompt" && e.kind !== "stop") || e.agent || e.session === CHECK_SESSION) continue;
     if (e.member && e.member !== me) continue;
-    return (e.hv ?? 0) < HOOK_VERSION;
+    return e.via !== "http" && (e.hv ?? 0) < HOOK_VERSION;
   }
   return false;
+}
+
+export interface HooksSeen {
+  last: number | null;
+  checked: boolean;
+  http: boolean;
+}
+
+/** What this person's own hooks have sent: the newest real event, whether the connect check came, and how. */
+export function hooksSeen(events: LiveEvent[], me: string | null): HooksSeen {
+  let checked = false;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.member && e.member !== me) continue;
+    if (e.session === CHECK_SESSION) checked = true;
+    else return { last: e.at, checked, http: e.via === "http" };
+  }
+  return { last: null, checked, http: false };
 }
 
 const listeners = new Set<() => void>();
