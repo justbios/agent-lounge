@@ -2,6 +2,7 @@
 
 import { LiveEvent } from "./types";
 import { useBets } from "./useBets";
+import { useCheckers } from "./useCheckers";
 import { useDuels } from "./useDuels";
 import { useScores } from "./useScores";
 import { Social } from "./useSocial";
@@ -34,5 +35,6 @@ export function useGames({
   const bets = useBets({ events, scope, social, scores, now, enabled: live && now > 0 });
   const duels = useDuels(social);
   const ttt = useTicTacToe(duels, social, scores);
-  return { scores, bets, duels, ttt };
+  const chk = useCheckers(duels, social, scores);
+  return { scores, bets, duels, ttt, chk };
 }

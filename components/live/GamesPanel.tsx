@@ -2,7 +2,9 @@
 
 import { ReactNode, useEffect, useEffectEvent } from "react";
 import { X } from "lucide-react";
+import { DUEL_NAMES, DuelKind, TURN_BASED } from "@/lib/live/duel";
 import { Guest } from "@/lib/live/social";
+import { Checkers } from "@/lib/live/useCheckers";
 import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Ttt } from "@/lib/live/useTicTacToe";
@@ -12,6 +14,7 @@ import Duels from "../games/Duels";
 import GamesHelp from "../games/GamesHelp";
 
 const TOP = 5;
+const BOARDS: DuelKind[] = ["hockey", "checkers", "ttt", "pong", "cables"];
 
 const played = (rows: ScoreRow[], game: Game, by: "wins" | "best") =>
   rows.filter((r) => r.game === game && (by === "best" ? r.best > 0 : r.played > 0));
@@ -47,6 +50,7 @@ export default function GamesPanel({
   scores,
   duels,
   ttt,
+  chk,
   guests,
   room,
   online,
@@ -56,6 +60,7 @@ export default function GamesPanel({
   scores: Scores;
   duels: DuelsState;
   ttt: Ttt;
+  chk: Checkers;
   guests: Guest[];
   room: string | null;
   online: boolean;
@@ -63,7 +68,7 @@ export default function GamesPanel({
   onClose: () => void;
 }) {
   const shut = () => {
-    if (duels.match && duels.match.kind !== "ttt") duels.close();
+    if (duels.match && !TURN_BASED.includes(duels.match.kind)) duels.close();
     onClose();
   };
   const close = useEffectEvent(shut);
@@ -93,6 +98,7 @@ export default function GamesPanel({
             <Duels
               duels={duels}
               ttt={ttt}
+              chk={chk}
               guests={guests}
               room={room}
               online={online}
@@ -102,24 +108,12 @@ export default function GamesPanel({
               }}
             />
             <div className="leaders-2">
-              {played(scores.rows, "pong", "wins").length > 0 && (
-                <div>
-                  <div className="muted-sm">пінг-понг</div>
-                  <Leaders rows={scores.rows} game="pong" by="wins" me={me} />
+              {BOARDS.filter((k) => played(scores.rows, k, "wins").length > 0).map((k) => (
+                <div key={k}>
+                  <div className="muted-sm">{DUEL_NAMES[k]}</div>
+                  <Leaders rows={scores.rows} game={k} by="wins" me={me} />
                 </div>
-              )}
-              {played(scores.rows, "cables", "wins").length > 0 && (
-                <div>
-                  <div className="muted-sm">кабелі</div>
-                  <Leaders rows={scores.rows} game="cables" by="wins" me={me} />
-                </div>
-              )}
-              {played(scores.rows, "ttt", "wins").length > 0 && (
-                <div>
-                  <div className="muted-sm">хрестики-нулики</div>
-                  <Leaders rows={scores.rows} game="ttt" by="wins" me={me} />
-                </div>
-              )}
+              ))}
             </div>
           </Section>
 

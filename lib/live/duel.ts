@@ -1,6 +1,16 @@
-export type DuelKind = "ttt" | "pong" | "cables";
+export type DuelKind = "ttt" | "pong" | "cables" | "checkers" | "hockey";
 
-export const DUEL_NAMES: Record<DuelKind, string> = { ttt: "хрестики-нулики", pong: "пінг-понг", cables: "кабелі" };
+export const DUEL_NAMES: Record<DuelKind, string> = {
+  ttt: "хрестики-нулики",
+  pong: "пінг-понг",
+  cables: "кабелі",
+  checkers: "шашки",
+  hockey: "аерохокей",
+};
+
+/** Played turn by turn over the café's own channel, so they survive the games panel closing. */
+export const TURN_BASED: readonly DuelKind[] = ["ttt", "checkers"];
+export type LiveDuel = Exclude<DuelKind, "ttt" | "checkers">;
 
 export interface Player {
   id: string;
@@ -40,7 +50,8 @@ export type DuelMsg =
   | { t: "accept"; kind: DuelKind; game: string; x: Player; o: Player }
   | { t: "leave"; game: string; by: string };
 
-const kindOf = (v: unknown): DuelKind | null => (v === "ttt" || v === "pong" || v === "cables" ? v : null);
+const kindOf = (v: unknown): DuelKind | null =>
+  typeof v === "string" && Object.hasOwn(DUEL_NAMES, v) ? (v as DuelKind) : null;
 
 export function cleanDuel(p: unknown): DuelMsg | null {
   const m = p as Record<string, unknown> | null;

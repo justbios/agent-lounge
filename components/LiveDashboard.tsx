@@ -388,6 +388,7 @@ export default function LiveDashboard({
           scores={games.scores}
           duels={games.duels}
           ttt={games.ttt}
+          chk={games.chk}
           guests={social.guests}
           room={social.room}
           online={cloud}

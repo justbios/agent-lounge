@@ -2837,6 +2837,53 @@ body {
   border-color: #4ade80;
   background: rgba(74, 222, 128, 0.14);
 }
+.chk-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  width: min(400px, 82vw);
+  aspect-ratio: 1;
+  border: 2px solid #07050d;
+  box-shadow: 2px 2px 0 #07050d;
+}
+.chk-grid button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  aspect-ratio: 1;
+}
+.chk-grid button.lt {
+  background: #d8bf8f;
+}
+.chk-grid button.dk {
+  background: #6b4a2f;
+}
+.chk-grid button.dk.last {
+  background: #7d5a39;
+}
+.chk-grid button:enabled {
+  cursor: pointer;
+}
+.chk-grid button.can .man {
+  outline: 2px solid #ffd25a;
+  outline-offset: 1px;
+}
+.chk-grid button.pick {
+  background: #8a6a2a;
+}
+.chk-grid button.to::after {
+  content: "";
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: rgba(255, 210, 90, 0.85);
+}
+.chk-grid .man {
+  width: 78%;
+  height: 78%;
+}
 .duel {
   display: flex;
   flex-direction: column;
@@ -2859,6 +2906,15 @@ body {
   border-radius: 10px;
   image-rendering: pixelated;
   touch-action: none;
+}
+.hockey {
+  align-items: center;
+  max-width: none;
+}
+.pong.hockey canvas {
+  width: auto;
+  height: min(62vh, 520px);
+  aspect-ratio: 90 / 150;
 }
 .duel-guests {
   display: flex;
@@ -3781,6 +3837,15 @@ body {
 }
 .duel-board:fullscreen .pong {
   max-width: min(100%, calc((100dvh - 110px) * 1.6));
+}
+.duel-board:fullscreen .pong.hockey {
+  max-width: none;
+}
+.duel-board:fullscreen .pong.hockey canvas {
+  height: calc(100dvh - 110px);
+}
+.duel-board:fullscreen .chk-grid {
+  width: min(calc(100vw - 48px), calc(100dvh - 110px));
 }
 .duel-tools {
   display: flex;

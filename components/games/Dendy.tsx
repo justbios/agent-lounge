@@ -65,8 +65,7 @@ function romFail(e: unknown): string {
   return msg.includes("Not a valid NES ROM") ? FAILS.notnes : "Гру не вдалося запустити.";
 }
 
-const whoPlays = (g: NesGame) =>
-  g.playersNote ?? (g.twoOnly ? "лише вдвох" : g.players === 2 ? "1–2 гравці" : "1 гравець");
+const whoPlays = (g: NesGame) => (g.players === 2 ? "1–2 гравці" : "1 гравець");
 
 interface Loaded {
   title: string;
@@ -154,7 +153,7 @@ export default function Dendy() {
     const r = await fetchRom(g.file);
     setBusy(null);
     if ("error" in r) return setFail(FAILS[r.error]);
-    setPlayers(g.twoOnly ? 2 : 1);
+    setPlayers(1);
     start(g.title, r.data);
   };
 

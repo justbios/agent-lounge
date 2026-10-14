@@ -1,21 +1,25 @@
 "use client";
 
 import { useRef } from "react";
-import { DUEL_NAMES, DuelKind } from "@/lib/live/duel";
+import { DUEL_NAMES, DuelKind, LiveDuel } from "@/lib/live/duel";
 import { Guest } from "@/lib/live/social";
+import { Checkers as CheckersState } from "@/lib/live/useCheckers";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import Cables from "./Cables";
+import Checkers from "./Checkers";
 import FullscreenButton from "./FullscreenButton";
+import Hockey from "./Hockey";
 import Pong from "./Pong";
 import TicTacToe from "./TicTacToe";
 
-const KINDS: DuelKind[] = ["pong", "cables", "ttt"];
+const KINDS: DuelKind[] = ["hockey", "checkers", "ttt", "pong", "cables"];
 
 /** The match being played, or who in the café can be called to one and the invite in flight. */
 export default function Duels({
   duels,
   ttt,
+  chk,
   guests,
   room,
   online,
@@ -23,11 +27,12 @@ export default function Duels({
 }: {
   duels: DuelsState;
   ttt: Ttt;
+  chk: CheckersState;
   guests: Guest[];
   room: string | null;
   online: boolean;
   /** a real-time match was played to the end */
-  onEnd: (kind: "pong" | "cables", win: boolean) => void;
+  onEnd: (kind: LiveDuel, win: boolean) => void;
 }) {
   const board = useRef<HTMLDivElement>(null);
   const m = duels.match;
@@ -39,8 +44,12 @@ export default function Duels({
         <div className="duel-board" ref={board}>
           {m.kind === "ttt" ? (
             <TicTacToe ttt={ttt} self={duels.self} note={note} />
+          ) : m.kind === "checkers" ? (
+            <Checkers chk={chk} self={duels.self} note={note} />
           ) : m.kind === "cables" ? (
             <Cables key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("cables", w)} />
+          ) : m.kind === "hockey" ? (
+            <Hockey key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("hockey", w)} />
           ) : (
             <Pong key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("pong", w)} />
           )}
@@ -80,7 +89,10 @@ export default function Duels({
           ))}
         </ul>
       ) : (
-        <p className="alerts-hint">Поки в кафе більше нікого. Запроси когось через двері або відкрий кафе на телефоні.</p>
+        <p className="alerts-hint">
+          Поки в кафе більше нікого. Запроси когось через двері в сцені: щойно людина відкриє кафе, тут з&apos;явиться
+          її ім&apos;я й кнопки ігор.
+        </p>
       )}
       {duels.declined && <p className="alerts-hint">{duels.declined} зараз не хоче грати.</p>}
     </div>
