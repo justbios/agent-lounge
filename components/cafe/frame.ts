@@ -14,6 +14,7 @@ import { drawOuting } from "./outingSprites";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
 import { Ctx, LINE, paint, px, rand, shade } from "./pixel";
 import { Standing } from "./placement";
+import { VisitorFrame, drawVisitor } from "./visitor";
 import { Theme } from "./theme";
 
 export interface FrameInput {
@@ -38,6 +39,9 @@ export interface FrameInput {
   ghost?: Ghost | null;
   /** night and nobody working: the lights go down, the barista goes home, everyone at a desk dozes */
   closed?: boolean;
+  /** a rare visitor, at the last stool or on the way to it, and the gold cat's own sprite */
+  visitor?: VisitorFrame | null;
+  visitorCat?: Cat | null;
 }
 
 export interface Ghost {
@@ -235,6 +239,8 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   drawAmbient(ctx, t, lay.width, f.theme);
   drawBar(ctx, t, decor.has("goldMachine"), !f.closed);
   if (f.guests) drawGuests(ctx, f.guests, t);
+  const v = f.visitor;
+  if (v && !v.walking) drawVisitor(ctx, v, t, f.visitorCat ?? null);
   drawDecor(ctx, lay, decor, t);
   const furniture = f.furniture ?? [];
   for (const layer of ["rug", "wall", "sill"] as const) {
@@ -259,6 +265,7 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   if (cat) sprites.push({ y: cat.footY, draw: () => cat.draw(ctx, t, decor.has("crown")) });
   const cat2 = f.cat2;
   if (cat2) sprites.push({ y: cat2.footY, draw: () => cat2.draw(ctx, t, false) });
+  if (v?.walking) sprites.push({ y: v.y, draw: () => drawVisitor(ctx, v, t, f.visitorCat ?? null) });
   furniture.forEach((s) => s.layer === "floor" && sprites.push({ y: s.bottom, draw: () => drawItem(ctx, s.item, s.w, s.cx, s.bottom, t) }));
   sprites.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 

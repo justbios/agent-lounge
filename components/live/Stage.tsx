@@ -348,6 +348,7 @@ export default function Stage({
           beans={cafe.beans.left}
           gains={gains}
           pops={pops}
+          visitors
         />
         {placing && <PlacingBar placing={placing} onCancel={() => onPlacing(null)} />}
         {empty}

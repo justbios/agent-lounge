@@ -78,6 +78,14 @@ export class Cat {
     if (this.dir === "up" || this.dir === "down") this.dir = "right";
   }
 
+  /** Puts a visiting cat where its own path has it, instead of letting it wander. */
+  put(x: number, y: number, dir: Dir, walking: boolean) {
+    this.x = x;
+    this.y = y;
+    this.dir = dir;
+    this.mode = walking ? "walk" : "sit";
+  }
+
   /** The cat bed it is heading for or curled up in. */
   get bed(): Point | null {
     return this.bedAt;

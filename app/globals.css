@@ -2638,6 +2638,11 @@ body {
   color: #ffd25a;
   opacity: 1;
 }
+.cafe-guest.visitor {
+  max-width: none;
+  color: #ffe08a;
+  opacity: 1;
+}
 .cafe-chat {
   position: absolute;
   transform: translate(-50%, -100%);

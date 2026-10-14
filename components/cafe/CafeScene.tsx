@@ -7,6 +7,7 @@ import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline
 import { Point } from "@/lib/layout";
 import { BRAND, EMPTY_INTERIOR, Interior, ItemId, LookPick, Placed, itemOf, owns, titleFit } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
+import { visitAt } from "@/lib/live/visitors";
 import { AgentCard, ScenePop } from "./AgentCard";
 import { Cat, DOG } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
@@ -22,6 +23,8 @@ import { buildRoom, doorOf, fixtures } from "./room";
 import { Anchor, CafeBubble, FixturePick, Placing, SceneAlert, agentAnchor, anchorAt, fixtureAnchor, onCat } from "./sceneParts";
 import { BeanGains, BeanSack, ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
+import { GOLD_COAT, visitorFrame, visitorSeat } from "./visitor";
+import VisitorTag from "./VisitorTag";
 import { fmtTokens } from "../live/tokens";
 import type { Gain } from "@/lib/live/useBeanGains";
 
@@ -70,6 +73,7 @@ export default function CafeScene({
   beans,
   gains,
   asleep,
+  visitors = false,
 }: {
   model: CafeModel;
   clock: number;
@@ -112,6 +116,8 @@ export default function CafeScene({
   gains?: Gain[];
   /** the whole café has been quiet for an hour: only then does the night close it */
   asleep?: boolean;
+  /** now and then a rare visitor walks in and sits at the last stool for a few minutes */
+  visitors?: boolean;
 }) {
   const [sel, setSel] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -136,6 +142,8 @@ export default function CafeScene({
     [dog, lay, model.seed],
   );
   const cat2 = useMemo(() => (hasCat2 ? new Cat(lay, model.seed + 101, CAT2) : null), [hasCat2, lay, model.seed]);
+  const goldCat = useMemo(() => new Cat(lay, 777, GOLD_COAT), [lay]);
+  const visitorsRef = useRef(visitors);
   const tl = useMemo(() => buildTimeline(model), [model]);
   const phase = usePhase();
   const th = useMemo(() => themeAt(theme, phase), [theme, phase]);
@@ -158,9 +166,10 @@ export default function CafeScene({
     decorRef.current = decor;
     namesRef.current = { cat: catName, cat2: cat2Name, sign, title };
     closedRef.current = closed;
+    visitorsRef.current = visitors;
     seatsRef.current = seats;
     shownRef.current = shown;
-  }, [clock, alert, decor, catName, cat2Name, sign, title, seats, shown, closed]);
+  }, [clock, alert, decor, catName, cat2Name, sign, title, seats, shown, closed, visitors]);
 
   useEffect(() => {
     if (placing) return;
@@ -194,6 +203,9 @@ export default function CafeScene({
       cat.step(dt, now, busy, freeOf(cat2));
       cat2?.step(dt, now, busy, freeOf(cat));
       last = now;
+      const wall = Date.now();
+      const visit = visitorsRef.current && !closedRef.current ? visitAt(wall) : null;
+      const stool = visit ? visitorSeat(seatsRef.current.length) : null;
       drawFrame(ctx, {
         model,
         lay,
@@ -211,6 +223,8 @@ export default function CafeScene({
         furniture: shownRef.current,
         ghost: ghostRef.current,
         closed: closedRef.current,
+        visitor: visit && stool ? visitorFrame(lay, visit, stool, wall) : null,
+        visitorCat: goldCat,
       });
       pin(catRef.current, cat.pos);
       if (cat2) pin(cat2Ref.current, cat2.pos);
@@ -231,7 +245,7 @@ export default function CafeScene({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [model, agents, lay, tl, cat, cat2, th, looks]);
+  }, [model, agents, lay, tl, cat, cat2, goldCat, th, looks]);
 
   const nameOf = (i: number) => looks[agents[i].id]?.name ?? agents[i].name;
   const pointAt = (e: MouseEvent | PointerEvent): Point => {
@@ -410,6 +424,7 @@ export default function CafeScene({
             );
           })}
           <GuestTags seats={seats} more={barOverflow(guests ?? [])} pos={pos} />
+          <VisitorTag lay={lay} guests={seats.length} on={visitors && !closed} pos={pos} />
           <ChatTag unread={chatUnread} pos={pos} />
           <BeanSack beans={beans} pos={pos} />
           {beans != null && <BeanGains list={gains} pos={pos} />}

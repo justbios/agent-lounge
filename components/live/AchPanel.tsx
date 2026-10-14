@@ -4,6 +4,7 @@ import { Earned } from "@/lib/live/achievements";
 import { THEMES } from "@/components/cafe/theme";
 import { trackInfo } from "@/lib/live/tracks";
 import { CafeState } from "@/lib/live/useCafe";
+import { VISITORS, VISITOR_KINDS, useGuestBook } from "@/lib/live/visitors";
 import Sheet from "./Sheet";
 import { fmtTokens } from "./tokens";
 
@@ -51,6 +52,39 @@ function Card({ e }: { e: Earned }) {
   );
 }
 
+const seenLabel = (t: number) => new Date(t).toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
+
+function GuestBook() {
+  const book = useGuestBook();
+  return (
+    <>
+      <div className="share-ttl">Гостьова книга</div>
+      <p className="alerts-hint">
+        Рідкісні гості заходять у кафе зрідка й на кілька хвилин, однаково для всіх, хто його дивиться. Книга
+        пам&apos;ятає, кого бачив цей браузер.
+      </p>
+      <div className="ach-grid">
+        {VISITOR_KINDS.map((k) => {
+          const v = VISITORS[k];
+          const seen = book[k];
+          return (
+            <div key={k} className={`ach ${seen ? "done" : ""}`}>
+              <span className="ach-icon" aria-hidden>
+                {seen ? v.icon : "?"}
+              </span>
+              <div className="ach-body">
+                <b>{v.name}</b>
+                <span className="ach-hint">{v.hint}</span>
+                <span className="ach-when">{seen ? `уперше ${seenLabel(seen)}` : "ще не заходив"}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
 export default function AchPanel({ cafe, onClose }: { cafe: CafeState; onClose: () => void }) {
   const done = cafe.earned.filter((e) => e.done).length;
   const decor = cafe.earned.filter((e) => e.def.decor);
@@ -88,6 +122,7 @@ export default function AchPanel({ cafe, onClose }: { cafe: CafeState; onClose: 
           </div>
         </>
       )}
+      <GuestBook />
     </Sheet>
   );
 }
