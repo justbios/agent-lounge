@@ -26,7 +26,8 @@ export async function POST(req: Request) {
     ]
       .filter((e): e is LiveEvent => e != null)
       .map((e) => withExtras(e, body, member));
-    if (events.length && !(await cloudIngest(roomKey, events))) return new Response(null, { status: 502 });
+    const sent = events.length ? await cloudIngest(roomKey, events) : "ok";
+    if (sent !== "ok") return new Response(null, { status: sent === "gone" ? 410 : 502 });
     const alert = pushEnabled() ? events.map(alertFor).find((a) => a != null) : null;
     if (alert) {
       const origin = new URL(req.url).origin;

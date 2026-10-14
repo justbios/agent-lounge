@@ -13,7 +13,9 @@ Connect this computer's Claude Code to Relay.
 
 2. Read the output:
    - `status: bad-link`: the argument is not a Relay link. Tell the user to copy the whole `/relay:connect …` line from the «підключити Claude» page of their Relay site, or to use `/relay:connect local` for a Relay running on this computer. Stop here.
-   - `check: 204`: connected. Any other code: the link is saved but the café did not answer; give the code.
+   - `check: 204`: connected.
+   - `check: 410`: the key in this link no longer works: the café moved to personal keys, or its owner removed this key. Tell the user to ask the café owner for a personal invite, open it and run the new `/relay:connect` line from it.
+   - Any other code: the link is saved but the café did not answer; give the code.
    - `old-hooks: <file>`: that settings file still has older Relay hooks (commands containing `/api/claude-hook`), so every event would reach the café twice. Offer to remove only those hook entries, after saving a copy of the file as `settings.json.bak-relay`. Change nothing until the user agrees.
    - `statusline: none`: the café shows how much of the 5-hour and weekly subscription limits is used and when they reset, but Claude Code hands those numbers only to a status line. Offer to add this to `~/.claude/settings.json`, after saving a copy as `settings.json.bak-relay`:
      `"statusLine": {"type": "command", "command": "sh \"$HOME/.config/relay/relay.sh\" statusline"}`

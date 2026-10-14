@@ -16,11 +16,16 @@ async function rpc(name: string, args: Record<string, unknown>): Promise<Respons
   }).catch(() => null);
 }
 
-/** Writes through the relay_ingest RPC, which files the events under sha256(key) and broadcasts them to that room. */
-export async function cloudIngest(roomKey: string, events: LiveEvent[]): Promise<boolean> {
+/**
+ * Writes through the relay_ingest RPC, which files the events under sha256(key) and broadcasts them to that room.
+ * gone: the key was retired with the shared key or revoked by the café owner, so retrying will not help.
+ */
+export async function cloudIngest(roomKey: string, events: LiveEvent[]): Promise<"ok" | "gone" | "fail"> {
   const p_events = events.map((e) => ({ ...e, seq: undefined }));
   const r = await rpc("relay_ingest", { p_key: roomKey, p_events });
-  return Boolean(r?.ok);
+  if (r?.ok) return "ok";
+  const err = (await r?.json().catch(() => null)) as { message?: string } | null;
+  return err?.message === "key retired" || err?.message === "key revoked" ? "gone" : "fail";
 }
 
 export interface PushTarget {
