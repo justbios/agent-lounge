@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CLAUDE_COLOR } from "@/lib/live/liveModel";
 import { memberName } from "@/lib/live/teamModel";
 import { useSpeech } from "@/lib/live/speech";
 import { LiveEvent } from "@/lib/live/types";
 import { AgentDef } from "@/lib/types";
+import CallTree from "./CallTree";
 import { clockTime, logText } from "./format";
 
 const LOG_ROWS = 120;
@@ -31,11 +32,18 @@ export default function EventLog({
   }, [events, session, team]);
   const sp = useSpeech();
   const ref = useRef<HTMLDivElement>(null);
+  const [tree, setTree] = useState(false);
+  const asTree = tree && !!session;
+  const chat = useMemo(
+    () => (asTree ? events.filter((e) => e.session === session) : NO_EVENTS),
+    [asTree, events, session],
+  );
   useEffect(() => {
     const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [log.length]);
+    if (el && !asTree) el.scrollTop = el.scrollHeight;
+  }, [log.length, asTree]);
 
+  const colorOf = (agent?: string) => (agent ? (agents[seatOf?.[agent] ?? -1]?.color ?? "#9a94b8") : CLAUDE_COLOR);
   const nameOf = (e: LiveEvent) => {
     if (team) {
       const m = e.member ?? "";
@@ -49,11 +57,28 @@ export default function EventLog({
   return (
     <div className="card">
       <div className="card-hd">
-        <span className="card-ttl">потік подій</span>
-        <span className="muted-sm">{log.length ? `останні ${log.length}` : "порожньо"}</span>
+        <span className="card-ttl">{asTree ? "дерево дій" : "потік подій"}</span>
+        {session ? (
+          <div className="viewseg" role="radiogroup" aria-label="як показати">
+            {(["потік", "дерево"] as const).map((v, i) => (
+              <button
+                key={v}
+                role="radio"
+                aria-checked={tree === !!i}
+                className={tree === !!i ? "on" : ""}
+                onClick={() => setTree(!!i)}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="muted-sm">{log.length ? `останні ${log.length}` : "порожньо"}</span>
+        )}
       </div>
       <div className="log" ref={ref}>
-        {log.map((e) => {
+        {asTree && <CallTree events={chat} sp={sp} colorOf={colorOf} />}
+        {!asTree && log.map((e) => {
           const who = nameOf(e);
           return (
             <div className="log-row" key={e.seq}>

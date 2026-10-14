@@ -549,6 +549,68 @@ body {
 .log-msg {
   color: var(--muted);
 }
+.tree summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.tree summary::-webkit-details-marker {
+  display: none;
+}
+.tree summary::before {
+  content: "▸";
+  color: var(--dim);
+  flex: none;
+}
+.tree details[open] > summary::before {
+  content: "▾";
+}
+.tree-turn {
+  padding: 2px 0;
+  border-bottom: 1px solid var(--border);
+}
+.tree-q {
+  color: var(--text);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tree-calls {
+  margin: 0;
+  padding: 0 0 4px 16px;
+  list-style: none;
+  border-left: 1px dashed var(--border);
+}
+.tree-call {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 2px 0;
+  line-height: 1.4;
+}
+.tree-call .log-msg {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tree-call.fail .log-msg {
+  color: #ff8a8a;
+}
+.tree-call.notify .log-msg,
+.tree-call.stop .log-msg {
+  color: var(--text);
+}
+.tree-took {
+  margin-left: auto;
+  padding-left: 8px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.tree-none {
+  margin: 6px 0;
+}
 
 /* ---------- roster ---------- */
 .roster {
