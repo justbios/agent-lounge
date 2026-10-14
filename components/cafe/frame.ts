@@ -4,6 +4,7 @@ import { AgentView, CafeTimeline, Walker, agentView } from "@/lib/cafe/timeline"
 import { drawAmbient, drawBar, drawCupSteam, drawLights } from "./ambient";
 import { Cat } from "./cat";
 import { DecorSet, drawDecor, drawDecorLights } from "./decor";
+import { drawPot, potAt } from "./desk";
 import { drawFlights } from "./flight";
 import { drawItem, itemLight } from "./furniture";
 import { GuestSeat, drawGuests } from "./guests";
@@ -166,7 +167,9 @@ function drawStation(
     ? Math.floor(f.t * 2.5) % 2 ? "#3a3550" : "#ffd25a"
     : v.screen === "work" ? (tick % 3 ? color : "#ffffff") : v.screen === "done" ? "#4ade80" : v.screen === "incoming" ? "#ffd25a" : "#3a3550";
   px(ctx, d.x + 15, d.top + 5, 1, 1, led);
-  if (v.screen === "work" && !asking) drawCupSteam(ctx, d.x - 15, d.top + 13, f.t + i * 0.31);
+  const fill = potAt(f.model.agents[i].pot, f.clock);
+  if (fill != null) drawPot(ctx, d.x, d.top, fill, f.t);
+  if (v.screen === "work" && !asking) drawCupSteam(ctx, d.x - 15, d.top + (fill == null ? 13 : 10), f.t + i * 0.31);
   const out: Station = { pastime: null, away: null };
   if (!v.walker) {
     const mode = seatMode(v);

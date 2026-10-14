@@ -37,6 +37,12 @@ export type IconKey =
   | "bot"
   | "cpu";
 
+/** How full an agent's context was from `ts` on, 0–1. */
+export interface PotLevel {
+  ts: number;
+  fill: number;
+}
+
 export interface AgentDef {
   id: string;
   name: string;
@@ -52,6 +58,8 @@ export interface AgentDef {
   tokens?: number;
   /** index into the café's character looks; live agents keep the same face per agent type */
   look?: number;
+  /** live only: the context over time, shown as the coffee pot on the desk */
+  pot?: PotLevel[];
 }
 
 /**

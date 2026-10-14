@@ -1,5 +1,5 @@
 import { CafeLayout, rng } from "@/lib/cafe/layout";
-import { AgentDef } from "@/lib/types";
+import { AgentDef, PotLevel } from "@/lib/types";
 import { Ctx, LINE, px, shade } from "./pixel";
 
 function drawDesk(ctx: Ctx, X: number, T: number, color: string) {
@@ -34,6 +34,34 @@ function drawDesk(ctx: Ctx, X: number, T: number, color: string) {
   px(ctx, X - 17, T + 15, 4, 4, "#ece4d6");
   px(ctx, X - 16, T + 15, 2, 1, "#6b4325");
   px(ctx, X - 13, T + 16, 1, 2, "#ece4d6");
+}
+
+const POUR_MS = 1500;
+
+/** The pot's level at `clock`, poured over from the level before; null until the agent first reports its context. */
+export function potAt(pot: PotLevel[] | undefined, clock: number): number | null {
+  let i = -1;
+  while (pot && i + 1 < pot.length && pot[i + 1].ts <= clock) i++;
+  if (!pot || i < 0) return null;
+  const from = i > 0 ? pot[i - 1].fill : 0;
+  const k = Math.min(1, (clock - pot[i].ts) / POUR_MS);
+  return from + (pot[i].fill - from) * k;
+}
+
+/** A glass coffee pot in place of the mug, as full as the agent's context; its top blinks when compaction is near. */
+export function drawPot(ctx: Ctx, X: number, T: number, fill: number, t: number) {
+  px(ctx, X - 16, T + 11, 2, 1, LINE);
+  px(ctx, X - 18, T + 12, 6, 8, LINE);
+  px(ctx, X - 12, T + 14, 1, 3, LINE);
+  px(ctx, X - 17, T + 13, 4, 1, "#3a3550");
+  px(ctx, X - 17, T + 14, 4, 5, "#7f9aa6");
+  const n = fill <= 0.01 ? 0 : Math.max(1, Math.round(fill * 5));
+  if (n) {
+    px(ctx, X - 17, T + 19 - n, 4, n, "#5b3a24");
+    const hot = fill >= 0.8 && Math.floor(t * 2) % 2 === 0;
+    px(ctx, X - 17, T + 19 - n, 4, 1, hot ? "#ff8a5b" : "#a0703f");
+  }
+  if (n < 4) px(ctx, X - 16, T + 14, 1, 4 - n, "#c9dde4");
 }
 
 type Prop = "cactus" | "duck" | "cans" | "books" | "lamp" | "none";

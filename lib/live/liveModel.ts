@@ -1,16 +1,18 @@
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel, Note, Stint, TripRequest, scheduleTrips } from "@/lib/cafe/model";
-import { AgentDef } from "@/lib/types";
+import { AgentDef, PotLevel } from "@/lib/types";
 import { Attention, nextAttention, stopText } from "./attention";
 import { sessionLabel } from "./label";
 import { LiveEvent } from "./types";
-import { tokensOf } from "./usage";
+import { fillOf, tokensOf } from "./usage";
 
 export const CLAUDE_COLOR = "#ff9a62";
 export const PALETTE = ["#38bdf8", "#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#a3e635", "#f87171", "#2dd4bf", "#e879f9", "#facc15", "#60a5fa", "#fb7185"];
 const DONE_HOLD_MS = 8000;
 const MIN_WORK_MS = 1400;
 const LIVE_PACE = 1.6;
+/** what a compacted chat keeps until its next answer tells the real size: the summary and the system prompt */
+const COMPACTED = 0.08;
 /** a chat that went quiet mid-turn (Esc, Ctrl+C, a closed laptop) stops counting as work after this long */
 export const QUIET_MS = 5 * 60 * 1000;
 
@@ -137,7 +139,7 @@ export interface LiveScene {
 
 /** Turns one session's hook events into the café: desk 0 is the main Claude, every subagent type gets its own desk. */
 export function buildLiveModel(events: LiveEvent[], session: string, roster: string[] = []): LiveScene {
-  const evs = events.filter((e) => e.session === session && e.kind !== "roster");
+  const evs = events.filter((e) => e.session === session && (e.kind !== "roster" || e.compact));
   const origin = evs[0]?.at ?? Date.now();
   const seed = hash(session) % 100000;
 
@@ -146,6 +148,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   const stints: Stint[][] = [[]];
   const notes: Note[][] = [[]];
   const spent: number[] = [0];
+  const pots: PotLevel[][] = [[]];
   const bySubagent = new Map<string, number>();
   const pending: Pending[] = [];
   const dispatchReqs: TripRequest[] = [];
@@ -193,6 +196,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     stints.push([]);
     notes.push([]);
     spent.push(0);
+    pots.push([]);
     return i;
   };
 
@@ -215,6 +219,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     const key = `e${e.seq}`;
     const actor = e.agent ? seatFor(e.agent, e.agentType ?? "agent", t, key) : 0;
     spent[actor] += tokensOf(e.usage);
+    if (e.ctx) pots[actor].push({ ts: t, fill: fillOf(e.ctx) });
 
     switch (e.kind) {
       case "prompt":
@@ -243,6 +248,10 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
       case "sub_start":
         seats[actor].busy = true;
         open(actor, t);
+        pots[actor].push({ ts: t, fill: 0 });
+        break;
+      case "roster":
+        pots[0].push({ ts: t, fill: COMPACTED });
         break;
       case "sub_stop": {
         open(actor, t);
@@ -287,6 +296,9 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
 
   spent.forEach((n, i) => {
     if (n > 0) agents[i].tokens = n;
+  });
+  pots.forEach((p, i) => {
+    if (p.length) agents[i].pot = p;
   });
   return {
     origin,

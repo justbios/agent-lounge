@@ -341,8 +341,9 @@ export default function LiveDashboard({
       {stale && !staleHidden && (
         <div className="notice stale-hooks">
           <span>
-            Підключення Claude Code в тебе старої версії: Relay не бачить лімітів підписки і не всі назви чатів. Онови
-            його тією самою фразою на сторінці <Link href="/connect">підключити Claude</Link>, це пів хвилини.
+            Підключення Claude Code в тебе старої версії: Relay не бачить лімітів підписки, заповнення контексту
+            і не всі назви чатів. Онови його тією самою фразою на сторінці{" "}
+            <Link href="/connect">підключити Claude</Link>, це пів хвилини.
           </span>
           <button className="btn btn-ic" onClick={hideStale} aria-label="сховати">
             <X size={14} />

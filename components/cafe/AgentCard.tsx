@@ -9,7 +9,7 @@ import { REACTIONS } from "@/lib/live/social";
 import { chip, line, said, useSpeech } from "@/lib/live/speech";
 import { badge, plural } from "../live/format";
 import { fmtTokens } from "../live/tokens";
-import { PROP_NAMES, propIndex } from "./desk";
+import { PROP_NAMES, potAt, propIndex } from "./desk";
 import { LOOK_CHOICES, lookIndex, pickedLook } from "./people";
 
 const LAST = 5;
@@ -168,6 +168,7 @@ export function AgentCard({
   const sp = useSpeech();
   const carrying = !!view.walker?.carrying || (view.walker?.give ?? -1) >= 0;
   const b = asking ? { cls: "rr-ask", text: said("b_ask", sp, "чекає на тебе") } : badge(view, carrying, sp);
+  const fill = potAt(a.pot, clock);
   const now = asking ?? (view.screen === "work" || view.walker ? (recent[0] ? line(recent[0], sp) : a.work) : null);
   return (
     <div className="agent-card">
@@ -183,6 +184,12 @@ export function AgentCard({
         <span className="ac-k">зараз</span>
         <span>{now || said("idle_now", sp, "нічого не робить, чекає задачу")}</span>
       </div>
+      {fill != null && (
+        <div className="ac-now" title="кавник на столі: скільки контексту вже зайнято; стиснення його спорожнює">
+          <span className="ac-k">контекст</span>
+          <span>{Math.round(fill * 100)}%</span>
+        </div>
+      )}
       <div className="ac-stats">
         <div>
           <b>{span(worked)}</b>

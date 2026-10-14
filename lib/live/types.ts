@@ -25,6 +25,13 @@ export interface LimitWindow {
   reset: number;
 }
 
+/** How full a chat's context is: the last reply's whole input in tokens, and the window when the status line said. */
+export interface ContextFill {
+  used: number;
+  /** 200k, or 1M for models with the long window */
+  size?: number;
+}
+
 /** The subscription's usage limits as Claude Code's status line last saw them; `at` is epoch seconds. */
 export interface Limits {
   at: number;
@@ -68,6 +75,10 @@ export interface LiveEvent {
   title?: string;
   /** answers, finished subagents and closed chats: the tokens spent since the last report */
   usage?: Usage;
+  /** answers and finished subagents: how full the context was after the last reply */
+  ctx?: ContextFill;
+  /** roster only: Claude Code has just compacted the chat */
+  compact?: boolean;
   /** prompts and answers: the 5-hour and weekly limits, when the status line has seen them */
   limits?: Limits;
   /** a turn that broke off instead of finishing: "rate_limit", "overloaded", "server_error", … */

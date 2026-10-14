@@ -1,6 +1,6 @@
 import { LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK, VERSION_MARK } from "./hookConfig.mjs";
 import { plainTool } from "./plain";
-import { LimitWindow, Limits, LiveEvent, LiveKind, Usage } from "./types";
+import { ContextFill, LimitWindow, Limits, LiveEvent, LiveKind, Usage } from "./types";
 
 type Json = Record<string, unknown>;
 
@@ -222,6 +222,16 @@ function readUsage(sec: string | null): Usage | undefined {
   return u.in + u.cw + u.cr + u.out > 0 ? u : undefined;
 }
 
+const MAX_WINDOW = 2_000_000;
+
+function readCtx(sec: string | null): ContextFill | undefined {
+  const j = firstJson(sec);
+  const used = count(j?.ctx);
+  if (!j || used <= 0 || used > MAX_WINDOW) return undefined;
+  const size = count(j.win);
+  return size >= 50_000 && size <= MAX_WINDOW ? { used, size } : { used };
+}
+
 const EPOCH_MIN = 1.6e9;
 const EPOCH_MAX = 4.2e9;
 
@@ -247,6 +257,7 @@ export interface HookBody {
   agents: string[] | null;
   title?: string;
   usage?: Usage;
+  ctx?: ContextFill;
   limits?: Limits;
   version?: number;
 }
@@ -273,6 +284,7 @@ export function parseHookBody(text: string): HookBody | null {
   const extra = {
     title: readTitle(section(text, TITLE_MARK)) ?? cleanTitle((raw as Json).session_title),
     usage: readUsage(section(text, USAGE_MARK)),
+    ctx: readCtx(section(text, USAGE_MARK)),
     limits: readLimits(section(text, LIMITS_MARK)),
     version: readVersion(section(text, VERSION_MARK)),
   };
@@ -298,6 +310,7 @@ export function withExtras(ev: LiveEvent, body: HookBody, member: string | null)
     ...(member ? { member } : {}),
     ...(body.title ? { title: body.title } : {}),
     ...(body.usage && SPENDS.has(ev.kind) ? { usage: body.usage } : {}),
+    ...(body.ctx && (ev.kind === "stop" || ev.kind === "sub_stop") ? { ctx: body.ctx } : {}),
     ...(body.limits && ev.kind !== "roster" ? { limits: body.limits } : {}),
     ...(body.version ? { hv: body.version } : {}),
   };
@@ -306,5 +319,6 @@ export function withExtras(ev: LiveEvent, body: HookBody, member: string | null)
 export function rosterEvent(raw: Json, agents: string[], seq: number, at: number): LiveEvent | null {
   const session = str(raw.session_id);
   if (!session || str(raw.agent_id)) return null;
-  return { seq, at, session, cwd: str(raw.cwd), kind: "roster", agents };
+  const compact = raw.source === "compact" ? { compact: true } : {};
+  return { seq, at, session, cwd: str(raw.cwd), kind: "roster", agents, ...compact };
 }

@@ -1,12 +1,12 @@
 #!/bin/sh
 # Relay for Claude Code: forwards a hook's JSON to a Relay café, with extras after marker lines. Async, silent, exits 0.
 #   relay.sh [--url URL] [roster] [title] [usage] [limits]   hook, JSON on stdin
-#   relay.sh statusline                                       statusLine command: saves the usage limits, prints a line
+#   relay.sh statusline                                       statusLine command: keeps limits and context, prints a line
 #   relay.sh limits                                           the same, silent, for chaining after another statusLine
 # Without --url the café link comes from ~/.config/relay/hook-url (written by /relay:connect).
 # Token counts and the last limits are kept in ~/.local/state/relay; nothing leaves this machine but the café's own events.
 state="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}"
-version=2
+version=3
 
 field() {
   printf '%s' "$1" | grep -oE "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d'"' -f4
@@ -17,7 +17,8 @@ number() {
 }
 
 # Sums the usage of every assistant message once (a message is written as one line per content block), skipping
-# the message id given as $1, and stops at a half-written last line. Prints: in cache_write cache_read out bytes last_id
+# the message id given as $1, and stops at a half-written last line.
+# Prints: in cache_write cache_read out bytes last_id context, where context is the last message's whole input
 sum_usage() {
   LC_ALL=C awk -v skip="$1" '
     function n(s, k) { return match(s, "\"" k "\":[0-9]+") ? substr(s, RSTART + length(k) + 3, RLENGTH - length(k) - 3) + 0 : 0 }
@@ -38,13 +39,20 @@ sum_usage() {
     }
     END {
       for (k in I) { i += I[k]; w += W[k]; r += R[k]; t += O[k] }
-      printf "%d %d %d %d %d %s\n", i, w, r, t, bytes, (last == "" ? (skip == "" ? "-" : skip) : last)
+      c = last == "" ? 0 : I[last] + W[last] + R[last]
+      printf "%d %d %d %d %d %s %d\n", i, w, r, t, bytes, (last == "" ? (skip == "" ? "-" : skip) : last), c
     }'
 }
 
+# $5 is how full the context is after the last answer and $6 how big it is, 0 when unknown.
 usage_json() {
   [ "$(($1 + $2 + $3 + $4))" -gt 0 ] || return 0
-  printf '\n#relay-usage\n{"in":%d,"cw":%d,"cr":%d,"out":%d}\n' "$1" "$2" "$3" "$4"
+  printf '\n#relay-usage\n{"in":%d,"cw":%d,"cr":%d,"out":%d,"ctx":%d,"win":%d}\n' \
+    "$1" "$2" "$3" "$4" "${5:-0}" "${6:-0}"
+}
+
+safe() {
+  printf '%s' "$1" | tr -cd 'A-Za-z0-9_-'
 }
 
 # A subagent's whole transcript once it stops; for the main chat, only what was added since the last report.
@@ -54,14 +62,14 @@ usage() {
   if [ -n "$sub" ]; then
     [ -f "$sub" ] || return 0
     set -- $(sum_usage "" < "$sub")
-    usage_json "$1" "$2" "$3" "$4"
+    usage_json "$1" "$2" "$3" "$4" "$7"
     return 0
   fi
   t=$(field "$1" transcript_path)
   sid=$(field "$1" session_id)
   [ -f "$t" ] && [ -n "$sid" ] || return 0
   mkdir -p "$state/usage" 2>/dev/null || return 0
-  f="$state/usage/$(printf '%s' "$sid" | tr -cd 'A-Za-z0-9_-')"
+  f="$state/usage/$(safe "$sid")"
   off=0
   skip=""
   [ -f "$f" ] && read -r off skip < "$f"
@@ -72,7 +80,14 @@ usage() {
   [ "$size" -gt "$off" ] || return 0
   set -- $(tail -c +"$((off + 1))" "$t" | head -c "$((size - off))" | sum_usage "$skip")
   printf '%s %s\n' "$((off + $5))" "$6" > "$f"
-  usage_json "$1" "$2" "$3" "$4"
+  used=$7
+  seen=0
+  win=0
+  [ -f "$state/ctx/$(safe "$sid")" ] && read -r seen win < "$state/ctx/$(safe "$sid")"
+  case "$seen" in '' | *[!0-9]*) seen=0 ;; esac
+  case "$win" in '' | *[!0-9]*) win=0 ;; esac
+  [ "$used" -gt 0 ] || used=$seen
+  usage_json "$1" "$2" "$3" "$4" "$used" "$win"
 }
 
 save_limits() {
@@ -92,6 +107,18 @@ save_limits() {
   } > "$state/limits.tmp" && mv -f "$state/limits.tmp" "$state/limits"
 }
 
+# The status line knows the context window of each chat: 200k, or 1M for models with the long one.
+save_ctx() {
+  sid=$(field "$1" session_id)
+  cw=$(printf '%s' "$1" | grep -oE '"context_window":\{[^}]*' | head -n 1)
+  size=$(number "$cw" context_window_size)
+  used=$(number "$cw" total_input_tokens)
+  [ -n "$sid" ] && [ -n "$size" ] || return 0
+  mkdir -p "$state/ctx" 2>/dev/null || return 0
+  used=${used%.*}
+  printf '%s %s\n' "${used:-0}" "${size%.*}" > "$state/ctx/$(safe "$sid")"
+}
+
 clock() {
   date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null
 }
@@ -99,6 +126,7 @@ clock() {
 if [ "$1" = "statusline" ] || [ "$1" = "limits" ]; then
   j=$(cat)
   save_limits "$j"
+  save_ctx "$j"
   [ "$1" = "limits" ] && exit 0
   line=$(field "$j" display_name)
   ctx=$(printf '%s' "$j" | grep -oE '"context_window":\{[^}]*' | grep -oE '"used_percentage":[0-9.]+' | head -n 1 | cut -d: -f2)

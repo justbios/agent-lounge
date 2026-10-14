@@ -1,8 +1,14 @@
-import { LimitWindow, Limits, LiveEvent, Usage } from "./types";
+import { ContextFill, LimitWindow, Limits, LiveEvent, Usage } from "./types";
 
 export const ZERO_USAGE: Usage = { in: 0, cw: 0, cr: 0, out: 0 };
 
 export const tokensOf = (u: Usage | undefined): number => (u ? u.in + u.cw + u.cr + u.out : 0);
+
+/** How full a context is, 0–1; without the window's size, a chat past 200k must have the long one. */
+export function fillOf(c: ContextFill): number {
+  const size = c.size ?? (c.used > 200_000 ? 1_000_000 : 200_000);
+  return Math.min(1, c.used / size);
+}
 
 export function addUsage(a: Usage, b: Usage | undefined): Usage {
   return b ? { in: a.in + b.in, cw: a.cw + b.cw, cr: a.cr + b.cr, out: a.out + b.out } : a;

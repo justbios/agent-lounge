@@ -49,7 +49,9 @@ export default function HookStatus({ roomKey, me }: { roomKey: string; me: strin
           <p className="step-p">Без скрипта: кафе бачить усі дії агентів, але без назв чатів, токенів і лімітів.</p>
         )}
         {on && !seen.http && staleHooks(feed.events, me) && (
-          <p className="step-p">Хуки старої версії: віддай фразу ще раз, щоб з&apos;явилися ліміти й назви чатів.</p>
+          <p className="step-p">
+            Хуки старої версії: віддай фразу ще раз, щоб з&apos;явилися ліміти, назви чатів і кавники контексту.
+          </p>
         )}
         {!on && seen.checked && (
           <p className="step-p">
