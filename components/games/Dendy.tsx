@@ -141,7 +141,7 @@ export default function Dendy() {
     const r = await fetchRom(g.file);
     setBusy(null);
     if ("error" in r) return setFail(FAILS[r.error]);
-    setPlayers(g.players);
+    setPlayers(1);
     start(g.title, r.data);
   };
 
@@ -229,9 +229,13 @@ export default function Dendy() {
         <ul className="dendy-credits">
           {NES_GAMES.map((g) => (
             <li key={g.id}>
-              {g.title}: {g.author}, ліцензія {g.license},{" "}
+              {g.title}: {g.author},{" "}
+              <a href={g.licenseUrl} target="_blank" rel="noreferrer">
+                {g.license}
+              </a>
+              ,{" "}
               <a href={g.source} target="_blank" rel="noreferrer">
-                джерело
+                вихідний код
               </a>
             </li>
           ))}

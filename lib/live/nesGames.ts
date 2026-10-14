@@ -8,11 +8,48 @@ export interface NesGame {
   about: string;
   author: string;
   license: string;
+  licenseUrl: string;
   source: string;
 }
 
+const GPL3 = "https://www.gnu.org/licenses/gpl-3.0.html";
+
 /** Only games whose authors let anyone share them; never a cartridge someone sells or owns the rights to. */
-export const NES_GAMES: NesGame[] = [];
+export const NES_GAMES: NesGame[] = [
+  {
+    id: "nova",
+    title: "Nova the Squirrel",
+    file: "nova.nes",
+    players: 1,
+    about: "Платформер: білка Нова, 33 рівні, 7 босів, п'ять світів.",
+    author: "NovaSquirrel",
+    license: "код GPL-3.0, графіка й рівні CC BY-NC-SA 4.0",
+    licenseUrl: "https://github.com/NovaSquirrel/NovaTheSquirrel#license",
+    source: "https://github.com/NovaSquirrel/NovaTheSquirrel",
+  },
+  {
+    id: "thwaite",
+    title: "Thwaite",
+    file: "thwaite128.nes",
+    players: 1,
+    about: "Збивай ракети, поки вони не влучили в міста.",
+    author: "Damian Yerrick",
+    license: "GPL-3.0",
+    licenseUrl: GPL3,
+    source: "https://github.com/pinobatch/thwaite-nes",
+  },
+  {
+    id: "croom",
+    title: "Concentration Room",
+    file: "croom.nes",
+    players: 2,
+    about: "Знайди пари карток: сам, проти комп'ютера або вдвох.",
+    author: "Damian Yerrick",
+    license: "GPL-3.0",
+    licenseUrl: GPL3,
+    source: "https://github.com/pinobatch/croom-nes",
+  },
+];
 
 export const MAX_ROM_BYTES = 4 * 1024 * 1024;
 
