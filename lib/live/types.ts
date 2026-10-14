@@ -69,6 +69,8 @@ export interface LiveEvent {
   agents?: string[];
   /** notify only: a permission prompt, or Claude idling until you write */
   need?: "permission" | "input";
+  /** notify only: Claude Code's own words when the café has no phrase for them; shown in the event log alone */
+  message?: string;
   /** team café: whose Claude this is, from the hook URL's &m= */
   member?: string;
   /** the chat's name in Claude Code, sent with prompts, answers and notifications */

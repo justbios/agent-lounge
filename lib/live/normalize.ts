@@ -109,10 +109,9 @@ function notice(type: string | undefined, message: string | undefined): Partial<
     const text = tool ? `чекає на дозвіл: ${tool}` : "чекає на дозвіл";
     return { tool: "дозвіл", need: "permission", text, say: { a: "wait_perm" } };
   }
-  if (type === "idle_prompt" || !m || /waiting|idle|input/i.test(m)) {
-    return { tool: "увага", need: "input", text: "чекає на тебе", say: { a: "wait_you" } };
-  }
-  return { tool: "увага", need: "input", text: clip(m) };
+  const waits: Partial<LiveEvent> = { tool: "увага", need: "input", text: "чекає на тебе", say: { a: "wait_you" } };
+  if (type === "idle_prompt" || !m || /waiting|idle|input/i.test(m)) return waits;
+  return { ...waits, message: clip(m) };
 }
 
 /** Maps a raw Claude Code hook payload to a café event, or null when it should not show. */

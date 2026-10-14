@@ -39,6 +39,8 @@ export function logText(e: LiveEvent, sp: Speech): string {
       return e.err ? said(e.say?.a ?? "broke_off", sp, stopText(e.err)) : said("answered", sp, "відповів");
     case "session_end":
       return said("closed", sp, "сесію закрито");
+    case "notify":
+      return e.message ? `${line(e, sp)} · ${e.message}` : line(e, sp, e.kind);
     default:
       return line(e, sp, e.kind);
   }
