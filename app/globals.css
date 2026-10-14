@@ -2563,6 +2563,15 @@ body {
     }
   }
 }
+.cafe-gain b {
+  color: #ffd25a;
+  font-size: clamp(8px, 1.3cqw, 13px);
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow:
+    1px 1px 0 #07050d,
+    -1px 0 0 #07050d;
+}
 .ac-react {
   display: flex;
   gap: 4px;

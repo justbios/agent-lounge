@@ -1,5 +1,6 @@
 import { CSSProperties } from "react";
 import { REACT_MS } from "@/lib/live/social";
+import { GAIN_MS, Gain } from "@/lib/live/useBeanGains";
 import { GuestSeat, guestTag } from "./guests";
 import { SACK } from "./hit";
 import type { Standing } from "./placement";
@@ -49,6 +50,20 @@ export function BeanSack({ beans, pos }: { beans?: number | null; pos: Pos }) {
       ☕ {Math.max(0, beans).toLocaleString("uk-UA")}
     </span>
   );
+}
+
+/** What the latest work earned, rising from the bean sack and fading out. */
+export function BeanGains({ list, pos }: { list?: Gain[]; pos: Pos }) {
+  return list?.map((g, k) => (
+    <span
+      key={g.id}
+      className="cafe-react cafe-gain"
+      style={{ ...pos(SACK.x + ((k % 2) * 2 - 1) * 4, SACK.y - 9), animationDuration: `${GAIN_MS}ms` }}
+    >
+      <b>+{g.n} ☕</b>
+      <small>{g.why}</small>
+    </span>
+  ));
 }
 
 /** The record playing on this page, floating over the jukebox. */

@@ -20,9 +20,10 @@ import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
 import { buildRoom, doorOf, fixtures } from "./room";
 import { Anchor, CafeBubble, FixturePick, Placing, SceneAlert, agentAnchor, anchorAt, fixtureAnchor, onCat } from "./sceneParts";
-import { BeanSack, ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
+import { BeanGains, BeanSack, ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
 import { fmtTokens } from "../live/tokens";
+import type { Gain } from "@/lib/live/useBeanGains";
 
 export type { Anchor, FixturePick, Placing, SceneAlert } from "./sceneParts";
 
@@ -67,6 +68,7 @@ export default function CafeScene({
   onMachine,
   playing,
   beans,
+  gains,
   asleep,
 }: {
   model: CafeModel;
@@ -106,6 +108,8 @@ export default function CafeScene({
   playing?: string | null;
   /** coffee beans left, a sack over the counter that opens the shop */
   beans?: number | null;
+  /** what the latest work earned, floating up from the sack */
+  gains?: Gain[];
   /** the whole café has been quiet for an hour: only then does the night close it */
   asleep?: boolean;
 }) {
@@ -408,6 +412,7 @@ export default function CafeScene({
           <GuestTags seats={seats} more={barOverflow(guests ?? [])} pos={pos} />
           <ChatTag unread={chatUnread} pos={pos} />
           <BeanSack beans={beans} pos={pos} />
+          {beans != null && <BeanGains list={gains} pos={pos} />}
           <JukeTag playing={playing} at={shown.find((s) => s.item === "jukebox")} pos={pos} />
           {reactions && <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />}
           {catName && (

@@ -16,6 +16,7 @@ import { setFocus, setMe, useTeamView } from "@/lib/live/team";
 import { buildTeamModel, memberOf, teamAlert } from "@/lib/live/teamModel";
 import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
+import { useBeanGains } from "@/lib/live/useBeanGains";
 import { useCafe } from "@/lib/live/useCafe";
 import { useCafeSound } from "@/lib/live/useCafeSound";
 import { useChat } from "@/lib/live/useChat";
@@ -221,6 +222,8 @@ export default function LiveDashboard({
   const owner = inHouse || whole || !session ? null : memberOf(session) || null;
   const cafe = inHouse ? (rooms.mine ?? rooms.common) : rooms.roomOf(owner);
   const earnedCount = cafe.earned.filter((e) => e.done).length;
+  const gainsFor = cafe.kind === "mine" || cafe.kind === "theirs" ? cafe.whose : null;
+  const gains = useBeanGains(feed.events, gainsFor, !!cafe.progress && cafe.beans.earned > 0 && !playing);
   const cafeName = rooms.common.interior.title;
   const whoseTip = cafe.whose ? `: ${cafe.kind === "mine" ? "твої" : cafe.whose}` : "";
   const lookOf = (m: string | null) => {
@@ -518,6 +521,7 @@ export default function LiveDashboard({
           placing={placing}
           onPlacing={setPlacing}
           onHouse={houseOn ? () => zoom("house") : undefined}
+          gains={gains}
           asleep={asleep}
           agents={
             <AgentList

@@ -6,6 +6,7 @@ import { CafeModel } from "@/lib/cafe/model";
 import { openTracks } from "@/lib/live/achievements";
 import { ItemId, Placed, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
+import { Gain } from "@/lib/live/useBeanGains";
 import { CafeState } from "@/lib/live/useCafe";
 import { CafeSound } from "@/lib/live/useCafeSound";
 import { ScenePop } from "../cafe/AgentCard";
@@ -129,6 +130,7 @@ export default function Stage({
   onPlacing,
   onHouse,
   asleep,
+  gains,
 }: {
   title: string;
   sub: ReactNode;
@@ -164,6 +166,8 @@ export default function Stage({
   onHouse?: () => void;
   /** the whole café has been quiet for an hour */
   asleep?: boolean;
+  /** what the latest work earned, floating up from the bean sack */
+  gains?: Gain[];
 }) {
   const [pop, setPop] = useState<Pop | null>(null);
   const [drawer, setDrawer] = useState<Side | null>(null);
@@ -342,6 +346,7 @@ export default function Stage({
           }
           playing={sound.on ? playingName(sound) : null}
           beans={cafe.beans.left}
+          gains={gains}
           pops={pops}
         />
         {placing && <PlacingBar placing={placing} onCancel={() => onPlacing(null)} />}

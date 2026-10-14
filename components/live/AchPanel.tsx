@@ -54,6 +54,8 @@ function Card({ e }: { e: Earned }) {
 export default function AchPanel({ cafe, onClose }: { cafe: CafeState; onClose: () => void }) {
   const done = cafe.earned.filter((e) => e.done).length;
   const decor = cafe.earned.filter((e) => e.def.decor);
+  const learn = cafe.earned.filter((e) => e.def.learn);
+  const rest = cafe.earned.filter((e) => !e.def.learn);
   return (
     <Sheet
       label="досягнення"
@@ -66,15 +68,25 @@ export default function AchPanel({ cafe, onClose }: { cafe: CafeState; onClose: 
         {cafe.kind === "theirs" && `${cafe.whose}: досягнення лише з власної роботи. `}
         {cafe.kind === "lobby" && "Досягнення всієї команди разом. "}
         Кожне досягнення рахується з хуків за весь час і дає від 50 до 300 зерен, якщо отримане після нового відліку
-        зерен. Деякі додають у кімнату нову річ, відкривають тему чи платівку на автоматі.
+        зерен. Деякі додають у кімнату нову річ, відкривають тему чи платівку на автоматі. Перші шість навчають
+        прийомів Claude Code, яких легко не помітити.
       </p>
       {cafe.error && <p className="key-paste-bad">Не вдалося дістати прогрес, спробую ще раз за хвилину.</p>}
       {cafe.progress && (
-        <div className="ach-grid">
-          {cafe.earned.map((e) => (
-            <Card key={e.def.id} e={e} />
-          ))}
-        </div>
+        <>
+          <div className="share-ttl">Спробуй у Claude Code</div>
+          <div className="ach-grid">
+            {learn.map((e) => (
+              <Card key={e.def.id} e={e} />
+            ))}
+          </div>
+          <div className="share-ttl">Робота</div>
+          <div className="ach-grid">
+            {rest.map((e) => (
+              <Card key={e.def.id} e={e} />
+            ))}
+          </div>
+        </>
       )}
     </Sheet>
   );

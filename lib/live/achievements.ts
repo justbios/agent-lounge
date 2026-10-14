@@ -16,6 +16,10 @@ export interface ProgressDay {
   early: boolean;
   /** absent from rooms that counted nothing yet */
   tokens?: number;
+  /** the tools used that day, by their café names; absent before Relay counted them */
+  kinds?: string[];
+  /** the most different agents handed work in one hour of the day */
+  crowd?: number;
 }
 
 export interface CafeSettings {
@@ -52,6 +56,8 @@ interface Stats {
   agents: number;
   toolKinds: number;
   projects: number;
+  kinds: Set<string>;
+  crowd: number;
 }
 
 export interface AchievementDef {
@@ -71,9 +77,19 @@ export interface AchievementDef {
   theme?: ThemeId;
   /** a record it opens on the jukebox; lo-fi and the keyboards play from the start */
   track?: TrackId;
+  /** teaches a part of Claude Code, and so is shown first */
+  learn?: boolean;
 }
 
+const used = (kind: string) => (s: Stats) => (s.kinds.has(kind) ? 1 : 0);
+
 export const ACHIEVEMENTS: AchievementDef[] = [
+  { id: "learn_plan", icon: "🗺", title: "План наперед", hint: "Shift+Tab двічі вмикає режим плану: Claude спершу покаже план, а ти його затвердиш", goal: 1, value: used("exitplanmode"), reward: 50, learn: true },
+  { id: "learn_todo", icon: "📝", title: "Список справ", hint: "попроси Claude розбити велику задачу на кроки: він складе список справ і відмічатиме зроблене", goal: 1, value: used("plan"), reward: 50, learn: true },
+  { id: "learn_skill", icon: "🧩", title: "Навичка", hint: "скіл — готова інструкція для Claude: набери / з назвою скіла або попроси взяти потрібний", goal: 1, value: used("skill"), reward: 50, learn: true },
+  { id: "learn_web", icon: "🌐", title: "В мережу", hint: "попроси Claude пошукати в інтернеті або прочитати сторінку за посиланням", goal: 1, value: used("web"), reward: 50, learn: true },
+  { id: "learn_ask", icon: "❓", title: "Питання з варіантами", hint: "напиши Claude «спершу розпитай мене»: він спитає з готовими варіантами відповіді", goal: 1, value: used("ask"), reward: 50, learn: true },
+  { id: "learn_team", icon: "👥", title: "Командна година", hint: "попроси Claude розкидати задачу на агентів паралельно: три різні агенти за одну годину", goal: 3, value: (s) => s.crowd, reward: 50, learn: true },
   { id: "first_question", icon: "💬", title: "Перше питання", hint: "постав Claude перше питання", goal: 1, value: (s) => s.prompts, reward: 50 },
   { id: "first_handoff", icon: "🤝", title: "Перше доручення", hint: "Claude вперше доручив роботу агенту", goal: 1, value: (s) => s.dispatches, decor: "plant", decorName: "рослина в кутку", reward: 50 },
   { id: "questions_100", icon: "💯", title: "Сотня питань", hint: "100 питань за весь час", goal: 100, value: (s) => s.prompts, reward: 100, track: "jazz" },
@@ -113,7 +129,7 @@ const dayNum = (d: string) => Math.round(Date.parse(`${d}T00:00:00Z`) / DAY_MS);
 
 /** Walks the days in order and records the first day each achievement crossed its goal. */
 export function evaluate(p: Progress): Earned[] {
-  const s: Stats = { tokens: 0, prompts: 0, tools: 0, dispatches: 0, fails: 0, streak: 0, minutes: 0, peak: 0, dayDispatches: 0, dayTokens: 0, night: 0, early: 0, agents: p.agents, toolKinds: p.tools, projects: p.projects };
+  const s: Stats = { tokens: 0, prompts: 0, tools: 0, dispatches: 0, fails: 0, streak: 0, minutes: 0, peak: 0, dayDispatches: 0, dayTokens: 0, night: 0, early: 0, agents: p.agents, toolKinds: p.tools, projects: p.projects, kinds: new Set(), crowd: 0 };
   const day = new Map<string, string>();
   let run = 0;
   let prev: number | null = null;
@@ -129,6 +145,8 @@ export function evaluate(p: Progress): Earned[] {
     s.dayTokens = Math.max(s.dayTokens, d.tokens ?? 0);
     if (d.night) s.night = 1;
     if (d.early) s.early = 1;
+    d.kinds?.forEach((k) => s.kinds.add(k));
+    s.crowd = Math.max(s.crowd, d.crowd ?? 0);
     const n = dayNum(d.day);
     run = d.prompts > 0 ? (prev != null && n === prev + 1 ? run + 1 : 1) : 0;
     prev = d.prompts > 0 ? n : null;
@@ -175,14 +193,16 @@ export function progressFromHourly(rows: HourRow[], room: CafeSettings | null): 
   const tools = new Set<string>();
   const projects = new Set<string>();
   const chats = new Set<string>();
+  const kinds = new Map<string, Set<string>>();
   for (const r of rows) {
     const t = Date.parse(r.hour);
     const key = localDay(t);
     const hour = new Date(t).getHours();
     let d = days.get(key);
     if (!d) {
-      d = { day: key, prompts: 0, tools: 0, dispatches: 0, fails: 0, answers: 0, minutes: 0, peak_hour: 0, night: false, early: false, tokens: 0 };
+      d = { day: key, prompts: 0, tools: 0, dispatches: 0, fails: 0, answers: 0, minutes: 0, peak_hour: 0, night: false, early: false, tokens: 0, crowd: 0 };
       days.set(key, d);
+      kinds.set(key, new Set());
     }
     d.prompts += r.prompts;
     d.tools += r.tools;
@@ -192,6 +212,8 @@ export function progressFromHourly(rows: HourRow[], room: CafeSettings | null): 
     d.tokens = (d.tokens ?? 0) + (r.tok_in ?? 0) + (r.tok_cw ?? 0) + (r.tok_cr ?? 0) + (r.tok_out ?? 0);
     d.minutes += Object.keys(r.mins).length;
     d.peak_hour = Math.max(d.peak_hour, r.dispatches);
+    d.crowd = Math.max(d.crowd ?? 0, Object.keys(r.agents).length);
+    Object.keys(r.tools_by).forEach((k) => kinds.get(key)!.add(k));
     if (r.prompts > 0 && hour < 5) d.night = true;
     if (r.prompts > 0 && (hour === 5 || hour === 6)) d.early = true;
     Object.keys(r.agents).forEach((k) => agents.add(k));
@@ -200,7 +222,9 @@ export function progressFromHourly(rows: HourRow[], room: CafeSettings | null): 
     Object.keys(r.sessions).forEach((k) => chats.add(k));
   }
   return {
-    days: [...days.values()].sort((a, b) => a.day.localeCompare(b.day)),
+    days: [...days.values()]
+      .map((d) => ({ ...d, kinds: [...kinds.get(d.day)!] }))
+      .sort((a, b) => a.day.localeCompare(b.day)),
     agents: agents.size,
     tools: tools.size,
     projects: projects.size,
