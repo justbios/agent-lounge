@@ -35,7 +35,8 @@ export interface WeekQuest {
 export function weekQuest(days: ProgressDay[], today: string): WeekQuest {
   const totals = weekTotals(days);
   const w = weekOf(dayNum(today));
-  return { goal: goalOf(totals, w), done: totals.get(w) ?? 0, from: dayStr(weekMonday(w)), to: dayStr(weekMonday(w) + 6) };
+  const from = weekMonday(w);
+  return { goal: goalOf(totals, w), done: totals.get(w) ?? 0, from: dayStr(from), to: dayStr(from + 6) };
 }
 
 /** The weeks ending after `fromDay` in which the café met its goal, the running week included once it has. */

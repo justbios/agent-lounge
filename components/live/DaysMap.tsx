@@ -5,7 +5,10 @@ import { ProgressDay, localDay } from "@/lib/live/achievements";
 import { currentStreak, heatWeeks } from "@/lib/live/streak";
 import { plural } from "./format";
 
-const dayLabel = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
+const dayLabel = (d: string) =>
+  new Date(`${d}T12:00:00`).toLocaleDateString("uk-UA", { day: "numeric", month: "long" });
+
+const actions = (n: number) => `${n} ${plural(n, "дія", "дії", "дій")}`;
 
 /** The days with agents at work, GitHub style, and the run of them that reaches today. */
 export default function DaysMap({ days }: { days: ProgressDay[] }) {
@@ -35,7 +38,7 @@ export default function DaysMap({ days }: { days: ProgressDay[] }) {
           <span
             key={c.day}
             className={`days-cell l${c.level} ${c.future ? "future" : ""} ${s.frozen.includes(c.day) ? "frozen" : ""}`}
-            title={c.future ? undefined : `${dayLabel(c.day)}: ${c.work ? `${c.work} ${plural(c.work, "дія", "дії", "дій")}` : "без роботи"}`}
+            title={c.future ? undefined : `${dayLabel(c.day)}: ${c.work ? actions(c.work) : "без роботи"}`}
           />
         ))}
       </div>

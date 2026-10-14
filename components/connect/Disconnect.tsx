@@ -22,9 +22,9 @@ export default function Disconnect() {
       <summary className="step-ttl">Відключити Relay</summary>
       <div className="step-body">
         <p className="step-p">
-          Встав у чат Claude Code. Він збереже копію налаштувань і прибере з них лише хуки й статус-рядок Relay. Якщо
-          після підключення ти більше нічого там не міняв, він просто поверне копію <code>settings.json.bak-relay</code>,
-          зроблену перед підключенням. Решта налаштувань лишиться як була.
+          Встав у чат Claude Code. Він збереже копію налаштувань і прибере з них лише хуки й статус-рядок Relay.
+          Якщо після підключення ти більше нічого там не міняв, він просто поверне копію{" "}
+          <code>settings.json.bak-relay</code>, зроблену перед підключенням. Решта налаштувань лишиться як була.
         </p>
         <Code text={OFF} wrap />
         <p className="step-p">
