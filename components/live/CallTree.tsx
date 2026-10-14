@@ -22,7 +22,21 @@ type ColorOf = (agent?: string) => string;
 
 const actions = (n: number) => `${n} ${plural(n, "дія", "дії", "дій")}`;
 
-function Calls({ calls, sp, colorOf }: { calls: CallNode[]; sp: Speech; colorOf: ColorOf }) {
+interface CallsProps {
+  calls: CallNode[];
+  sp: Speech;
+  colorOf: ColorOf;
+  /** the turn has its answer, so a handoff with no start seen will not start any more */
+  answered: boolean;
+}
+
+function state(c: CallNode, answered: boolean): string {
+  if (c.done) return ` · ${took(c.ms) ?? ""}`;
+  if (c.agent) return " · працює";
+  return answered ? " · Relay не бачив старту" : " · чекає старту";
+}
+
+function Calls({ calls, sp, colorOf, answered }: CallsProps) {
   return (
     <ul className="tree-calls">
       {calls.map((c) =>
@@ -36,10 +50,10 @@ function Calls({ calls, sp, colorOf }: { calls: CallNode[]; sp: Speech; colorOf:
                 <span className="log-msg">{c.e.text ?? ""}</span>
                 <span className="tree-took">
                   {actions(countCalls(c.calls))}
-                  {c.done ? ` · ${took(c.ms) ?? ""}` : c.agent ? " · працює" : " · чекає старту"}
+                  {state(c, answered)}
                 </span>
               </summary>
-              <Calls calls={c.calls} sp={sp} colorOf={colorOf} />
+              <Calls calls={c.calls} sp={sp} colorOf={colorOf} answered={answered} />
             </details>
           </li>
         ) : (
@@ -66,7 +80,7 @@ function TurnRow({ t, open, sp, colorOf }: { t: Turn; open: boolean; sp: Speech;
         </span>
       </summary>
       {t.calls.length ? (
-        <Calls calls={t.calls} sp={sp} colorOf={colorOf} />
+        <Calls calls={t.calls} sp={sp} colorOf={colorOf} answered={t.answered} />
       ) : (
         <p className="muted-sm tree-none">ще жодної дії</p>
       )}
