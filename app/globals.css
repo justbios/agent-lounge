@@ -3717,6 +3717,38 @@ body {
   font-size: 11px;
   color: var(--muted);
 }
+.dendy-shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.dendy-shelf-ttl {
+  margin: 0;
+}
+.dendy-shelf-ttl b {
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 12px;
+}
+.dendy-shelf-ttl small {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.dendy-cart {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+}
+.dendy-cart .btn-ic {
+  height: auto;
+}
+.dendy-cart-ttl {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .dendy-row,
 .dendy-bar {
   display: flex;

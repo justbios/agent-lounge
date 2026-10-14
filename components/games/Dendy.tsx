@@ -3,7 +3,9 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { FolderOpen, Pause, Play, RotateCcw, X } from "lucide-react";
 import type { Browser, Controller } from "jsnes";
+import { Cart } from "@/lib/live/cartShelf";
 import { NES_GAMES, NesGame, fetchRom, readRom } from "@/lib/live/nesGames";
+import { CartShelf, useCartShelf } from "./CartShelf";
 
 type Players = 1 | 2;
 type Btn = "A" | "B" | "SELECT" | "START" | "UP" | "DOWN" | "LEFT" | "RIGHT";
@@ -53,6 +55,8 @@ const FAILS = {
   net: "Не вдалося завантажити гру, спробуй ще раз.",
   load: "Емулятор не завантажився, спробуй ще раз.",
   crash: "Гра зависла в емуляторі. Натисни «спочатку».",
+  full: "Полиця повна: прибери з неї картридж, щоб поставити цей.",
+  shelf: "Браузер не дав зберегти гру на полицю, але грати можна.",
 } as const;
 
 const keyMap = (C: typeof Controller, list: Key[]) =>
@@ -84,6 +88,7 @@ export default function Dendy() {
   const screen = useRef<HTMLDivElement>(null);
   const emu = useRef<{ b: Browser; C: typeof Controller } | null>(null);
   const playersRef = useRef(players);
+  const shelf = useCartShelf();
 
   useEffect(() => {
     playersRef.current = players;
@@ -133,7 +138,18 @@ export default function Dendy() {
     if (!f) return;
     const r = await readRom(f);
     if ("error" in r) return setFail(FAILS[r.error]);
-    start(f.name.replace(/\.nes$/i, ""), r.data);
+    const title = f.name.replace(/\.nes$/i, "");
+    start(title, r.data);
+    const kept = await shelf.keep(title, f);
+    if (kept !== "ok") setFail(FAILS[kept === "full" ? "full" : "shelf"]);
+  };
+
+  const playCart = async (c: Cart) => {
+    setBusy(c.id);
+    const r = await readRom(new File([c.rom], `${c.title}.nes`));
+    setBusy(null);
+    if ("error" in r) return setFail(FAILS[r.error]);
+    start(c.title, r.data);
   };
 
   const pickGame = async (g: NesGame) => {
@@ -181,6 +197,7 @@ export default function Dendy() {
           ))}
         </ul>
       )}
+      <CartShelf carts={shelf.carts} busy={busy} onPlay={playCart} onDrop={shelf.drop} />
       <div className="dendy-row">
         <label className="btn">
           <FolderOpen size={14} />
@@ -223,7 +240,10 @@ export default function Dendy() {
         {HELP[players].map((l) => (
           <p key={l}>{l}</p>
         ))}
-        <p>Геймпади підхоплюються самі. Своя гра відкривається лише в цьому браузері й нікуди не вантажиться.</p>
+        <p>
+          Геймпади підхоплюються самі. Своя гра з диска лягає на полицю «мої картриджі» лише в цьому браузері й нікуди
+          не вантажиться.
+        </p>
       </div>
       {NES_GAMES.length > 0 && (
         <ul className="dendy-credits">
