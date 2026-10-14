@@ -141,7 +141,7 @@ export default function Dendy() {
     const r = await fetchRom(g.file);
     setBusy(null);
     if ("error" in r) return setFail(FAILS[r.error]);
-    setPlayers(1);
+    setPlayers(g.twoOnly ? 2 : 1);
     start(g.title, r.data);
   };
 
@@ -175,7 +175,7 @@ export default function Dendy() {
             <li key={g.id}>
               <button className="btn" onClick={() => pickGame(g)} disabled={busy != null} title={g.about}>
                 {busy === g.id ? "вантажу…" : g.title}
-                <small>{g.players === 2 ? "1–2 гравці" : "1 гравець"}</small>
+                <small>{g.twoOnly ? "лише вдвох" : g.players === 2 ? "1–2 гравці" : "1 гравець"}</small>
               </button>
             </li>
           ))}
@@ -235,7 +235,7 @@ export default function Dendy() {
               </a>
               ,{" "}
               <a href={g.source} target="_blank" rel="noreferrer">
-                вихідний код
+                {g.sourceLabel ?? "вихідний код"}
               </a>
             </li>
           ))}

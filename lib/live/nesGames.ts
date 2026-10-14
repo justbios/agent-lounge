@@ -5,11 +5,13 @@ export interface NesGame {
   /** under public/roms */
   file: string;
   players: 1 | 2;
+  twoOnly?: boolean;
   about: string;
   author: string;
   license: string;
   licenseUrl: string;
   source: string;
+  sourceLabel?: string;
 }
 
 const GPL3 = "https://www.gnu.org/licenses/gpl-3.0.html";
@@ -48,6 +50,30 @@ export const NES_GAMES: NesGame[] = [
     license: "GPL-3.0",
     licenseUrl: GPL3,
     source: "https://github.com/pinobatch/croom-nes",
+  },
+  {
+    id: "rhde",
+    title: "RHDE: Furniture Fight",
+    file: "rhde.nes",
+    players: 2,
+    twoOnly: true,
+    about: "Сусіди воюють за меблі: обстав свій дім, вкради меблі в сусіда, полагодь стіни. Лише вдвох.",
+    author: "Damian Yerrick",
+    license: "FSFAP",
+    licenseUrl: "https://www.gnu.org/prep/maintain/html_node/License-Notices-for-Other-Files.html",
+    source: "https://github.com/pinobatch/rhde-nes",
+  },
+  {
+    id: "cybercoaster",
+    title: "Cybercoaster",
+    file: "cybercoaster.nes",
+    players: 1,
+    about: "Гонка американськими гірками: три кола, поки не скінчився час. A газ, B гальмо.",
+    author: "Fizzer & noby (Clockwork Cats)",
+    license: "CC BY 4.0",
+    licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
+    source: "https://github.com/nesdev-org/homebrew-db/tree/master/entries/cybercoaster",
+    sourceLabel: "сторінка в каталозі nesdev",
   },
 ];
 
