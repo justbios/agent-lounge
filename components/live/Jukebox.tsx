@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useId, useRef, useState } from "react";
-import { Link2, Music, Pause, Play } from "lucide-react";
+import { Keyboard, Link2, Music, Pause, Play } from "lucide-react";
 import { trackKey } from "@/lib/live/achievements";
 import { TRACKS, TrackId, trackInfo } from "@/lib/live/tracks";
 import { parseTune, tuneSource, tuneSyncs } from "@/lib/live/tune";
@@ -140,6 +140,11 @@ export function JukeboxList({ sound, open }: { sound: CafeSound; open?: Set<Trac
           onChange={(e) => sound.setVol(parseFloat(e.target.value))}
         />
       </div>
+      <label className="juke-clicks">
+        <input type="checkbox" checked={sound.clicks} onChange={sound.toggleClicks} />
+        <Keyboard size={14} aria-hidden />
+        стукіт клавіатури, поки агенти працюють
+      </label>
     </div>
   );
 }

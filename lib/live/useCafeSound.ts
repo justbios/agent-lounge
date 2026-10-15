@@ -10,6 +10,7 @@ const KEY = "relay.music";
 const VOL_KEY = "relay.music.vol";
 const TRACK_KEY = "relay.music.track";
 const TUNE_KEY = "relay.music.tune";
+const CLICKS_KEY = "relay.music.clicks";
 const DEFAULT_VOL = 0.6;
 
 interface Music {
@@ -18,9 +19,10 @@ interface Music {
   track: TrackId;
   tune: Tune | null;
   tuneAt: number;
+  clicks: boolean;
 }
 
-const OFF: Music = { on: false, vol: DEFAULT_VOL, track: "lofi", tune: null, tuneAt: 0 };
+const OFF: Music = { on: false, vol: DEFAULT_VOL, track: "lofi", tune: null, tuneAt: 0, clicks: true };
 
 function readTune(): Pick<Music, "tune" | "tuneAt"> {
   try {
@@ -43,6 +45,7 @@ function read(): Music {
       on: localStorage.getItem(KEY) === "1",
       vol: localStorage.getItem(VOL_KEY) !== null && vol >= 0 && vol <= 1 ? vol : DEFAULT_VOL,
       track: isTrack(track) ? track : OFF.track,
+      clicks: localStorage.getItem(CLICKS_KEY) !== "0",
       ...readTune(),
     };
   } catch {
@@ -63,6 +66,7 @@ function setMusic(next: Partial<Music>) {
     localStorage.setItem(KEY, music.on ? "1" : "0");
     localStorage.setItem(VOL_KEY, String(music.vol));
     localStorage.setItem(TRACK_KEY, music.track);
+    localStorage.setItem(CLICKS_KEY, music.clicks ? "1" : "0");
     localStorage.setItem(TUNE_KEY, JSON.stringify(music.tune ? { tune: music.tune, at: music.tuneAt } : null));
   } catch {}
   listeners.forEach((l) => l());
@@ -95,6 +99,9 @@ export interface CafeSound {
   /** when the link was put on, so everyone hears it from the same second */
   tuneAt: number;
   playTune: (tune: Tune) => void;
+  /** keyboard clicks while agents work, over any music or none; this browser's own */
+  clicks: boolean;
+  toggleClicks: () => void;
 }
 
 /**
@@ -107,29 +114,33 @@ export function useCafeSound(
   canPick: boolean,
 ): CafeSound {
   const mine = useSyncExternalStore(subscribe, snap, () => OFF);
-  const { on, vol } = mine;
+  const { on, vol, clicks } = mine;
   const { disc, spin } = social;
   const track = disc?.track ?? mine.track;
   const tune = disc ? (disc.tune ?? null) : mine.tune;
   const tuneAt = disc ? disc.at : mine.tuneAt;
   const linked = tune != null;
+  const band = on && (!linked || clicks);
   const workingRef = useRef(working);
   const volRef = useRef(vol);
+  const clicksRef = useRef(clicks);
 
   useEffect(() => {
     workingRef.current = working;
     volRef.current = vol;
-  }, [working, vol]);
+    clicksRef.current = clicks;
+  }, [working, vol, clicks]);
 
   useEffect(() => {
-    if (!on || linked) return;
+    if (!band) return;
     const ctx = audio();
     if (!ctx) return;
-    const band = startMusic(
+    const player = startMusic(
       ctx,
-      trackOf(track),
+      linked ? null : trackOf(track),
       () => workingRef.current,
       () => volRef.current,
+      () => clicksRef.current,
     );
     const wake = () => {
       if (ctx.state === "suspended") void ctx.resume();
@@ -137,9 +148,9 @@ export function useCafeSound(
     document.addEventListener("pointerdown", wake);
     return () => {
       document.removeEventListener("pointerdown", wake);
-      band.stop();
+      player.stop();
     };
-  }, [on, track, linked]);
+  }, [band, track, linked]);
 
   return {
     on,
@@ -157,7 +168,7 @@ export function useCafeSound(
     play: (next) => {
       if (!canPick) return;
       audio();
-      setMusic({ on: true, track: next, tune: null });
+      setMusic({ on: true, track: next, tune: null, ...(next === "keys" && { clicks: true }) });
       spin(next);
     },
     tune,
@@ -166,6 +177,11 @@ export function useCafeSound(
       if (!canPick) return;
       setMusic({ on: true, tune: t, tuneAt: Date.now() });
       spin(track, t);
+    },
+    clicks,
+    toggleClicks: () => {
+      if (!clicks) audio();
+      setMusic({ clicks: !clicks });
     },
   };
 }

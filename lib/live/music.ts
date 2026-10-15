@@ -27,10 +27,16 @@ export interface Music {
 
 /**
  * The café's sound: a track made on the spot, or none, with keyboard clicks on top while agents work.
- * `working` and `volume` are read every tick: the band grows louder and the typing busier as more agents work, and
- * the whole mix follows the listener's volume, 0 to 1.
+ * `working`, `volume` and `clicks` are read every tick: the band grows louder and the typing busier as more agents
+ * work, the whole mix follows the listener's volume, 0 to 1, and the typing can be switched off on its own.
  */
-export function startMusic(ac: AudioContext, track: Track | null, working: () => number, volume: () => number): Music {
+export function startMusic(
+  ac: AudioContext,
+  track: Track | null,
+  working: () => number,
+  volume: () => number,
+  clicks: () => boolean,
+): Music {
   const out = ac.createGain();
   out.gain.value = volume();
   out.connect(ac.destination);
@@ -112,20 +118,21 @@ export function startMusic(ac: AudioContext, track: Track | null, working: () =>
   let clickAt = ac.currentTime;
   const tick = () => {
     const w = Math.min(MAX_WORKERS, Math.max(0, working()));
+    const typing = clicks() ? w : 0;
     const now = ac.currentTime;
     out.gain.setTargetAtTime(Math.min(1, Math.max(0, volume())), now, 0.05);
     master.gain.setTargetAtTime(track ? 0.4 + 0.08 * w : 0, now, 1.2);
-    keys.gain.setTargetAtTime(w ? 0.4 + 0.1 * w : 0, now, 0.4);
+    keys.gain.setTargetAtTime(typing ? 0.4 + 0.1 * typing : 0, now, 0.4);
     while (track && next < now + AHEAD_S) {
       track.bar(kit, bar, next, beat);
       next += beat * 4;
       bar++;
     }
-    if (!w) {
+    if (!typing) {
       clickAt = now + 0.3;
       return;
     }
-    const rate = 4 + 5 * w;
+    const rate = 4 + 5 * typing;
     clickAt = Math.max(clickAt, now);
     while (clickAt < now + 0.3) {
       burst(clickAt, 0.5 + Math.random() * 0.5, 0.022, "bandpass", 1800 + Math.random() * 2200, keys);

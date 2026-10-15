@@ -3946,6 +3946,18 @@ body {
     height: 12px;
   }
 }
+.juke-clicks {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.juke-clicks input {
+  accent-color: var(--accent);
+}
 .juke-ctl {
   display: flex;
   align-items: center;
