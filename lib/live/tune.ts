@@ -69,3 +69,30 @@ export const tuneSyncs = (t: Tune) => (t.kind === "youtube" ? !!t.video : t.type
 
 export const sameTune = (a: Tune | null | undefined, b: Tune | null | undefined) =>
   JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+export interface LinkedRecord {
+  id: string;
+  icon: string;
+  name: string;
+  by: string;
+  tune: Tune;
+}
+
+/** Records on the jukebox that play from a link through the service's own player, under the song's own name. */
+export const LINKED: LinkedRecord[] = [
+  {
+    id: "harvest-dawn",
+    icon: "🌾",
+    name: "Harvest Dawn",
+    by: "Jeremy Soule",
+    tune: { kind: "youtube", video: "weYUEzs32UY" },
+  },
+];
+
+export const linkedOf = (t: Tune | null | undefined) => LINKED.find((r) => sameTune(r.tune, t));
+
+/** What a link plays, in a few words: the record's name and author when it is one of the jukebox's, else the source. */
+export const tuneName = (t: Tune) => {
+  const r = linkedOf(t);
+  return r ? `${r.name} · ${r.by}` : tuneSource(t);
+};

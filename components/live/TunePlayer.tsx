@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
 import { SpotifyController, YTPlayer, spotifyApi, youTubeApi } from "@/lib/live/embedApi";
-import { Tune, tuneSource, tuneSyncs } from "@/lib/live/tune";
+import { Tune, tuneName, tuneSyncs } from "@/lib/live/tune";
 import { CafeSound } from "@/lib/live/useCafeSound";
 
 type Fail = "load" | "embed";
@@ -136,7 +136,7 @@ export default function TunePlayer({ sound }: { sound: CafeSound }) {
     <aside className="tune-dock" aria-label="музика з посилання">
       <div className="tune-hd">
         <span className="tune-ttl">
-          ♪ {tuneSource(t)}
+          ♪ {tuneName(t)}
           {sound.by ? ` · ставить ${sound.by}` : ""}
         </span>
         <a className="btn btn-ic" href={tuneUrl(t)} target="_blank" rel="noreferrer" title="відкрити окремо">

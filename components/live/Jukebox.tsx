@@ -4,13 +4,13 @@ import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Keyboard, Link2, Music, Pause, Play } from "lucide-react";
 import { trackKey } from "@/lib/live/achievements";
 import { TRACKS, TrackId, trackInfo } from "@/lib/live/tracks";
-import { parseTune, tuneSource, tuneSyncs } from "@/lib/live/tune";
+import { LINKED, LinkedRecord, linkedOf, parseTune, sameTune, tuneName, tuneSyncs } from "@/lib/live/tune";
 import { CafeSound } from "@/lib/live/useCafeSound";
 
 const NOT_A_LINK = "Це не схоже на посилання з YouTube, YouTube Music чи Spotify.";
 
 /** What the jukebox plays, in a few words: the record's name, or where the link's music comes from. */
-export const playingName = (s: CafeSound) => (s.tune ? tuneSource(s.tune) : trackInfo(s.track).name);
+export const playingName = (s: CafeSound) => (s.tune ? tuneName(s.tune) : trackInfo(s.track).name);
 
 function TuneForm({ sound }: { sound: CafeSound }) {
   const id = useId();
@@ -50,7 +50,7 @@ function TuneForm({ sound }: { sound: CafeSound }) {
 
 function TuneRow({ sound }: { sound: CafeSound }) {
   const t = sound.tune;
-  if (!t) return null;
+  if (!t || linkedOf(t)) return null;
   const why = tuneSyncs(t) ? "всі чують з тієї ж секунди" : "кожен слухає з початку";
   return (
     <li>
@@ -59,10 +59,42 @@ function TuneRow({ sound }: { sound: CafeSound }) {
           <Link2 size={15} />
         </span>
         <span className="juke-name">
-          <b>{tuneSource(t)}</b>
+          <b>{tuneName(t)}</b>
           <small>{sound.by ? `ставить ${sound.by}` : why}</small>
         </span>
         {sound.on ? (
+          <span className="juke-eq" aria-hidden>
+            <i />
+            <i />
+            <i />
+          </span>
+        ) : (
+          <Play size={13} className="juke-play" aria-hidden />
+        )}
+      </button>
+    </li>
+  );
+}
+
+function LinkedRow({ sound, r }: { sound: CafeSound; r: LinkedRecord }) {
+  const picked = sameTune(sound.tune, r.tune);
+  const playing = sound.on && picked;
+  return (
+    <li>
+      <button
+        className={`juke-row ${picked ? "picked" : ""} ${playing ? "on" : ""}`}
+        onClick={() => (playing || (picked && !sound.canPick) ? sound.toggle() : sound.playTune(r.tune))}
+        disabled={!sound.canPick && !picked}
+        aria-pressed={playing}
+      >
+        <span className="juke-ic" aria-hidden>
+          {r.icon}
+        </span>
+        <span className="juke-name">
+          <b>{r.name}</b>
+          <small>{picked && sound.by ? `ставить ${sound.by}` : `${r.by} · грає з YouTube`}</small>
+        </span>
+        {playing ? (
           <span className="juke-eq" aria-hidden>
             <i />
             <i />
@@ -124,6 +156,9 @@ export function JukeboxList({ sound, open }: { sound: CafeSound; open?: Set<Trac
             </li>
           );
         })}
+        {LINKED.map((r) => (
+          <LinkedRow key={r.id} sound={sound} r={r} />
+        ))}
       </ul>
       {sound.canPick && <TuneForm sound={sound} />}
       <div className="juke-ctl">

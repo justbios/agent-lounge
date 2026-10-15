@@ -1,6 +1,6 @@
 import type { Kit } from "./music";
 
-export type TrackId = "lofi" | "rain" | "chip" | "jazz" | "synth" | "keys";
+export type TrackId = "lofi" | "rain" | "chip" | "jazz" | "synth" | "field" | "keys";
 
 export interface Track {
   id: Exclude<TrackId, "keys">;
@@ -27,6 +27,7 @@ export const TRACKS: TrackInfo[] = [
   { id: "jazz", icon: "🎷", name: "Джаз-кафе", mood: "свінг і контрабас" },
   { id: "synth", icon: "🌆", name: "Нічне місто", mood: "синтвейв" },
   { id: "chip", icon: "👾", name: "8 біт", mood: "як у старій приставці" },
+  { id: "field", icon: "🌄", name: "Світанок над полем", mood: "арфа й флейта, повільно" },
   { id: "keys", icon: "⌨️", name: "Лише клавіатури", mood: "без музики, стукіт, поки агенти працюють" },
 ];
 
@@ -77,6 +78,29 @@ const SYNTH = [
   [53, 57, 60],
   [60, 64, 67],
   [55, 59, 62],
+];
+
+const FIELD = [
+  [50, 57, 62, 66],
+  [43, 55, 59, 62],
+  [47, 54, 59, 62],
+  [45, 52, 57, 61],
+  [50, 57, 62, 66],
+  [43, 55, 59, 62],
+  [45, 52, 57, 61],
+  [50, 57, 62, 66],
+];
+const FIELD_HARP = [1, 2, 3, 4, 3, 2, 3, 4];
+/** the flute's eight bars, one per chord: [note, beat it starts on, beats it lasts] */
+const FIELD_FLUTE: [number, number, number][][] = [
+  [[74, 0, 2], [76, 2, 1], [78, 3, 1]],
+  [[79, 0, 3], [78, 3, 1]],
+  [[76, 0, 2], [74, 2, 1], [71, 3, 1]],
+  [[73, 0, 4]],
+  [[78, 0, 2], [81, 2, 1], [78, 3, 1]],
+  [[79, 0, 2], [76, 2, 2]],
+  [[76, 0, 1], [74, 1, 1], [73, 2, 2]],
+  [[74, 0, 4]],
 ];
 
 const PLAY: Record<Track["id"], Track> = {
@@ -156,6 +180,23 @@ const PLAY: Record<Track["id"], Track> = {
         k.kick(t + i * b, 0.3);
         if (i % 2) k.snare(t + i * b, 0.11, 0.22);
         k.hat(t + i * b + b / 2, 0.03);
+      }
+    },
+  },
+  field: {
+    id: "field",
+    bpm: 66,
+    warmth: 1700,
+    bar: (k, n, t, b) => {
+      const c = FIELD[n % 8];
+      const harp = [...c, c[1] + 12];
+      k.note(c[0], t, b * 3.9, 0.15, "sine");
+      c.slice(1).forEach((m) => k.note(m, t, b * 3.9, 0.018));
+      FIELD_HARP.forEach((j, i) => k.note(harp[j], t + (i * b) / 2, b * 1.5, 0.07, "triangle"));
+      if (Math.floor(n / 8) % 2 === 0) {
+        FIELD_FLUTE[n % 8].forEach(([m, at, len]) => k.note(m, t + at * b, len * b * 0.95, 0.06, "sine"));
+      } else if (Math.random() < 0.5) {
+        k.note(pick(c.slice(1)) + 12, t + b * (1 + Math.floor(Math.random() * 2)), b * 1.8, 0.04, "sine");
       }
     },
   },
