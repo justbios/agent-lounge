@@ -169,8 +169,9 @@ post() {
   if [ -n "$key" ]; then curl -H "x-relay-key: $key" "$@" "$u"; else curl "$@" "$u"; fi
 }
 
+# openssl 3 prints «SHA2-256(stdin)= …», LibreSSL just the hex; Windows' openssl.exe (Git Bash) ends lines with \r
 hex256() {
-  openssl dgst -sha256 "$@" | awk '{ print $NF }'
+  openssl dgst -sha256 "$@" | awk '{ sub(/\r$/, ""); print $NF }'
 }
 
 # The secret this computer shares only with the phones it was paired with (relay.sh pair). It never leaves the
@@ -185,7 +186,8 @@ answer_key() {
 new_answer_key() {
   command -v openssl >/dev/null 2>&1 || return 1
   mkdir -p "$(dirname "$keyfile")" || return 1
-  k=$(openssl rand -hex 32) || return 1
+  k=$(openssl rand -hex 32 | tr -d '\r')
+  [ "${#k}" -eq 64 ] || return 1
   (umask 077 && printf '%s\n' "$k" > "$keyfile.tmp") && mv -f "$keyfile.tmp" "$keyfile"
 }
 
@@ -276,6 +278,7 @@ clip_copy() {
   elif [ -n "$WAYLAND_DISPLAY" ] && command -v wl-copy >/dev/null 2>&1; then wl-copy
   elif command -v xclip >/dev/null 2>&1; then xclip -selection clipboard
   elif command -v xsel >/dev/null 2>&1; then xsel -b
+  elif command -v clip.exe >/dev/null 2>&1; then clip.exe
   else return 1
   fi
 }
