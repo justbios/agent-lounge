@@ -288,7 +288,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   const backReqs: TripRequest[] = returns.map((r) => {
     const parent = seats[r.seat].parent;
     const ts = Math.max(r.ts, r.stint?.end ?? r.ts);
-    return { key: r.key, from: r.seat, to: parent, ts, label: `результат → ${agents[parent].name}` };
+    return { key: r.key, from: r.seat, to: parent, ts, label: `результат → ${agents[parent].name}`, say: { a: "returns" } };
   });
 
   for (const [n, s] of owner) n.ts = n.tone === "done" ? Math.max(n.ts, s.end) : Math.max(n.ts, s.start);

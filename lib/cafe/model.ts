@@ -32,6 +32,8 @@ export interface TripRequest {
   to: number;
   ts: number;
   label: string;
+  /** the walker's bubble in the viewer's words, when the label is the café's own */
+  say?: Say;
 }
 
 export interface Trip extends TripRequest {

@@ -158,7 +158,7 @@ export function bubbleFor(
       const { key, text, say, pre, tool, tone } = last;
       return { ...at, key, text, say, pre, tool, tone, age: clock - last.ts };
     }
-    return { ...at, key: tr.key, text: tr.label, tone: "handoff", age: clock - tr.start };
+    return { ...at, key: tr.key, text: tr.label, say: tr.say, tone: "handoff", age: clock - tr.start };
   }
 
   if (!last) return null;
