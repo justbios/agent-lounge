@@ -4,7 +4,7 @@
 > `relay_*` у базі, ключі `relay.*` у браузері, `~/.config/relay` і скрипт хуків `relay.sh`.
 >
 > Agent Lounge — незалежний проєкт, не пов'язаний з Anthropic. «Claude» і «Claude Code» — торгові марки Anthropic.
-> Ліцензія: [Apache-2.0](LICENSE); ігри в `public/roms/` мають власні ліцензії ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+> Ліцензія: [Apache-2.0](../LICENSE); ігри в `public/roms/` мають власні ліцензії ([THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md)).
 
 Гейміфікована візуалізація мультиагентного пайплайну: 8 агентів по черзі беруться
 за роботу і передають «пакунок» один одному, а глядач бачить це в реальному часі —
@@ -154,7 +154,7 @@ HMAC-SHA256(секрет, `id:allow|deny:sha256(JSON хука):u`), де JSON х
 режим і на комп'ютері. «Дозволити завжди», змінена команда, свій текст замість варіанта чи змінений план звідси
 неможливі, а правила заборони в Claude Code діють і далі. Написати Claude текст звідси не вийде: відкритий чат у
 терміналі приймає лише те, що ввели там (для цього в Claude Code є Remote Control). На Windows без Git Bash
-хуків-скриптів немає, тож цей режим там не працює. Детальніше про модель загроз: [SECURITY.md](SECURITY.md).
+хуків-скриптів немає, тож цей режим там не працює. Детальніше про модель загроз: [SECURITY.md](../SECURITY.md).
 
 Рідкісні гості (`lib/live/visitors.ts`, `components/cafe/visitor.ts`, `components/cafe/VisitorTag.tsx`). Десь раз
 на три години в кафе заходить незвичайний відвідувач: кур'єр з піцою або золотий кіт, а раз на п'ятсот візитів
@@ -318,7 +318,7 @@ Claude Code 2.1.224 або новіший). Після змін у `plugin/` п�
 
 ### Локально (нічого не йде в мережу)
 
-Для власника репозиторію: інструкція для Claude лежить у [`public/setup.md`](public/setup.md). Руками:
+Для власника репозиторію: інструкція для Claude лежить у [`public/setup.md`](../public/setup.md). Руками:
 
 ```bash
 git clone https://github.com/justbios/agent-lounge.git ~/agent-lounge
