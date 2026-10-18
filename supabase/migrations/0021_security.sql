@@ -9,21 +9,21 @@
 --    after 30 days
 -- Ship together with the code that calls the new RPCs: the old code's asks fail closed (the terminal asks).
 
--- 1. The old pipeline tables: no reads, no writes, no Realtime for anon or authenticated
-
-drop policy if exists "public read runs" on public.agent_runs;
-drop policy if exists "public read events" on public.agent_events;
-drop policy if exists "public read project (no token)" on public.relay_projects;
-revoke all on table public.agent_runs, public.agent_events, public.relay_projects from anon, authenticated;
+-- 1. The old pipeline tables: no reads, no writes, no Realtime for anon or authenticated. A database set up without
+--    0001/0002 never had them, and skips this.
 
 do $$
 declare
-  t text;
+  t record;
 begin
-  foreach t in array array['agent_runs', 'agent_events', 'relay_projects'] loop
+  for t in select * from (values ('agent_runs', 'public read runs'), ('agent_events', 'public read events'),
+                                 ('relay_projects', 'public read project (no token)')) v (name, policy) loop
+    continue when to_regclass('public.' || t.name) is null;
+    execute format('drop policy if exists %I on public.%I', t.policy, t.name);
+    execute format('revoke all on table public.%I from anon, authenticated', t.name);
     if exists (select 1 from pg_publication_tables p
-               where p.pubname = 'supabase_realtime' and p.schemaname = 'public' and p.tablename = t) then
-      execute format('alter publication supabase_realtime drop table public.%I', t);
+               where p.pubname = 'supabase_realtime' and p.schemaname = 'public' and p.tablename = t.name) then
+      execute format('alter publication supabase_realtime drop table public.%I', t.name);
     end if;
   end loop;
 end
