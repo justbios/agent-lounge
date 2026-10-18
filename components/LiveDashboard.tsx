@@ -139,7 +139,7 @@ function useRoster(cwd: string | undefined): string[] {
 }
 
 const STALE_OLD =
-  "Підключення Claude Code в тебе старої версії: Relay не бачить лімітів підписки, заповнення контексту " +
+  "Підключення Claude Code в тебе старої версії: Agent Lounge не бачить лімітів підписки, заповнення контексту " +
   "і не всі назви чатів.";
 const STALE_ASKS =
   "Підключення Claude Code в тебе старої версії: з новою кафе вміє відповідати Claude на запити дозволу, " +
@@ -332,7 +332,7 @@ export default function LiveDashboard({
 
   const offline = feed.status === "offline";
   const unplugged = cloud && !roomKey && !viewing;
-  const pill = feed.status === "open" ? "на зв'язку" : unplugged ? "ще не підключено" : offline ? (cloud ? "немає зв'язку" : "Relay-сервер не запущений") : "підключаюсь…";
+  const pill = feed.status === "open" ? "на зв'язку" : unplugged ? "ще не підключено" : offline ? (cloud ? "немає зв'язку" : "сервер Agent Lounge не запущений") : "підключаюсь…";
 
   return (
     <>

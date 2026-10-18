@@ -26,11 +26,11 @@ import TeamKeys from "./connect/TeamKeys";
 import KeyLost from "./live/KeyLost";
 
 function cloudPrompt(site: string, url: string): string {
-  const check = `echo '{"session_id":"relay-check","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"перевірка Relay"}' | curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- '${url}'`;
+  const check = `echo '{"session_id":"relay-check","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"перевірка Agent Lounge"}' | curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- '${url}'`;
   const file = RELAY_SH.replace("$HOME", "~");
-  return `Підключи мій Claude Code до Relay — сайту, який показує моїх агентів наживо. Хуки не витрачають токенів і не гальмують тебе: усі асинхронні, крім хуків на запит дозволу, на твої питання до мене й на план, а вони чекають на кафе лише тоді, коли там увімкнено «Я не за комп'ютером».
+  return `Підключи мій Claude Code до Agent Lounge — сайту, який показує моїх агентів наживо. Хуки не витрачають токенів і не гальмують тебе: усі асинхронні, крім хуків на запит дозволу, на твої питання до мене й на план, а вони чекають на кафе лише тоді, коли там увімкнено «Я не за комп'ютером».
 
-1. Збережи скрипт хуків Relay і звір його суму, вона має бути ${pack.script}:
+1. Збережи скрипт хуків Agent Lounge і звір його суму, вона має бути ${pack.script}:
 mkdir -p ~/.config/relay && curl -fsS ${site}/relay.sh -o ${file} && (shasum -a 256 ${file} || sha256sum ${file})
 Якщо сума інша, зупинись і скажи мені. Скрипт короткий, прочитай його: він пересилає подію хука в кафе, а з транскрипту чату бере лише назву чату й лічильники токенів. Коли ти просиш дозволу, питаєш мене з варіантами відповіді чи показуєш план, а в кафе ввімкнено «Я не за комп'ютером», він показує це там і до 10 хвилин чекає на мою відповідь: «дозволити раз» чи «заборонити», вибраний варіант, «затвердити план» чи «ні»; інакше нічого не відповідає, і ти питаєш мене як завжди.
 2. Додай у ~/.claude/settings.json хуки з JSON нижче. Усі інші налаштування й хуки залиш як є. Якщо там уже є хуки, що містять "/api/claude-hook", заміни їх цими. Перед зміною збережи копію файлу як settings.json.bak-relay.
@@ -47,7 +47,7 @@ ${JSON.stringify(cloudHookSettings(url), null, 2)}`;
 }
 
 function httpPrompt(site: string, url: string): string {
-  return `Підключи мій Claude Code до Relay — сайту, який показує моїх агентів наживо. Скриптів не треба: Claude Code сам надсилає подію хука на сайт, а сайт відповідає одразу.
+  return `Підключи мій Claude Code до Agent Lounge — сайту, який показує моїх агентів наживо. Скриптів не треба: Claude Code сам надсилає подію хука на сайт, а сайт відповідає одразу.
 
 1. Додай у ~/.claude/settings.json (на Windows це %USERPROFILE%\\.claude\\settings.json) хуки з JSON нижче. Усі інші налаштування й хуки залиш як є. Якщо там уже є хуки, що містять "/api/claude-hook", заміни їх цими. Перед зміною збережи копію файлу як settings.json.bak-relay.
 2. Не надсилай у кафе тестових подій руками (curl, Invoke-WebRequest): там вони виглядають як справжні. Перевіркою буде твоя наступна дія.
@@ -138,12 +138,12 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
           <div className="step-ttl">Або плагіном Claude Code</div>
           <p className="step-p">
             Ті самі хуки, тільки з плагіна: хуки не пишуться в <code>settings.json</code>, а посилання на кафе лежить
-            в окремому файлі <code>~/.config/relay/hook-url</code>. Статус-рядок для лімітів <code>/relay:connect</code>{" "}
+            в окремому файлі <code>~/.config/relay/hook-url</code>. Статус-рядок для лімітів <code>/agent-lounge:connect</code>{" "}
             запропонує додати окремо. Встав по черзі в чат Claude Code:
           </p>
           <Code text={pluginSteps(`${site}/marketplace.json`, url)} wrap />
           <p className="step-p">
-            Перевірити: <code>/relay:status</code>. Вимкнути: <code>/plugin disable relay</code>.
+            Перевірити: <code>/agent-lounge:status</code>. Вимкнути: <code>/plugin disable agent-lounge</code>.
           </p>
         </div>
       </div>
@@ -162,7 +162,8 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
           <p className="step-p">
             Далі на «наживо» натисни «сповіщення» → «Пуш на цей пристрій». Телефон дзвенітиме, коли Claude просить
             дозвіл або чекає на відповідь, навіть із закритим сайтом. На iPhone спершу «Поділитися» → «На початковий
-            екран», відкрий Relay з іконки і встав це посилання ще раз: iPhone тримає дані іконки окремо від Safari.
+            екран», відкрий Agent Lounge з іконки і встав це посилання ще раз: iPhone тримає дані іконки окремо від
+            Safari.
           </p>
         </div>
       </div>
@@ -185,14 +186,14 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
   );
 }
 
-const LOCAL_PROMPT = "Підключи Relay до мого Claude Code: прочитай setup.md у цьому репозиторії й виконай усі кроки звідти.";
-const MANUAL = `cd ~/relay
+const LOCAL_PROMPT = "Підключи Agent Lounge до мого Claude Code: прочитай setup.md у цьому репозиторії й виконай усі кроки звідти.";
+const MANUAL = `cd ~/agent-lounge
 npm install
 npm run setup`;
 const SETTINGS = JSON.stringify(hookSettings(), null, 2);
-const PLUGIN_LOCAL = `claude plugin marketplace add ~/relay
-claude plugin install relay@relay`;
-const TEST = `echo '{"session_id":"test","cwd":"/tmp/demo","hook_event_name":"UserPromptSubmit","prompt":"привіт, Relay"}' \\
+const PLUGIN_LOCAL = `claude plugin marketplace add ~/agent-lounge
+claude plugin install agent-lounge@agent-lounge`;
+const TEST = `echo '{"session_id":"test","cwd":"/tmp/demo","hook_event_name":"UserPromptSubmit","prompt":"привіт, Agent Lounge"}' \\
   | curl -s -H 'content-type: application/json' --data-binary @- ${HOOK_URL}`;
 
 function LocalConnect() {
@@ -200,8 +201,8 @@ function LocalConnect() {
     <>
       <div className="notice">
         <ShieldCheck size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />
-        Цей Relay працює на твоєму комп&apos;ютері: хук шле події лише на <code>127.0.0.1:3737</code>, у мережу нічого
-        не йде. Хук асинхронний і мовчазний, тож не гальмує агентів і не витрачає токенів.
+        Цей Agent Lounge працює на твоєму комп&apos;ютері: хук шле події лише на <code>127.0.0.1:3737</code>, у мережу
+        нічого не йде. Хук асинхронний і мовчазний, тож не гальмує агентів і не витрачає токенів.
       </div>
 
       <div className="step">
@@ -224,7 +225,7 @@ function LocalConnect() {
           <p className="step-p">
             <code>npm run setup</code> дописує хук у <code>~/.claude/settings.json</code> (інші налаштування не
             чіпає, стару версію зберігає як <code>settings.json.bak-relay</code>), кладе скрипт хуків у{" "}
-            <code>~/.config/relay</code> і запускає Relay у фоні. Після
+            <code>~/.config/relay</code> і запускає Agent Lounge у фоні. Після
             перезавантаження: <code>npm run up</code>. Зупинити: <code>npm run down</code>, прибрати хук:{" "}
             <code>npm run unhook</code>.
           </p>
@@ -242,8 +243,8 @@ function LocalConnect() {
           </p>
           <Code text={PLUGIN_LOCAL} />
           <p className="step-p">
-            Далі в чаті Claude Code: <code>/relay:connect local</code>. Relay при цьому має працювати:{" "}
-            <code>npm run up</code>.
+            Далі в чаті Claude Code: <code>/agent-lounge:connect local</code>. Agent Lounge при цьому має
+            працювати: <code>npm run up</code>.
           </p>
         </div>
       </div>

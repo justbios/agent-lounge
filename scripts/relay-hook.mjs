@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Relay reporter — wire into a Claude Code hook. Reads the hook JSON on stdin
-// and forwards one Relay event. Configure via env: RELAY_URL, RELAY_TOKEN.
+// Agent Lounge reporter — wire into a Claude Code hook. Reads the hook JSON on stdin
+// and forwards one Agent Lounge event. Configure via env: RELAY_URL, RELAY_TOKEN.
 //
 //   export RELAY_URL="https://your-relay.vercel.app"
 //   export RELAY_TOKEN="<your ingest token>"
@@ -28,7 +28,7 @@ try {
   /* ignore */
 }
 
-// Map the Claude Code hook payload → a Relay event. Field names vary by hook
+// Map the Claude Code hook payload → an Agent Lounge event. Field names vary by hook
 // (SubagentStart/Stop, Pre/PostToolUse) and CC version — adjust to taste.
 const agent = hook.subagent_type || hook.agent || hook.tool_name || "agent";
 const event = hook.hook_event_name || "";

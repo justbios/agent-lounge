@@ -27,8 +27,8 @@ export interface Visit {
 }
 
 /**
- * Who drops in at wall-clock time `now`, the same for everyone everywhere: every Relay café gets the visitor at once,
- * so all who watch one café see the same guest at the same moment.
+ * Who drops in at wall-clock time `now`, the same for everyone everywhere: every Agent Lounge café gets the visitor at
+ * once, so all who watch one café see the same guest at the same moment.
  */
 export function visitAt(now: number): Visit | null {
   const slot = Math.floor(now / SLOT_MS);

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { serverSupabase } from "@/lib/serverSupabase";
 
-/** Creates a new Relay project and returns its slug + ingest token (shown once). */
+/** Creates a new Agent Lounge project and returns its slug + ingest token (shown once). */
 export async function POST(req: Request) {
   const sb = serverSupabase();
   if (!sb) {

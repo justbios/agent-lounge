@@ -6,7 +6,8 @@ import { LiveEvent } from "./types";
 
 const PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 const PRIVATE = process.env.VAPID_PRIVATE_KEY;
-const FALLBACK_SUBJECT = "https://agent-pipeline-viz-one.vercel.app";
+/** Push services want a contact for the sender; set VAPID_SUBJECT to your own site or mailto: to override it. */
+const FALLBACK_SUBJECT = "https://github.com/justbios/agent-lounge";
 
 export function pushEnabled(): boolean {
   return Boolean(PUBLIC && PRIVATE);

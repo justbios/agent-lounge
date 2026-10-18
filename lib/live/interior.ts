@@ -87,7 +87,7 @@ export interface Interior {
   /** the second line of the neon sign */
   sign?: string;
   cat2Name?: string;
-  /** the café's own name, on the sign and the roof instead of RELAY */
+  /** the café's own name, on the sign and the roof instead of BRAND */
   title?: string;
   /** the café keeps a dog instead of the ginger cat */
   pet?: "dog";
@@ -100,7 +100,7 @@ const MAX_LOOKS = 64;
 export const SIGN_MAX = 18;
 export const TITLE_MAX = 20;
 /** What the sign's big line says when the café has no name of its own. */
-export const BRAND = "RELAY";
+export const BRAND = "AGENT LOUNGE";
 /** How much the sign's big line shrinks so a long café name still fits the board. */
 export const titleFit = (t: string) => Math.min(1, 9 / Math.max(1, [...t].length));
 export const NAME_MAX = 16;
@@ -208,7 +208,7 @@ export const NO_WORK: BeanWork = { prompts: 0, dispatches: 0, out: 0, crowded: 0
 
 const count = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0);
 
-/** The work as Relay sent it; a database that does not count tokens or crowds yet reads as none of them. */
+/** The work as Agent Lounge sent it; a database that does not count tokens or crowds yet reads as none of them. */
 export function beanWork(v: unknown): BeanWork {
   const o = (v ?? {}) as Record<string, unknown>;
   return { prompts: count(o.prompts), dispatches: count(o.dispatches), out: count(o.out), crowded: count(o.crowded) };

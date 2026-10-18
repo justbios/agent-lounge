@@ -10,7 +10,7 @@ export interface LiveFeed {
   events: LiveEvent[];
 }
 
-/** Streams every hook event the local Relay server has seen, across all Claude Code sessions. */
+/** Streams every hook event the local Agent Lounge server has seen, across all Claude Code sessions. */
 export function useLiveFeed(enabled = true): LiveFeed {
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [status, setStatus] = useState<FeedStatus>("connecting");

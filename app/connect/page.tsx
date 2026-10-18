@@ -1,7 +1,7 @@
 import ConnectPanel from "@/components/ConnectPanel";
 
 export const metadata = {
-  title: "Relay — підключити свій Claude",
+  title: "Agent Lounge — підключити свій Claude",
 };
 
 export default function ConnectPage() {

@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Relay — живий конвеєр агентів",
-    short_name: "Relay",
+    name: "Agent Lounge — живий конвеєр агентів",
+    short_name: "Agent Lounge",
     description: "Твої агенти Claude Code наживо, у піксельному інтернет-кафе",
     start_url: "/",
     display: "standalone",

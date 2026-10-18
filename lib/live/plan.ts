@@ -143,7 +143,7 @@ export function fitPlan(interior: Interior, plan: Arrangement): Fitted {
   return { next, missing };
 }
 
-/** The same arrangement always gives the same key, whatever order Relay sent its pieces and looks in. */
+/** The same arrangement always gives the same key, whatever order Agent Lounge sent its pieces and looks in. */
 export function arrangementKey(a: Arrangement): string {
   const placed = [...a.placed].sort((x, y) => x.pid.localeCompare(y.pid)).map((q) => [q.pid, q.item, q.x, q.y]);
   const looks = Object.keys(a.looks)

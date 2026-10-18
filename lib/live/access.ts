@@ -61,18 +61,18 @@ function load(key: string) {
     });
 }
 
-/** Asks Relay again what `key` opens, after the café moved to personal keys or someone was removed. */
+/** Asks Agent Lounge again what `key` opens, after the café moved to personal keys or someone was removed. */
 export function refreshAccess(key: string) {
   load(key);
 }
 
-/** Remembers what a key opens without asking, for a key Relay has just handed out. */
+/** Remembers what a key opens without asking, for a key Agent Lounge has just handed out. */
 export function primeAccess(key: string, a: Access) {
   cache.set(key, a);
   emit();
 }
 
-/** What `key` opens in Relay; null while it is being asked, or with no key. */
+/** What `key` opens in Agent Lounge; null while it is being asked, or with no key. */
 export function useAccess(key: string | null): Access | null {
   const a = useSyncExternalStore(
     subscribe,

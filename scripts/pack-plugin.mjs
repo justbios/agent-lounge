@@ -6,9 +6,9 @@ import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const out = join(root, "public", "relay-plugin.zip");
-const tmp = mkdtempSync(join(tmpdir(), "relay-plugin-"));
-const dir = join(tmp, "relay");
+const out = join(root, "public", "agent-lounge-plugin.zip");
+const tmp = mkdtempSync(join(tmpdir(), "agent-lounge-plugin-"));
+const dir = join(tmp, "agent-lounge");
 const skip = (p) => basename(p).startsWith("._") || basename(p) === ".DS_Store";
 cpSync(join(root, "plugin"), dir, { recursive: true, filter: (p) => !skip(p) });
 
@@ -40,4 +40,4 @@ const hash = (p) => createHash("sha256").update(readFileSync(p)).digest("hex");
 const sha256 = hash(out);
 const pack = { sha256, files: files.length, script: hash(script) };
 writeFileSync(join(root, "lib", "live", "pluginPack.json"), JSON.stringify(pack, null, 2) + "\n");
-console.log(`packed ${files.length} files → public/relay-plugin.zip\nsha256 ${sha256}\nrelay.sh ${pack.script}`);
+console.log(`packed ${files.length} files → public/agent-lounge-plugin.zip\nsha256 ${sha256}\nrelay.sh ${pack.script}`);

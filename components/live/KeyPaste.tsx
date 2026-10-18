@@ -41,7 +41,7 @@ export default function KeyPaste({ hint = HINT }: { hint?: string }) {
           відкрити
         </button>
       </span>
-      {bad && <span className="key-paste-bad">У цьому тексті немає ключа Relay.</span>}
+      {bad && <span className="key-paste-bad">У цьому тексті немає ключа Agent Lounge.</span>}
     </form>
   );
 }

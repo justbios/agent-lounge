@@ -35,9 +35,9 @@ export default function EmptyCafe({
         )
       ) : offline ? (
         <>
-          Наживо показує агентів з Relay на твоєму комп&apos;ютері. Ще не стоїть? Віддай одну фразу своєму
+          Наживо показує агентів з Agent Lounge на твоєму комп&apos;ютері. Ще не стоїть? Віддай одну фразу своєму
           Claude: <Link href="/connect">підключити Claude</Link>. Вже стоїть: <code>npm run up</code> у папці
-          Relay і відкрий <a href="http://127.0.0.1:3737">127.0.0.1:3737</a>.
+          Agent Lounge і відкрий <a href="http://127.0.0.1:3737">127.0.0.1:3737</a>.
         </>
       ) : (
         <>

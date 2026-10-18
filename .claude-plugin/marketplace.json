@@ -1,14 +1,14 @@
 {
-  "name": "relay",
+  "name": "agent-lounge",
   "owner": {
     "name": "justbios"
   },
-  "description": "Relay: your Claude Code agents live in a pixel café.",
+  "description": "Agent Lounge: your Claude Code agents live in a pixel café.",
   "plugins": [
     {
-      "name": "relay",
+      "name": "agent-lounge",
       "source": "./plugin",
-      "description": "Seats your Claude Code agents in the Relay pixel café, live."
+      "description": "Seats your Claude Code agents in the Agent Lounge pixel café, live."
     }
   ]
 }

@@ -26,7 +26,7 @@ export default function TopBar({
           <Radio size={20} />
         </span>
         <div>
-          <div className="brand-name">Relay</div>
+          <div className="brand-name">Agent Lounge</div>
           <div className="brand-sub">живий конвеєр агентів</div>
         </div>
       </div>

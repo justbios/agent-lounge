@@ -21,8 +21,8 @@ export interface Chat {
 }
 
 /**
- * The café's group chat. Messages live in Relay under the room; a new one pings the social channel and every open page
- * reads them again from Relay, so a forged broadcast can never put words in someone's mouth.
+ * The café's group chat. Messages live in Agent Lounge under the room; a new one pings the social channel and every
+ * open page reads them again from Agent Lounge, so a forged broadcast can never put words in someone's mouth.
  */
 export function useChat({
   cloud,

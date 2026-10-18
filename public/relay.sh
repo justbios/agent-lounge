@@ -1,11 +1,12 @@
 #!/bin/sh
-# Relay for Claude Code: forwards a hook's JSON to a Relay café, with extras after marker lines. Async, silent, exits 0.
+# Agent Lounge for Claude Code: forwards a hook's JSON to an Agent Lounge café, with extras after marker lines.
+# Async, silent, exits 0.
 #   relay.sh [--url URL] [roster] [title] [usage] [limits]   hook, JSON on stdin
 #   relay.sh [--url URL] ask                                  PermissionRequest, and PreToolUse of a question or a plan:
 #                                                             the only hooks Claude waits for
 #   relay.sh statusline                                       statusLine command: keeps limits and context, prints a line
 #   relay.sh limits                                           the same, silent, for chaining after another statusLine
-# Without --url the café link comes from ~/.config/relay/hook-url (written by /relay:connect).
+# Without --url the café link comes from ~/.config/relay/hook-url (written by /agent-lounge:connect).
 # Token counts and the last limits are kept in ~/.local/state/relay; nothing leaves this machine but the café's own events.
 state="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}"
 version=5
@@ -132,13 +133,13 @@ title_of() {
 reply() {
   if [ "$1" = PermissionRequest ]; then
     m=""
-    [ "$2" = deny ] && m=',"message":"The user denied this from the Relay café."'
+    [ "$2" = deny ] && m=',"message":"The user denied this from the Agent Lounge café."'
     printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"%s"%s}}}' "$2" "$m"
     exit 0
   fi
   if [ "$2" = deny ]; then
     printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",%s}}' \
-      '"permissionDecisionReason":"The user rejected this plan from the Relay café. Stay in plan mode and revise it."'
+      '"permissionDecisionReason":"The user rejected this plan in Agent Lounge. Stay in plan mode and revise it."'
     exit 0
   fi
   u=$(printf '%s' "$3" | sed -n 's/^{"a":"allow","u":\(.*\)}$/\1/p')
@@ -212,7 +213,7 @@ if [ "$1" = "statusline" ] || [ "$1" = "limits" ]; then
     line="${line:+$line · }5 год ${p5%.*}%${at:+ до $at}"
   fi
   [ -n "$p7" ] && line="${line:+$line · }тиждень ${p7%.*}%"
-  printf '%s\n' "${line:-Relay}"
+  printf '%s\n' "${line:-Agent Lounge}"
   exit 0
 fi
 

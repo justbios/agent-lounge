@@ -13,7 +13,7 @@ function PushSection({ push }: { push: PushControl }) {
     return (
       <p className="alerts-hint">
         На iPhone пуші приходять лише з іконки на початковому екрані: «Поділитися» → «На початковий екран». Відкрий
-        Relay з іконки, встав посилання з ключем і увімкни пуші там.
+        Agent Lounge з іконки, встав посилання з ключем і увімкни пуші там.
       </p>
     );
   if (push.state === "unsupported") return <p className="alerts-hint">Цей браузер не вміє пуш-сповіщень.</p>;

@@ -78,7 +78,7 @@ function daysAsked(p: Progress | null, w: BeanWork | null): number {
   return after.length + (w.prompts > later ? 1 : 0);
 }
 
-/** Everything one room shows and lets its keeper change, worked out from what Relay sent for it. */
+/** Everything one room shows and lets its keeper change, worked out from what Agent Lounge sent for it. */
 export function cafeRoom(src: RoomSource): CafeState {
   const { kind, whose, progress, work, settings, error, editable, save } = src;
   const earned = progress ? evaluate(progress) : [];

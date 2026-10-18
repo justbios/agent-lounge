@@ -13,7 +13,7 @@ export interface OverlayInput {
   cats: { x: number; y: number; name: string }[];
   /** the neon sign's second line, when the café bought its own */
   sign?: string;
-  /** the sign's big line: the café's name, or RELAY */
+  /** the sign's big line: the café's name, or AGENT LOUNGE */
   title: string;
   watermark: string;
 }

@@ -2,7 +2,7 @@ import type { ThemeId } from "@/components/cafe/theme";
 import { HourRow } from "./recap";
 import type { TrackId } from "./tracks";
 
-/** One local day of a room, the shape relay_progress returns and progressFromHourly builds for a local Relay. */
+/** One local day of a room, the shape relay_progress returns and progressFromHourly builds for a local Agent Lounge. */
 export interface ProgressDay {
   day: string;
   prompts: number;
@@ -16,7 +16,7 @@ export interface ProgressDay {
   early: boolean;
   /** absent from rooms that counted nothing yet */
   tokens?: number;
-  /** the tools used that day, by their café names; absent before Relay counted them */
+  /** the tools used that day, by their café names; absent before Agent Lounge counted them */
   kinds?: string[];
   /** the most different agents handed work in one hour of the day */
   crowd?: number;
@@ -186,7 +186,7 @@ export function localDay(t: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-/** The same per-day shape for a local Relay, folded from the hourly rows it counts in memory. */
+/** The same per-day shape for a local Agent Lounge, folded from the hourly rows it counts in memory. */
 export function progressFromHourly(rows: HourRow[], room: CafeSettings | null): Progress {
   const days = new Map<string, ProgressDay>();
   const agents = new Set<string>();

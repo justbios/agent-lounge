@@ -6,10 +6,10 @@ self.addEventListener("push", (e) => {
   try {
     d = e.data ? e.data.json() : {};
   } catch {
-    d = { title: "Relay", body: e.data ? e.data.text() : "" };
+    d = { title: "Agent Lounge", body: e.data ? e.data.text() : "" };
   }
   e.waitUntil(
-    self.registration.showNotification(d.title || "Relay", {
+    self.registration.showNotification(d.title || "Agent Lounge", {
       body: d.body || "",
       tag: d.tag || "relay",
       renotify: true,

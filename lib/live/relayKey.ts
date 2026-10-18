@@ -71,7 +71,7 @@ export function useRelayKey(): string | null {
 
 const never = () => () => {};
 
-/** true on a deployed site, false on this machine's own Relay, null while the page is still server-rendered. */
+/** true on a deployed site, false on this machine's own Agent Lounge, null while the page is still server-rendered. */
 export function useHosted(): boolean | null {
   return useSyncExternalStore(never, () => !LOCAL_HOSTS.test(location.hostname), () => null);
 }

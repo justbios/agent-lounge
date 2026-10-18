@@ -7,7 +7,7 @@ import { LiveSession } from "./liveModel";
 
 const PREFS_KEY = "relay.alerts";
 const ACK_KEY = "relay.ack";
-const BASE_TITLE = "Relay — живий конвеєр агентів";
+const BASE_TITLE = "Agent Lounge — живий конвеєр агентів";
 
 export interface AlertPrefs {
   sound: boolean;

@@ -1,14 +1,18 @@
 {
-  "name": "relay",
-  "description": "Seats your Claude Code agents in the Relay pixel café: every chat, tool call and handoff live, plus a phone ping when Claude waits on you.",
+  "name": "agent-lounge",
+  "version": "0.9.0",
+  "description": "Seats your Claude Code agents in the Agent Lounge pixel café: every chat, tool call and handoff live, plus a phone ping when Claude waits on you.",
   "author": {
     "name": "justbios"
   },
-  "homepage": "https://agent-pipeline-viz-one.vercel.app",
+  "homepage": "https://github.com/justbios/agent-lounge",
+  "repository": "https://github.com/justbios/agent-lounge",
+  "license": "Apache-2.0",
   "keywords": [
     "hooks",
     "dashboard",
     "agents",
-    "visualization"
+    "visualization",
+    "pixel-art"
   ]
 }

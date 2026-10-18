@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "relay",
+      "name": "agent-lounge",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",
@@ -11,7 +11,7 @@
       "port": 3000
     },
     {
-      "name": "relay-live",
+      "name": "agent-lounge-live",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",

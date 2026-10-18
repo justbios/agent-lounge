@@ -15,7 +15,7 @@ export interface RecapSource {
   events: LiveEvent[];
 }
 
-/** Hourly rows for the last week: from relay_recap in the cloud, counted from memory for a local Relay. */
+/** Hourly rows for the last week: from relay_recap in the cloud, counted from memory for a local Agent Lounge. */
 export function useRecap(src: RecapSource, open: boolean): { rows: HourRow[] | null; error: boolean } {
   const { cloud, key, room, events } = src;
   const [state, setState] = useState<{ id: string; rows: HourRow[] | null; error: boolean } | null>(null);

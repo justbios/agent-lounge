@@ -1,0 +1,10 @@
+Agent Lounge
+Copyright 2026 The Agent Lounge Authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It ships third-party games under their own licences in public/roms/;
+see THIRD_PARTY_NOTICES.md for their authors, licences and source code.
+
+Agent Lounge is an independent project. It is not affiliated with, sponsored
+or endorsed by Anthropic. "Claude" and "Claude Code" are trademarks of Anthropic.

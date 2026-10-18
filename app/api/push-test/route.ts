@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   if (!cloudEnabled() || !pushEnabled() || !roomKey || !ROOM_KEY.test(roomKey)) return Response.json({ sent: 0 }, { status: 404 });
   const sent = await sendPush(
     roomKey,
-    { kind: "test", session: "relay-test", label: "перевірка", title: "Relay на зв'язку", detail: "так виглядатиме сповіщення" },
+    { kind: "test", session: "relay-test", label: "перевірка", title: "Agent Lounge на зв'язку", detail: "так виглядатиме сповіщення" },
     url.origin,
   );
   return Response.json({ sent });

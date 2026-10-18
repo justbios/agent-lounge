@@ -76,7 +76,7 @@ export default function PlanPanel({
 
   const apply = async () => {
     const plan = readPlan(paste);
-    if (!plan) return setNote("Це не код плану Relay: він починається з relay-plan:1:");
+    if (!plan) return setNote("Це не код плану Agent Lounge: він починається з relay-plan:1:");
     const { next, missing } = fitPlan(cafe.interior, plan);
     const ok = await cafe.arrange({ placed: next.placed, looks: next.looks });
     if (!ok) return setNote("Не вдалося зберегти план, спробуй ще раз.");

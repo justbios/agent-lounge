@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-// Adds (or with --remove takes out) the Relay hooks in the user's Claude Code settings, and the hook script they run.
+// Adds (or with --remove takes out) the Agent Lounge hooks in the user's Claude Code settings, and the hook script
+// they run.
 //   node scripts/install-hooks.mjs [--remove] [--dry-run] [--statusline]
-// --statusline also adds Relay's status line, which saves the subscription limits; an existing one keeps its output.
+// --statusline also adds Agent Lounge's status line, which saves the subscription limits; an existing one keeps its
+// output.
 // Other hooks and settings are left as they are; the old file is kept next to it as a backup.
 import fs from "node:fs";
 import os from "node:os";
@@ -73,7 +75,9 @@ if (!fresh && !dry) {
 }
 
 if (!touched.length) {
-  console.log(remove ? "✓ No Relay hooks found — nothing to remove." : `✓ Relay hooks already in ${file}`);
+  console.log(
+    remove ? "✓ No Agent Lounge hooks found — nothing to remove." : `✓ Agent Lounge hooks already in ${file}`,
+  );
   process.exit(0);
 }
 
@@ -84,7 +88,8 @@ if (nextStatus) next.statusLine = nextStatus;
 else delete next.statusLine;
 
 if (dry) {
-  console.log(`would ${remove ? "remove Relay hooks from" : "add Relay hooks to"} ${file}: ${touched.join(", ")}`);
+  const what = remove ? "remove Agent Lounge hooks from" : "add Agent Lounge hooks to";
+  console.log(`would ${what} ${file}: ${touched.join(", ")}`);
   process.exit(0);
 }
 
@@ -94,8 +99,9 @@ const tmp = `${file}.relay-tmp`;
 fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + "\n");
 fs.renameSync(tmp, file);
 
-console.log(`✓ ${remove ? "Removed Relay hooks from" : "Added Relay hooks to"} ${file} (${touched.join(", ")})`);
+const done = remove ? "Removed Agent Lounge hooks from" : "Added Agent Lounge hooks to";
+console.log(`✓ ${done} ${file} (${touched.join(", ")})`);
 if (text) console.log(`  backup: ${file}.bak-relay`);
-if (!remove) console.log("  New Claude Code sessions report to Relay; the desktop app picks the hooks up in open ones too.");
+if (!remove) console.log("  New Claude Code sessions report to Agent Lounge; the desktop app picks the hooks up in open ones too.");
 if (!remove && !withStatus && !status)
-  console.log("  Limits: add Relay's status line with `node scripts/install-hooks.mjs --statusline` (terminal Claude Code only).");
+  console.log("  Limits: add Agent Lounge's status line with `node scripts/install-hooks.mjs --statusline` (terminal Claude Code only).");

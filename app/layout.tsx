@@ -6,9 +6,9 @@ import "./pixel.css";
 const pixel = Pixelify_Sans({ subsets: ["latin", "cyrillic"], variable: "--font-pixel" });
 
 export const metadata: Metadata = {
-  title: "Relay — живий конвеєр агентів",
+  title: "Agent Lounge — живий конвеєр агентів",
   description: "Візуалізація мультиагентного пайплайну в реальному часі",
-  appleWebApp: { capable: true, title: "Relay", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "Agent Lounge", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {

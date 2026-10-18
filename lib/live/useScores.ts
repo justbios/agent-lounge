@@ -68,7 +68,7 @@ export interface Scores {
   record: (player: string, game: Game, win: boolean, value?: number) => void;
 }
 
-/** Wins and best scores of the café's games: in the room's relay_scores when hosted, in the browser for a local Relay. */
+/** Wins and best scores of the café's games: in the room's relay_scores when hosted, in the browser for a local Agent Lounge. */
 export function useScores({ cloud, key, room, open }: { cloud: boolean; key: string | null; room: string | null; open: boolean }): Scores {
   const [rows, setRows] = useState<ScoreRow[]>([]);
   const [version, setVersion] = useState(0);

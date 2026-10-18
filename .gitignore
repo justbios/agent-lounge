@@ -48,3 +48,6 @@ next-env.d.ts
 
 # local live-mode event log
 /data/
+
+# personal Claude Code settings for this repo
+.claude/settings.local.json

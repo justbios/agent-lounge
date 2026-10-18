@@ -7,10 +7,10 @@ import { BEANS_FROM } from "./interior";
 
 const REFRESH_MS = 60 * 1000;
 
-/** A teammate's room as Relay keeps it: their progress, with the room's settings inside, and work since the restart. */
+/** A teammate's room as Agent Lounge keeps it: their progress, with the room's settings inside, and work since restart. */
 export interface MemberData {
   progress: Progress;
-  /** raw from Relay; {@link beanWork} reads it */
+  /** raw from Agent Lounge; {@link beanWork} reads it */
   work: unknown;
 }
 
@@ -27,18 +27,18 @@ interface Loaded extends Reply {
 }
 
 export interface MemberRooms {
-  /** the café is on personal keys; false until Relay says so */
+  /** the café is on personal keys; false until Agent Lounge says so */
   locked: boolean;
-  /** every teammate Relay knows of; null while it is being asked */
+  /** every teammate Agent Lounge knows of; null while it is being asked */
   members: Record<string, MemberData> | null;
   error: boolean;
-  /** your own room's settings as you last saved them, until Relay is asked again */
+  /** your own room's settings as you last saved them, until Agent Lounge is asked again */
   saved: CafeSettings | null;
   /** writes your own room; only a personal key has one */
   save: (patch: Partial<CafeSettings>) => Promise<boolean>;
 }
 
-/** Every teammate's room in a café on personal keys, asked from Relay every minute while the page is visible. */
+/** Every teammate's room in a café on personal keys, asked from Agent Lounge every minute while the page is visible. */
 export function useMemberRooms({
   on,
   key,

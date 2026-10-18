@@ -237,7 +237,7 @@ export default function CafeScene({
           ...(n.cat ? [{ ...cat.pos, name: n.cat }] : []),
           ...(cat2 && n.cat2 ? [{ ...cat2.pos, name: n.cat2 }] : []),
         ];
-        const watermark = `relay · ${location.host}`;
+        const watermark = `agent lounge · ${location.host}`;
         const alert = alertRef.current;
         clipFrame(canvas, { lay, agents: named, bubbles, alert, cats, sign: n.sign, title: n.title, watermark });
       }

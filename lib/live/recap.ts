@@ -4,7 +4,7 @@ import { tokensOf } from "./usage";
 
 type Counts = Record<string, number>;
 
-/** One hour of a room, the same shape relay_recap returns and aggregateHourly builds for a local Relay. */
+/** One hour of a room, the same shape relay_recap returns and aggregateHourly builds for a local Agent Lounge. */
 export interface HourRow {
   hour: string;
   prompts: number;
@@ -67,7 +67,7 @@ function top(c: Counts, n: number): [string, number][] {
     .slice(0, n);
 }
 
-/** The local Relay keeps no database, so its hours are counted from the events in memory with the same rules as the SQL trigger. */
+/** The local Agent Lounge keeps no database, so its hours are counted from the events in memory with the same rules as the SQL trigger. */
 export function aggregateHourly(events: LiveEvent[]): HourRow[] {
   const rows = new Map<number, HourRow>();
   for (const e of events) {

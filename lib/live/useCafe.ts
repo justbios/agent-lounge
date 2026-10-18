@@ -106,8 +106,8 @@ function workSince(hours: HourRow[], since: string): BeanWork {
 }
 
 /**
- * Lifetime progress, the decor it unlocks and the café's own settings: from Relay in the cloud, from memory and this
- * browser locally. On personal keys each teammate also has a room of their own, and the café itself is the lobby.
+ * Lifetime progress, the decor it unlocks and the café's own settings: from Agent Lounge in the cloud, from memory and
+ * this browser locally. On personal keys each teammate also has a room of their own, and the café itself is the lobby.
  */
 export function useCafe({ cloud, key, room, events, viewing }: CafeSource): CafeRooms {
   const id = viewing ? (room ? `v:${room}` : "") : key ? `k:${key}` : "";

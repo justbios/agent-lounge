@@ -16,7 +16,7 @@ echo "status: saved"
 echo "file: $f"
 sh_dir="$HOME/.config/relay"
 mkdir -p "$sh_dir" && cp "$(dirname "$0")/relay.sh" "$sh_dir/relay.sh" && echo "script: $sh_dir/relay.sh"
-code=$(printf '%s' '{"session_id":"relay-check","cwd":"/relay","hook_event_name":"UserPromptSubmit","prompt":"перевірка Relay"}' |
+code=$(printf '%s' '{"session_id":"relay-check","cwd":"/relay","hook_event_name":"UserPromptSubmit","prompt":"перевірка Agent Lounge"}' |
   curl -s -m 8 -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- "$url")
 echo "check: ${code:-000}"
 s="$HOME/.claude/settings.json"

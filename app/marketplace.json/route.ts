@@ -6,14 +6,14 @@ export const dynamic = "force-dynamic";
 export function GET(req: Request) {
   const origin = new URL(req.url).origin;
   return Response.json({
-    name: "relay",
+    name: "agent-lounge",
     owner: { name: "justbios" },
-    description: "Relay: your Claude Code agents live in a pixel café.",
+    description: "Agent Lounge: your Claude Code agents live in a pixel café.",
     plugins: [
       {
-        name: "relay",
-        description: "Seats your Claude Code agents in the Relay pixel café, live.",
-        source: { source: "archive", url: `${origin}/relay-plugin.zip`, sha256: pack.sha256 },
+        name: "agent-lounge",
+        description: "Seats your Claude Code agents in the Agent Lounge pixel café, live.",
+        source: { source: "archive", url: `${origin}/agent-lounge-plugin.zip`, sha256: pack.sha256 },
       },
     ],
   });

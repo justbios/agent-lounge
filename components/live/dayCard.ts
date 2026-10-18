@@ -40,7 +40,7 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
   ctx.fillStyle = "#5ce1ff";
   ctx.shadowColor = "#5ce1ff";
   ctx.shadowBlur = 14;
-  ctx.fillText("RELAY", PAD, 58);
+  ctx.fillText("AGENT LOUNGE", PAD, 58);
   ctx.shadowBlur = 0;
   ctx.font = pixelFont(58, 700);
   ctx.fillStyle = "#f3f0ff";

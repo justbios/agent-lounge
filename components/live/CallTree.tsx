@@ -33,7 +33,7 @@ interface CallsProps {
 function state(c: CallNode, answered: boolean): string {
   if (c.done) return ` · ${took(c.ms) ?? ""}`;
   if (c.agent) return " · працює";
-  return answered ? " · Relay не бачив старту" : " · чекає старту";
+  return answered ? " · Agent Lounge не бачив старту" : " · чекає старту";
 }
 
 function Calls({ calls, sp, colorOf, answered }: CallsProps) {
@@ -116,8 +116,8 @@ export default function CallTree({
         />
       ))}
       <p className="muted-sm tree-none">
-        Біля кожної дії — скільки часу минуло до наступної дії того самого агента. Relay бачить лише короткий опис дії,
-        без вмісту файлів і відповідей.
+        Біля кожної дії — скільки часу минуло до наступної дії того самого агента. Agent Lounge бачить лише короткий
+        опис дії, без вмісту файлів і відповідей.
       </p>
     </div>
   );

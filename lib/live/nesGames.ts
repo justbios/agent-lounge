@@ -15,19 +15,11 @@ export interface NesGame {
 const GPL3 = "https://www.gnu.org/licenses/gpl-3.0.html";
 const ZLIB = "https://opensource.org/license/zlib";
 
-/** Only games whose authors let anyone share them; never a cartridge someone sells or owns the rights to. */
+/**
+ * Only games whose authors let anyone share them, commercial use included; never a cartridge someone sells or owns
+ * the rights to. Each one's notice and source link is in public/roms/README.md.
+ */
 export const NES_GAMES: NesGame[] = [
-  {
-    id: "nova",
-    title: "Nova the Squirrel",
-    file: "nova.nes",
-    players: 1,
-    about: "Платформер: білка Нова, 33 рівні, 7 босів, п'ять світів.",
-    author: "NovaSquirrel",
-    license: "код GPL-3.0, графіка й рівні CC BY-NC-SA 4.0",
-    licenseUrl: "https://github.com/NovaSquirrel/NovaTheSquirrel#license",
-    source: "https://github.com/NovaSquirrel/NovaTheSquirrel",
-  },
   {
     id: "dabg",
     title: "Double Action Blaster Guys",

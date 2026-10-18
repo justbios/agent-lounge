@@ -8,7 +8,7 @@ type Listener = (payload: unknown, mine: boolean) => void;
 
 /**
  * One tab's end of the social channel. What this tab sends reaches its own listeners straight away, then everyone
- * else through Realtime; with no channel (a local Relay) it stays in the tab.
+ * else through Realtime; with no channel (a local Agent Lounge) it stays in the tab.
  */
 export class Bus {
   private listeners = new Map<BusEvent, Set<Listener>>();

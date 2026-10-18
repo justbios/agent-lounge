@@ -68,7 +68,7 @@ function ClipSection() {
               <Download size={13} /> завантажити
             </a>
             {canShare && (
-              <button className="btn" onClick={() => navigator.share({ files: [file!], title: "Мої агенти в Relay" }).catch(() => {})}>
+              <button className="btn" onClick={() => navigator.share({ files: [file!], title: "Мої агенти в Agent Lounge" }).catch(() => {})}>
                 <Share2 size={13} /> поділитися
               </button>
             )}

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds Relay and keeps it running in the background on 127.0.0.1:3737, detached from the terminal.
+// Builds Agent Lounge and keeps it running in the background on 127.0.0.1:3737, detached from the terminal.
 //   node scripts/live-bg.mjs            start (no-op when already up)
 //   node scripts/live-bg.mjs --restart  stop, rebuild, start — after a git pull
 //   node scripts/live-bg.mjs --stop
@@ -50,20 +50,22 @@ async function stop() {
 if (args.has("--stop") || args.has("--restart")) {
   const stopped = await stop();
   if (args.has("--stop")) {
-    console.log(stopped ? "✓ Relay stopped." : "No Relay started by this script is running — nothing to stop.");
+    console.log(
+      stopped ? "✓ Agent Lounge stopped." : "No Agent Lounge started by this script is running — nothing to stop.",
+    );
     process.exit(0);
   }
 }
 
 if (await up()) {
   if (args.has("--restart") && !readPid()) {
-    console.error(`✗ The Relay on ${url} was started outside this script — stop it (Ctrl+C in its terminal), then run this again.`);
+    console.error(`✗ The Agent Lounge on ${url} was started outside this script — stop it (Ctrl+C in its terminal), then run this again.`);
     process.exit(1);
   }
   console.log(
     readPid()
-      ? `✓ Relay is already running: ${url}`
-      : `✓ Something already answers on ${url} (a Relay started with \`npm run live\`?). Leaving it as is.`,
+      ? `✓ Agent Lounge is already running: ${url}`
+      : `✓ Something already answers on ${url} (an Agent Lounge started with \`npm run live\`?). Leaving it as is.`,
   );
   process.exit(0);
 }
@@ -73,7 +75,7 @@ if (!fs.existsSync(next)) {
   process.exit(1);
 }
 
-console.log("Building Relay (about a minute the first time)…");
+console.log("Building Agent Lounge (about a minute the first time)…");
 const build = spawnSync(process.execPath, [next, "build", "--webpack"], { cwd: root, stdio: "inherit" });
 if (build.status !== 0) {
   console.error("✗ Build failed — see the output above.");
@@ -93,12 +95,12 @@ child.unref();
 
 for (let i = 0; i < 100; i++) {
   if (await up()) {
-    console.log(`✓ Relay is running in the background: ${url}`);
+    console.log(`✓ Agent Lounge is running in the background: ${url}`);
     console.log(`  log: ${logFile}   stop: npm run down`);
     process.exit(0);
   }
   if (child.exitCode != null) break;
   await sleep(300);
 }
-console.error(`✗ Relay did not come up on ${url} — see ${logFile}`);
+console.error(`✗ Agent Lounge did not come up on ${url} — see ${logFile}`);
 process.exit(1);
