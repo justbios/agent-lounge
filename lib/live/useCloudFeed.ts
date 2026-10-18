@@ -44,8 +44,9 @@ export function useCloudFeed(src: CloudSource, enabled: boolean): LiveFeed {
     const snapshot = () =>
       viewRoom ? sb.rpc("relay_snapshot_room", { p_room: viewRoom }) : sb.rpc("relay_snapshot", { p_key: key });
 
+    // a private channel: only the database sends here (0021), so nobody who knows the topic can slip events in
     const channel = sb
-      .channel(`relay:${topic}`)
+      .channel(`relay:${topic}`, { config: { private: true } })
       .on("broadcast", { event: "ev" }, ({ payload }) => merge([payload as LiveEvent]))
       .on("broadcast", { event: "rekey" }, () => (viewRoom ? mark("offline") : refreshAccess(key!)))
       .subscribe(async (status) => {

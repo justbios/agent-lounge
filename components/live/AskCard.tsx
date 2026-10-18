@@ -74,16 +74,27 @@ function AskRow({ a, now, asks, onOpen }: { a: Ask; now: number; asks: Asks; onO
           {body ? WANTS[body.tool] : "просить дозволу"} · ще {left} хв, потім спитає в терміналі
         </span>
         {!body && <code>{a.detail}</code>}
+        {!body && a.change != null && (
+          <details>
+            <summary>що саме зміниться</summary>
+            <pre className="ask-plan">{a.change}</pre>
+          </details>
+        )}
         {body?.tool === "ExitPlanMode" && <pre className="ask-plan">{body.input.plan}</pre>}
       </div>
-      {body?.tool === "AskUserQuestion" ? (
-        <Questions questions={body.input.questions} onReply={(answers) => asks.reply(a.id, answers)} />
+      {!asks.canAnswer(a) ? (
+        <p className="ask-unpaired">
+          Цей браузер не спарено з комп&apos;ютером, який питає, тож відповісти звідси не можна. На тому комп&apos;ютері
+          запусти <code>/agent-lounge:away pair</code> і відкрий посилання тут.
+        </p>
+      ) : body?.tool === "AskUserQuestion" ? (
+        <Questions questions={body.input.questions} onReply={(answers) => asks.reply(a, answers)} />
       ) : (
         <div className="ask-btns">
-          <button className="btn ask-yes" onClick={() => asks.answer(a.id, true)}>
+          <button className="btn ask-yes" onClick={() => asks.answer(a, true)}>
             {body ? "затвердити план" : "дозволити раз"}
           </button>
-          <button className="btn" onClick={() => asks.answer(a.id, false)}>
+          <button className="btn" onClick={() => asks.answer(a, false)}>
             {body ? "ні, хай планує далі" : "заборонити"}
           </button>
         </div>
@@ -117,10 +128,11 @@ export default function AskCard({
           <ShieldQuestion size={14} /> Ти не за комп&apos;ютером до {clock(asks.until)}: коли Claude просить дозволу,
           питає чи показує план, це чекає тут.
         </span>
-        <button className="btn" disabled={asks.busy} onClick={() => asks.setAway(false)}>
+        <button className="btn" disabled={asks.busy} onClick={asks.back}>
           я повернувся
         </button>
       </div>
+      {asks.failed && <p className="ask-unpaired">{asks.failed}</p>}
       {open.map((a) => (
         <AskRow key={a.id} a={a} now={now} asks={asks} onOpen={onOpen} />
       ))}

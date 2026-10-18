@@ -5,6 +5,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Radio, ArrowLeft, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw, Puzzle } from "lucide-react";
 import {
   HOOK_URL,
+  KEY_HEADER,
   RELAY_SH,
   STATUS_LINE,
   cloudHookSettings,
@@ -12,6 +13,7 @@ import {
   hookSettings,
   httpHookSettings,
   pluginSteps,
+  splitKey,
   statusChain,
 } from "@/lib/live/hookConfig.mjs";
 import { useAccess } from "@/lib/live/access";
@@ -26,13 +28,14 @@ import TeamKeys from "./connect/TeamKeys";
 import KeyLost from "./live/KeyLost";
 
 function cloudPrompt(site: string, url: string): string {
-  const check = `echo '{"session_id":"relay-check","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"перевірка Agent Lounge"}' | curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- '${url}'`;
+  const { url: bare, key } = splitKey(url);
+  const check = `echo '{"session_id":"relay-check","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"перевірка Agent Lounge"}' | curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' -H '${KEY_HEADER}: ${key}' --data-binary @- '${bare}'`;
   const file = RELAY_SH.replace("$HOME", "~");
-  return `Підключи мій Claude Code до Agent Lounge — сайту, який показує моїх агентів наживо. Хуки не витрачають токенів і не гальмують тебе: усі асинхронні, крім хуків на запит дозволу, на твої питання до мене й на план, а вони чекають на кафе лише тоді, коли там увімкнено «Я не за комп'ютером».
+  return `Підключи мій Claude Code до Agent Lounge — сайту, який показує моїх агентів наживо. Хуки не витрачають токенів і не гальмують тебе: усі асинхронні, крім хуків на запит дозволу, на твої питання до мене й на план, а вони чекають на кафе лише тоді, коли я сам увімкнув на цьому комп'ютері «Я не за комп'ютером».
 
 1. Збережи скрипт хуків Agent Lounge і звір його суму, вона має бути ${pack.script}:
 mkdir -p ~/.config/relay && curl -fsS ${site}/relay.sh -o ${file} && (shasum -a 256 ${file} || sha256sum ${file})
-Якщо сума інша, зупинись і скажи мені. Скрипт короткий, прочитай його: він пересилає подію хука в кафе, а з транскрипту чату бере лише назву чату й лічильники токенів. Коли ти просиш дозволу, питаєш мене з варіантами відповіді чи показуєш план, а в кафе ввімкнено «Я не за комп'ютером», він показує це там і до 10 хвилин чекає на мою відповідь: «дозволити раз» чи «заборонити», вибраний варіант, «затвердити план» чи «ні»; інакше нічого не відповідає, і ти питаєш мене як завжди.
+Якщо сума інша, зупинись і скажи мені. Скрипт короткий, прочитай його: він пересилає подію хука в кафе, а з транскрипту чату бере лише назву чату й лічильники токенів. Коли ти просиш дозволу, питаєш мене з варіантами відповіді чи показуєш план, а я ввімкнув «Я не за комп'ютером» на цьому комп'ютері (sh ${file} away on), він показує це в кафе і до 10 хвилин чекає на мою відповідь: «дозволити раз» чи «заборонити», вибраний варіант, «затвердити план» чи «ні». Відповідь він приймає, лише коли її підписав мій телефон, спарений з цим комп'ютером (sh ${file} pair), і саме для того запиту, який він надіслав; інакше нічого не відповідає, і ти питаєш мене як завжди. Ключ кафе він шле в заголовку, а не в адресі.
 2. Додай у ~/.claude/settings.json хуки з JSON нижче. Усі інші налаштування й хуки залиш як є. Якщо там уже є хуки, що містять "/api/claude-hook", заміни їх цими. Перед зміною збережи копію файлу як settings.json.bak-relay.
 3. Ліміти підписки (5 годин і тиждень) Claude Code віддає лише статус-рядку. Якщо в settings.json немає "statusLine", додай:
 "statusLine": ${JSON.stringify(STATUS_LINE)}

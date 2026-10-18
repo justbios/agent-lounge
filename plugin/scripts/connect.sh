@@ -16,8 +16,13 @@ echo "status: saved"
 echo "file: $f"
 sh_dir="$HOME/.config/relay"
 mkdir -p "$sh_dir" && cp "$(dirname "$0")/relay.sh" "$sh_dir/relay.sh" && echo "script: $sh_dir/relay.sh"
+# the key goes in a header, as relay.sh sends it, not in the address that servers log
+key=$(printf '%s' "$url" | sed -nE 's#.*[?&]k=([A-Za-z0-9_-]+).*#\1#p')
+plain=$(printf '%s' "$url" | sed -E 's#([?&])k=[A-Za-z0-9_-]+&?#\1#; s#[?&]$##')
+set -- -s -m 8 -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @-
+[ -n "$key" ] && set -- "$@" -H "x-relay-key: $key"
 code=$(printf '%s' '{"session_id":"relay-check","cwd":"/relay","hook_event_name":"UserPromptSubmit","prompt":"перевірка Agent Lounge"}' |
-  curl -s -m 8 -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @- "$url")
+  curl "$@" "$plain")
 echo "check: ${code:-000}"
 s="$HOME/.claude/settings.json"
 if grep -qs '/api/claude-hook' "$s"; then echo "old-hooks: $s"; else echo "old-hooks: none"; fi

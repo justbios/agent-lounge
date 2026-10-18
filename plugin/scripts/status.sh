@@ -11,3 +11,11 @@ else
   echo "file: $f"
 fi
 if grep -qs '/api/claude-hook' "$HOME/.claude/settings.json"; then echo "old-hooks: $HOME/.claude/settings.json"; else echo "old-hooks: none"; fi
+[ -n "$url" ] && sh "$(dirname "$0")/relay.sh" away status
+log="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}/answers.log"
+if [ -s "$log" ]; then
+  echo "answers:"
+  tail -n 10 "$log" | sed 's/^/  /'
+else
+  echo "answers: none"
+fi

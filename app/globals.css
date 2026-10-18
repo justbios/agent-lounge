@@ -813,9 +813,16 @@ body {
 }
 .ask-what code {
   display: block;
+  max-height: 320px;
+  overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding: 6px 8px;
+}
+.ask-unpaired {
+  margin: 0;
+  font-size: 12.5px;
+  opacity: 0.85;
 }
 .ask-chat {
   font: inherit;

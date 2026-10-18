@@ -76,7 +76,8 @@ if (!fs.existsSync(next)) {
 }
 
 console.log("Building Agent Lounge (about a minute the first time)…");
-const build = spawnSync(process.execPath, [next, "build", "--webpack"], { cwd: root, stdio: "inherit" });
+const env = { ...process.env, RELAY_LOCAL: "1" };
+const build = spawnSync(process.execPath, [next, "build", "--webpack"], { cwd: root, stdio: "inherit", env });
 if (build.status !== 0) {
   console.error("✗ Build failed — see the output above.");
   process.exit(1);
@@ -87,6 +88,7 @@ const out = fs.openSync(logFile, "a");
 const child = spawn(process.execPath, [next, "start", "-H", "127.0.0.1", "-p", String(port)], {
   cwd: root,
   detached: true,
+  env,
   stdio: ["ignore", out, out],
   windowsHide: true,
 });

@@ -47,11 +47,12 @@ function PushSection({ push }: { push: PushControl }) {
 }
 
 const AWAY_ON =
-  "коли Claude просить дозволу, питає чи показує план, це до 10 хвилин чекає тут, а не в терміналі. " +
-  "Діє не пізніше ніж за хвилину";
-const AWAY_OFF =
-  "коли Claude просить дозволу, питає чи показує план, це прийде сюди й пушем, і ти відповіси звідси";
+  "коли Claude просить дозволу, питає чи показує план, це до 10 хвилин чекає тут, а не в терміналі";
 
+/**
+ * «Я не за комп'ютером» is switched on only on the computer, so nobody else holding the café key can make Claude wait
+ * on the café; here it can only be switched off. Answers need this browser paired with that computer.
+ */
 function AwaySection({ asks }: { asks: Asks }) {
   if (!asks.ok)
     return (
@@ -62,16 +63,26 @@ function AwaySection({ asks }: { asks: Asks }) {
     );
   const on = asks.until != null;
   const till = on ? new Date(asks.until!).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }) : "";
+  const paired = asks.paired
+    ? `Цей браузер спарено з комп'ютерами: ${asks.paired}.`
+    : "Цей браузер ще не спарено з жодним комп'ютером: на комп'ютері запусти /agent-lounge:away pair і відкрий " +
+      "посилання тут.";
   return (
-    <label className="alerts-row">
-      <input type="checkbox" checked={on} disabled={asks.busy} onChange={(e) => asks.setAway(e.target.checked)} />
-      <span>
-        <b>Я не за комп&apos;ютером</b>
-        <small>
-          {on ? `до ${till}: ${AWAY_ON}` : AWAY_OFF}
-        </small>
-      </span>
-    </label>
+    <>
+      <label className="alerts-row">
+        <input type="checkbox" checked={on} disabled={asks.busy || !on} onChange={() => asks.back()} />
+        <span>
+          <b>Я не за комп&apos;ютером</b>
+          <small>
+            {on
+              ? `до ${till}: ${AWAY_ON}. Зніми галочку, коли повернешся`
+              : "вмикається на самому комп'ютері: /agent-lounge:away on у Claude Code або " +
+                "sh ~/.config/relay/relay.sh away on у терміналі. Тоді дозволи, питання й плани прийдуть сюди"}
+          </small>
+        </span>
+      </label>
+      <p className="alerts-hint">{paired}</p>
+    </>
   );
 }
 

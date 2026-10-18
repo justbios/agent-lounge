@@ -1,4 +1,4 @@
-import { LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK, VERSION_MARK } from "./hookConfig.mjs";
+import { KID_MARK, LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK, VERSION_MARK } from "./hookConfig.mjs";
 import { plainTool } from "./plain";
 import { ContextFill, LimitWindow, Limits, LiveEvent, LiveKind, Usage } from "./types";
 
@@ -176,7 +176,7 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
 
 const MAX_ROSTER = 60;
 
-const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK, VERSION_MARK];
+const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK, VERSION_MARK, KID_MARK];
 const MAX_TOKENS = 1e11;
 
 /** The text after a marker line, up to the next marker; null when the hook sent no such section. */
@@ -259,12 +259,21 @@ function readLimits(sec: string | null): Limits | undefined {
 
 export interface HookBody {
   raw: Json;
+  /** the hook's JSON exactly as the script sent it, before any marker: what a signed answer is bound to */
+  text: string;
   agents: string[] | null;
   title?: string;
   usage?: Usage;
   ctx?: ContextFill;
   limits?: Limits;
   version?: number;
+  /** which answer key the computer holds (relay.sh 6), so the café knows which paired secret signs */
+  kid?: string;
+}
+
+function readKid(sec: string | null): string | undefined {
+  const k = sec?.trim();
+  return k && /^[0-9a-f]{16}$/.test(k) ? k : undefined;
 }
 
 function readVersion(sec: string | null): number | undefined {
@@ -279,9 +288,10 @@ function readVersion(sec: string | null): number | undefined {
 export function parseHookBody(text: string): HookBody | null {
   const cuts = MARKS.map((m) => text.indexOf(`\n${m}\n`)).filter((i) => i >= 0);
   const cut = cuts.length ? Math.min(...cuts) : -1;
+  const json = cut < 0 ? text : text.slice(0, cut);
   let raw: unknown;
   try {
-    raw = JSON.parse(cut < 0 ? text : text.slice(0, cut));
+    raw = JSON.parse(json);
   } catch {
     return null;
   }
@@ -292,9 +302,10 @@ export function parseHookBody(text: string): HookBody | null {
     ctx: readCtx(section(text, USAGE_MARK)),
     limits: readLimits(section(text, LIMITS_MARK)),
     version: readVersion(section(text, VERSION_MARK)),
+    kid: readKid(section(text, KID_MARK)),
   };
   const list = section(text, ROSTER_MARK);
-  if (list == null) return { raw: raw as Json, agents: null, ...extra };
+  if (list == null) return { raw: raw as Json, text: json, agents: null, ...extra };
   const agents = list
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -303,7 +314,7 @@ export function parseHookBody(text: string): HookBody | null {
     .filter((n) => /^[\w.-]{1,64}$/.test(n))
     .slice(0, MAX_ROSTER)
     .sort();
-  return { raw: raw as Json, agents, ...extra };
+  return { raw: raw as Json, text: json, agents, ...extra };
 }
 
 const SPENDS: ReadonlySet<LiveKind> = new Set(["stop", "sub_stop", "session_end"]);

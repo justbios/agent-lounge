@@ -1,11 +1,11 @@
-import { liveEnabled, liveStore, subscribe } from "@/lib/live/store";
+import { liveStore, localRequest, subscribe } from "@/lib/live/store";
 
 export const dynamic = "force-dynamic";
 
 const PING_MS = 15000;
 
 export async function GET(req: Request) {
-  if (!liveEnabled()) return new Response(null, { status: 404 });
+  if (!localRequest(req)) return new Response(null, { status: 404 });
   const enc = new TextEncoder();
   let stop = () => {};
 

@@ -4,12 +4,17 @@
 #   relay.sh [--url URL] [roster] [title] [usage] [limits]   hook, JSON on stdin
 #   relay.sh [--url URL] ask                                  PermissionRequest, and PreToolUse of a question or a plan:
 #                                                             the only hooks Claude waits for
+#   relay.sh [--url URL] away on|off|status                   «я не за комп'ютером», switched on only from here
+#   relay.sh [--url URL] pair [new]                           a link that lets a phone answer for this computer
 #   relay.sh statusline                                       statusLine command: keeps limits and context, prints a line
 #   relay.sh limits                                           the same, silent, for chaining after another statusLine
 # Without --url the café link comes from ~/.config/relay/hook-url (written by /agent-lounge:connect).
 # Token counts and the last limits are kept in ~/.local/state/relay; nothing leaves this machine but the café's own events.
+# The room key goes in a header, not in the address, which servers keep in their logs.
 state="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}"
-version=5
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/relay"
+keyfile="${RELAY_ANSWER_KEY:-$conf/answer-key}"
+version=6
 
 field() {
   printf '%s' "$1" | grep -oE "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d'"' -f4
@@ -128,8 +133,8 @@ title_of() {
   [ -f "$t" ] && tail -c 1048576 "$t" | grep -oE '"customTitle":"([^"\\]|\\.)*"' | tail -n 1
 }
 
-# A permission prompt gets PermissionRequest's answer; a question or a plan gets PreToolUse's, which the café's
-# reply fills in: the question's own options or the plan as Claude wrote it, nothing else.
+# A permission prompt gets PermissionRequest's answer; a question or a plan gets PreToolUse's, with $3: Claude's own
+# input as the paired phone passed it back, the question's answers added or the plan as Claude wrote it.
 reply() {
   if [ "$1" = PermissionRequest ]; then
     m=""
@@ -142,48 +147,118 @@ reply() {
       '"permissionDecisionReason":"The user rejected this plan in Agent Lounge. Stay in plan mode and revise it."'
     exit 0
   fi
-  u=$(printf '%s' "$3" | sed -n 's/^{"a":"allow","u":\(.*\)}$/\1/p')
-  [ -n "$u" ] &&
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":%s}}' "$u"
+  [ -n "$3" ] &&
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":%s}}' "$3"
   exit 0
 }
 
-# Only while you have turned on «я не за комп'ютером» in the café does it answer: the café shows the request, the
-# question or the plan, waits up to 10 minutes for your answer there, and gives Claude that. Otherwise, after those
-# 10 minutes, or on any failure it prints nothing, and the terminal asks as usual. Never «always allow», never a
-# changed command. When the café says you are at the computer, the next minute's prompts don't ask it again.
+# Splits the room key off the café link: it goes in a header, so the address that servers log never holds it.
+split_key() {
+  key=""
+  case "$url" in *\?*) ;; *) return 0 ;; esac
+  q="${url#*\?}"
+  key=$(printf '%s' "$q" | tr '&' '\n' | sed -n 's/^k=//p' | head -n 1)
+  rest=$(printf '%s' "$q" | tr '&' '\n' | grep -v '^k=' | paste -sd '&' -)
+  url="${url%%\?*}${rest:+?$rest}"
+}
+
+# post URL [curl options…]: curl with the room key's header when there is one
+post() {
+  u=$1
+  shift
+  if [ -n "$key" ]; then curl -H "x-relay-key: $key" "$@" "$u"; else curl "$@" "$u"; fi
+}
+
+hex256() {
+  openssl dgst -sha256 "$@" | awk '{ print $NF }'
+}
+
+# The secret this computer shares only with the phones it was paired with (relay.sh pair). It never leaves the
+# machine except in the pairing link; the café keeps only signatures made with it.
+answer_key() {
+  k=$(head -n 1 "$keyfile" 2>/dev/null)
+  case "$k" in '' | *[!0-9a-f]*) return 1 ;; esac
+  [ "${#k}" -eq 64 ] || return 1
+  printf '%s' "$k"
+}
+
+new_answer_key() {
+  command -v openssl >/dev/null 2>&1 || return 1
+  mkdir -p "$(dirname "$keyfile")" || return 1
+  k=$(openssl rand -hex 32) || return 1
+  (umask 077 && printf '%s\n' "$k" > "$keyfile.tmp") && mv -f "$keyfile.tmp" "$keyfile"
+}
+
+kid_of() {
+  printf '%s' "$1" | hex256 | cut -c1-16
+}
+
+# «Я не за комп'ютером» lives here, on this machine: the café can switch it off, never on.
+away_on() {
+  [ -f "$state/away-until" ] || return 1
+  read -r t < "$state/away-until"
+  case "$t" in '' | *[!0-9]*) return 1 ;; esac
+  [ "$(date +%s)" -lt "$t" ]
+}
+
+# Every answer that came from the café, kept on this machine; /agent-lounge:status shows the last ones.
+note() {
+  mkdir -p "$state" 2>/dev/null || return 0
+  printf '%s %s %s %s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$1" "$2" "$3" "$4" >> "$state/answers.log"
+  n=$(wc -l < "$state/answers.log" | tr -d ' ')
+  [ "$n" -gt 500 ] && tail -n 200 "$state/answers.log" > "$state/answers.tmp" &&
+    mv -f "$state/answers.tmp" "$state/answers.log"
+  return 0
+}
+
+# Only while you have turned on «я не за комп'ютером» on this computer (relay.sh away on) does it answer: the café
+# shows the request, the question or the plan, waits up to 10 minutes for your answer there, and gives Claude that,
+# if a phone paired with this computer signed it over exactly what this script sent. Otherwise, after those 10
+# minutes, or on any failure it prints nothing, and the terminal asks as usual. Never «always allow», never a
+# changed command. When the café says you are back, the switch here goes off too.
 ask() {
   j=$(cat)
   ev=$(field "$j" hook_event_name)
-  case "$ev:$(field "$j" tool_name)" in
+  tool=$(field "$j" tool_name)
+  case "$ev:$tool" in
     PreToolUse:AskUserQuestion | PreToolUse:ExitPlanMode) ;;
     PermissionRequest: | PermissionRequest:AskUserQuestion | PermissionRequest:ExitPlanMode) exit 0 ;;
     PermissionRequest:*) ;;
     *) exit 0 ;;
   esac
-  case "$url" in https://*/api/claude-hook\?*) ;; *) exit 0 ;; esac
-  base="${url%%/api/claude-hook*}/api/claude-ask?${url#*\?}"
-  here="$state/here-$(printf '%s' "$url" | cksum | cut -d' ' -f1)"
-  seen=0
-  [ -f "$here" ] && read -r seen < "$here"
-  case "$seen" in '' | *[!0-9]*) seen=0 ;; esac
-  [ "$(($(date +%s) - seen))" -lt 60 ] && exit 0
+  case "$url" in https://*/api/claude-hook*) ;; *) exit 0 ;; esac
+  [ -n "$key" ] && away_on || exit 0
+  command -v openssl >/dev/null 2>&1 || exit 0
+  ak=$(answer_key) || exit 0
+  base="${url%%/api/claude-hook*}/api/claude-ask${url#*/api/claude-hook}"
+  case "$base" in *\?*) sep='&' ;; *) sep='?' ;; esac
   r=$({
     printf '%s' "$j"
     printf '\n#relay-title\n'
     title_of "$j"
     printf '\n#relay-v\n%s\n' "$version"
-  } | curl -s -m 4 -w '\n%{http_code}' -H 'content-type: text/plain' --data-binary @- "$base")
-  case "$r" in *204) mkdir -p "$state" 2>/dev/null && date +%s > "$here" ;; esac
+    printf '\n#relay-kid\n%s\n' "$(kid_of "$ak")"
+  } | post "$base" -s -m 4 -w '\n%{http_code}' -H 'content-type: text/plain' --data-binary @-)
+  case "$r" in *204) rm -f "$state/away-until" && exit 0 ;; esac
   id=$(printf '%s' "$r" | grep -oE '"id":"[0-9a-f-]{36}"' | cut -d'"' -f4)
   [ -n "$id" ] || exit 0
+  sum=$(printf '%s' "$j" | hex256)
   end=$(($(date +%s) + 600))
   fails=0
   while [ "$(date +%s)" -lt "$end" ]; do
-    r=$(curl -s -m 30 "$base&id=$id")
-    a=$(printf '%s' "$r" | grep -oE '"a":"[a-z]+"' | head -n 1 | cut -d'"' -f4)
+    r=$(post "$base${sep}id=$id" -s -m 30)
+    a=$(printf '%s' "$r" | grep -oE '^\{"a":"[a-z]+"' | cut -d'"' -f4)
     case "$a" in
-      allow | deny) reply "$ev" "$a" "$r" ;;
+      allow | deny)
+        s=$(printf '%s' "$r" | sed -n 's/^{"a":"[a-z]*","s":"\([0-9a-f]\{64\}\)".*/\1/p')
+        u=$(printf '%s' "$r" | sed -n 's/^{"a":"[a-z]*","s":"[0-9a-f]*","u":\(.*\)}$/\1/p')
+        if [ -z "$s" ] || [ "$s" != "$(printf '%s:%s:%s:%s' "$id" "$a" "$sum" "$u" | hex256 -hmac "$ak")" ]; then
+          note "$ev" "$tool" "$a" "unsigned:$id"
+          exit 0
+        fi
+        note "$ev" "$tool" "$a" "$id"
+        reply "$ev" "$a" "$u"
+        ;;
       gone) exit 0 ;;
       open) fails=0 ;;
       *)
@@ -193,6 +268,74 @@ ask() {
         ;;
     esac
   done
+  exit 0
+}
+
+clip_copy() {
+  if command -v pbcopy >/dev/null 2>&1; then pbcopy
+  elif [ -n "$WAYLAND_DISPLAY" ] && command -v wl-copy >/dev/null 2>&1; then wl-copy
+  elif command -v xclip >/dev/null 2>&1; then xclip -selection clipboard
+  elif command -v xsel >/dev/null 2>&1; then xsel -b
+  else return 1
+  fi
+}
+
+# relay.sh pair: a link to open on the phone you will answer from; it carries this computer's answer key in the
+# part after #, which the browser keeps to itself. The link goes to the clipboard; it is printed (with a QR code
+# when qrencode is installed) only to a terminal, never into a log or Claude's context. `pair new` makes a fresh
+# key, which unpairs every phone.
+pair() {
+  case "$url" in https://*/api/claude-hook*) ;; *) echo "pair: not-connected"; exit 1 ;; esac
+  command -v openssl >/dev/null 2>&1 || { echo "pair: no-openssl"; exit 1; }
+  if [ "$1" = new ] || ! answer_key >/dev/null; then
+    new_answer_key || { echo "pair: failed"; exit 1; }
+    echo "key: new"
+  fi
+  ak=$(answer_key)
+  link="${url%%/api/claude-hook*}/#pair=$ak"
+  echo "kid: $(kid_of "$ak")"
+  if printf '%s' "$link" | clip_copy 2>/dev/null; then echo "link: copied"; else echo "link: no-clipboard"; fi
+  if [ -t 1 ]; then
+    echo "$link"
+    command -v qrencode >/dev/null 2>&1 && qrencode -t ansiutf8 "$link"
+  fi
+  exit 0
+}
+
+away() {
+  case "$url" in https://*/api/claude-hook*) ;; *) echo "away: not-connected"; exit 1 ;; esac
+  base="${url%%/api/claude-hook*}/api/claude-away${url#*/api/claude-hook}"
+  case "$1" in
+    on)
+      answer_key >/dev/null || { new_answer_key && echo "key: new"; } || { echo "away: no-openssl"; exit 1; }
+      code=$(printf 'on' | post "$base" -s -m 8 -o /dev/null -w '%{http_code}' --data-binary @-)
+      if [ "$code" != 200 ]; then
+        echo "away: off"
+        echo "cafe: ${code:-000}"
+        exit 1
+      fi
+      mkdir -p "$state" && printf '%s\n' "$(($(date +%s) + 43200))" > "$state/away-until"
+      echo "away: on"
+      echo "until: $(clock "$(($(date +%s) + 43200))")"
+      echo "kid: $(kid_of "$(answer_key)")"
+      ;;
+    off)
+      rm -f "$state/away-until"
+      code=$(printf 'off' | post "$base" -s -m 8 -o /dev/null -w '%{http_code}' --data-binary @-)
+      echo "away: off"
+      echo "cafe: ${code:-000}"
+      ;;
+    *)
+      if away_on; then
+        read -r t < "$state/away-until"
+        echo "away: on"
+        echo "until: $(clock "$t")"
+      else
+        echo "away: off"
+      fi
+      if answer_key >/dev/null; then echo "kid: $(kid_of "$(answer_key)")"; else echo "kid: none"; fi
+      ;;
+  esac
   exit 0
 }
 
@@ -223,16 +366,28 @@ if [ "$1" = "--url" ]; then
   shift 2
 fi
 if [ -z "$url" ]; then
-  f="${RELAY_HOOK_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/relay/hook-url}"
+  f="${RELAY_HOOK_FILE:-$conf/hook-url}"
   url=$(head -n 1 "$f" 2>/dev/null)
+fi
+# away and pair also find a café the hooks in settings.json post to (the connect page's install)
+if [ -z "$url" ] && { [ "$1" = away ] || [ "$1" = pair ]; }; then
+  settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+  url=$(grep -oE -e "--url '[^']+/api/claude-hook[^']*'" "$settings" 2>/dev/null | head -n 1 | cut -d"'" -f2)
 fi
 case "$url" in
   https://*/api/claude-hook* | http://127.0.0.1:*/api/claude-hook*) ;;
-  *) cat >/dev/null; exit 0 ;;
+  *)
+    [ "$1" = away ] || [ "$1" = pair ] && { echo "$1: not-connected"; exit 1; }
+    cat >/dev/null
+    exit 0
+    ;;
 esac
+split_key
 [ "$1" = "ask" ] && ask
+[ "$1" = "pair" ] && pair "$2"
+[ "$1" = "away" ] && away "$2"
 if [ $# -eq 0 ]; then
-  curl -s -m 3 -o /dev/null -H 'content-type: application/json' --data-binary @- "$url"
+  post "$url" -s -m 3 -o /dev/null -H 'content-type: application/json' --data-binary @-
   exit 0
 fi
 j=$(cat)
@@ -257,5 +412,5 @@ j=$(cat)
     esac
   done
   printf '\n#relay-v\n%s\n' "$version"
-} | curl -s -m 5 -o /dev/null -H 'content-type: text/plain' --data-binary @- "$url"
+} | post "$url" -s -m 5 -o /dev/null -H 'content-type: text/plain' --data-binary @-
 exit 0

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAccess } from "@/lib/live/access";
+import { useAnswerKeys } from "@/lib/live/answerKeys";
 import { useHosted, useRelayKey, useViewRoom } from "@/lib/live/relayKey";
 import { useCloudFeed } from "@/lib/live/useCloudFeed";
 import { useLiveFeed } from "@/lib/live/useLiveFeed";
@@ -14,6 +15,8 @@ export default function Home() {
   const hosted = useHosted();
   const key = useRelayKey();
   const view = useViewRoom();
+  // a pairing link from `relay.sh pair` lands here: its answer key is filed and leaves the address bar
+  useAnswerKeys();
   const local = useLiveFeed(hosted === false);
   const cloud = useCloudFeed({ key, room: hosted ? view : null }, hosted === true);
   const feed = hosted ? cloud : local;
