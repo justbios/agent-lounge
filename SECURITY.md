@@ -50,6 +50,9 @@ permission prompts, questions and plans. The parts and their trust:
 - The local café (`npm run live`, `npm run up`) binds to 127.0.0.1 and answers only requests addressed to
   `127.0.0.1`/`localhost` with no foreign `Origin`. Do not expose `npm run dev` or `npm run live` to a network: the
   local feed shows everything your Claude does.
+- A site meant for yourself can close to cafés it has never seen: apply `0022_private_cafe.sql`, run
+  `select public.relay_private(true);` in the SQL editor, and set `NEXT_PUBLIC_RELAY_PRIVATE=1` so visitors get a
+  pointer to the project instead of a key. Rooms the site already knows, their keys and team invites keep working.
 - The site sends a Content-Security-Policy (`next.config.ts`) that allows only the Supabase project and the jukebox's
   YouTube and Spotify players besides itself.
 

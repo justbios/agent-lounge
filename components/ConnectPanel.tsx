@@ -18,7 +18,7 @@ import {
 } from "@/lib/live/hookConfig.mjs";
 import { useAccess } from "@/lib/live/access";
 import pack from "@/lib/live/pluginPack.json";
-import { newKey, saveKey, useHosted, useRelayKey } from "@/lib/live/relayKey";
+import { PRIVATE_CAFE, newKey, saveKey, useHosted, useRelayKey } from "@/lib/live/relayKey";
 import { useMe } from "@/lib/live/team";
 import { Two, Ui, tr, useTr, useUi } from "@/lib/i18n";
 import { CafeSwitcher, JoinTeam, MemberName, TeamInvite, useTeamInvite } from "./connect/TeamConnect";
@@ -27,6 +27,7 @@ import Disconnect from "./connect/Disconnect";
 import HookStatus from "./connect/HookStatus";
 import TeamKeys from "./connect/TeamKeys";
 import KeyLost from "./live/KeyLost";
+import OwnCafe from "./live/OwnCafe";
 
 /** The phrase for Claude: the words follow the viewer's language, every command, path and key stays the same. */
 function cloudPrompt(site: string, url: string, ui: Ui): string {
@@ -410,7 +411,7 @@ export default function ConnectPanel() {
   const invite = useTeamInvite();
 
   useEffect(() => {
-    if (hosted && !roomKey && !invite) saveKey(newKey());
+    if (hosted && !roomKey && !invite && !PRIVATE_CAFE) saveKey(newKey());
   }, [hosted, roomKey, invite]);
 
   return (
@@ -440,6 +441,7 @@ export default function ConnectPanel() {
 
       {hosted === false && <LocalConnect />}
       {hosted && invite && <JoinTeam teamKey={invite} current={roomKey} />}
+      {hosted && !roomKey && !invite && PRIVATE_CAFE && <OwnCafe />}
       {hosted && roomKey && !invite && (
         <>
           <CafeSwitcher current={roomKey} />

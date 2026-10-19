@@ -60,6 +60,12 @@ export function saveKey(key: string) {
   for (const fn of listeners) fn();
 }
 
+/**
+ * A personal site (NEXT_PUBLIC_RELAY_PRIVATE=1, read at build time): a browser without a key or a team invite is
+ * pointed at the project instead of getting a fresh key. The database gate in 0022_private_cafe.sql is what holds.
+ */
+export const PRIVATE_CAFE = process.env.NEXT_PUBLIC_RELAY_PRIVATE === "1";
+
 export function newKey(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");

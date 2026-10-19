@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { tr, useUi } from "@/lib/i18n";
+import { PRIVATE_CAFE } from "@/lib/live/relayKey";
 import KeyPaste from "./KeyPaste";
+import { OwnCafeLine, OwnerPaste } from "./OwnCafe";
 
 export default function EmptyCafe({
   viewing,
@@ -23,11 +25,13 @@ export default function EmptyCafe({
       <b>
         {viewing
           ? tr(ui, "У цьому кафе зараз тихо", "It's quiet in this café right now")
-          : unplugged
-            ? tr(ui, "Твій Claude ще не підключений", "Your Claude isn't connected yet")
-            : offline
-              ? pill
-              : tr(ui, "Чекаю на твого Claude…", "Waiting for your Claude…")}
+          : unplugged && PRIVATE_CAFE
+            ? tr(ui, "Це особисте кафе", "This is a personal café")
+            : unplugged
+              ? tr(ui, "Твій Claude ще не підключений", "Your Claude isn't connected yet")
+              : offline
+                ? pill
+                : tr(ui, "Чекаю на твого Claude…", "Waiting for your Claude…")}
       </b>
       {viewing ? (
         <>
@@ -38,7 +42,12 @@ export default function EmptyCafe({
           )}
         </>
       ) : cloud ? (
-        unplugged ? (
+        unplugged && PRIVATE_CAFE ? (
+          <>
+            <OwnCafeLine />
+            <OwnerPaste />
+          </>
+        ) : unplugged ? (
           <>
             {en ? (
               <>One sentence to your Claude Code, and your agents sit down here: {connect}.</>

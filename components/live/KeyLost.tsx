@@ -1,6 +1,7 @@
 "use client";
 
-import { newKey, saveKey } from "@/lib/live/relayKey";
+import { PROJECT_URL } from "@/lib/brand";
+import { PRIVATE_CAFE, newKey, saveKey } from "@/lib/live/relayKey";
 import { useCafes } from "@/lib/live/team";
 import { Two, tr, useUi } from "@/lib/i18n";
 import { cafeLabel } from "../connect/TeamConnect";
@@ -28,9 +29,15 @@ export default function KeyLost({ kind, current }: { kind: "revoked" | "retired"
             {cafeLabel(c.label, ui)}
           </button>
         ))}
-        <button className="btn" onClick={() => saveKey(newKey())}>
-          {tr(ui, "відкрити своє кафе", "open my own café")}
-        </button>
+        {PRIVATE_CAFE ? (
+          <a className="btn" href={`https://${PROJECT_URL}`} target="_blank" rel="noopener noreferrer">
+            {tr(ui, "завести своє кафе", "run my own café")}
+          </a>
+        ) : (
+          <button className="btn" onClick={() => saveKey(newKey())}>
+            {tr(ui, "відкрити своє кафе", "open my own café")}
+          </button>
+        )}
       </div>
       <KeyPaste
         hint={tr(

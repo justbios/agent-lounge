@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { DoorOpen } from "lucide-react";
 import { useTr } from "@/lib/i18n";
+import { PRIVATE_CAFE } from "@/lib/live/relayKey";
+import { OwnCafeLine } from "./OwnCafe";
 
 export default function DoorInvite({ cloud, roomKey, viewing }: { cloud: boolean; roomKey: string | null; viewing: boolean }) {
   const t = useTr();
@@ -18,6 +20,18 @@ export default function DoorInvite({ cloud, roomKey, viewing }: { cloud: boolean
             "Це чуже кафе за посиланням. Запросити сюди може лише власник.",
             "This is someone else's café, opened by a link. Only its owner can invite people here.",
           )}
+        </p>
+      </div>
+    );
+  }
+  if (cloud && !roomKey && PRIVATE_CAFE) {
+    return (
+      <div className="door-pop">
+        <b>
+          <DoorOpen size={14} /> {t("Особисте кафе", "Personal café")}
+        </b>
+        <p>
+          <OwnCafeLine />
         </p>
       </div>
     );
