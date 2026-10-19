@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { Two, Ui, useTr, useUi } from "@/lib/i18n";
 import { BRAND, ItemId, TITLE_MAX } from "@/lib/live/interior";
 import { CafeState } from "@/lib/live/useCafe";
 import { RoomKind } from "@/lib/live/cafeRoom";
@@ -25,6 +26,7 @@ function NameForm({
   done: string;
   onSave: (v: string) => Promise<boolean>;
 }) {
+  const t = useTr();
   const [name, setName] = useState(value);
   const [note, setNote] = useState<"" | "ok" | "bad" | "busy">("");
   const submit = async (ev: FormEvent) => {
@@ -47,21 +49,33 @@ function NameForm({
           }}
         />
         <button className="btn" disabled={note === "busy"}>
-          {note === "busy" ? "зберігаю…" : "зберегти"}
+          {note === "busy" ? t("зберігаю…", "saving…") : t("зберегти", "save")}
         </button>
       </div>
       {note === "ok" && <span className="alerts-hint">{done}</span>}
-      {note === "bad" && <span className="key-paste-bad">Не вдалося зберегти, спробуй ще раз.</span>}
+      {note === "bad" && (
+        <span className="key-paste-bad">{t("Не вдалося зберегти, спробуй ще раз.", "Couldn't save, try again.")}</span>
+      )}
     </form>
   );
 }
 
-const PETS = [
-  { id: "cat", name: "🐈 кіт", hint: "рудий, муркоче, спить на лежаку" },
-  { id: "dog", name: "🐕 песик", hint: "кремовий, вуха висячі, виляє хвостом" },
-] as const;
+const PETS: { id: "cat" | "dog"; name: Two; hint: Two }[] = [
+  {
+    id: "cat",
+    name: { uk: "🐈 кіт", en: "🐈 cat" },
+    hint: { uk: "рудий, муркоче, спить на лежаку", en: "ginger, purrs, naps on its bed" },
+  },
+  {
+    id: "dog",
+    name: { uk: "🐕 песик", en: "🐕 dog" },
+    hint: { uk: "кремовий, вуха висячі, виляє хвостом", en: "cream-coloured, floppy ears, wags its tail" },
+  },
+];
 
 function PetPicker({ cafe }: { cafe: CafeState }) {
+  const ui = useUi();
+  const t = useTr();
   const current = cafe.interior.pet ?? "cat";
   const [busy, setBusy] = useState(false);
   const [bad, setBad] = useState(false);
@@ -75,8 +89,8 @@ function PetPicker({ cafe }: { cafe: CafeState }) {
   };
   return (
     <div className="theme-pick">
-      <span className="theme-pick-ttl">Улюбленець кафе</span>
-      <div className="theme-grid pet-grid" role="radiogroup" aria-label="улюбленець кафе">
+      <span className="theme-pick-ttl">{t("Улюбленець кафе", "Café pet")}</span>
+      <div className="theme-grid pet-grid" role="radiogroup" aria-label={t("улюбленець кафе", "café pet")}>
         {PETS.map((p) => (
           <button
             key={p.id}
@@ -86,21 +100,23 @@ function PetPicker({ cafe }: { cafe: CafeState }) {
             disabled={busy}
             onClick={() => pick(p.id)}
           >
-            <b>{p.name}</b>
-            <span className="ach-hint">{p.hint}</span>
+            <b>{p.name[ui]}</b>
+            <span className="ach-hint">{p.hint[ui]}</span>
           </button>
         ))}
       </div>
-      {bad && <span className="key-paste-bad">Не вдалося змінити, спробуй ще раз.</span>}
+      {bad && (
+        <span className="key-paste-bad">{t("Не вдалося змінити, спробуй ще раз.", "Couldn't change it, try again.")}</span>
+      )}
     </div>
   );
 }
 
-const OWN: Record<RoomKind, (whose: string | null) => string> = {
-  cafe: () => "Твоє кафе",
-  lobby: () => "Спільна зала",
-  mine: () => "Твоя кімната",
-  theirs: (whose) => `Кімната: ${whose}`,
+const OWN: Record<RoomKind, (whose: string | null, ui: Ui) => string> = {
+  cafe: (_, ui) => (ui === "en" ? "Your café" : "Твоє кафе"),
+  lobby: (_, ui) => (ui === "en" ? "The lobby" : "Спільна зала"),
+  mine: (_, ui) => (ui === "en" ? "Your room" : "Твоя кімната"),
+  theirs: (whose, ui) => (ui === "en" ? `${whose}'s room` : `Кімната: ${whose}`),
 };
 
 /** Furniture for coffee beans, and the room's own look: the view, the café's name, the pet and its name. */
@@ -113,44 +129,67 @@ export default function ShopPanel({
   onClose: () => void;
   onPlace: (item: ItemId) => void;
 }) {
+  const ui = useUi();
+  const t = useTr();
   const b = cafe.beans;
   const dog = cafe.interior.pet === "dog";
   return (
     <Sheet
-      label="кав'ярня"
-      title="Кав'ярня"
+      label={t("кав'ярня", "coffee shop")}
+      title={t("Кав'ярня", "Coffee shop")}
       sub={
         cafe.progress ? (
-          <span className="shop-beans" title={`зароблено ${beans(b.earned)}, витрачено ${beans(b.spent)}`}>
-            ☕ {beans(Math.max(0, b.left))}
+          <span
+            className="shop-beans"
+            title={t(
+              `зароблено ${beans(b.earned, ui)}, витрачено ${beans(b.spent, ui)}`,
+              `earned ${beans(b.earned, ui)}, spent ${beans(b.spent, ui)}`,
+            )}
+          >
+            ☕ {beans(Math.max(0, b.left), ui)}
           </span>
         ) : (
-          "рахую…"
+          t("рахую…", "counting…")
         )
       }
       onClose={onClose}
     >
       {cafe.kind === "theirs" && (
         <p className="alerts-hint">
-          Це кімната, яку обставляє {cafe.whose}, за свої зерна. Дивитися можна, змінювати ні.
+          {t(
+            `Це кімната, яку обставляє ${cafe.whose}, за свої зерна. Дивитися можна, змінювати ні.`,
+            `${cafe.whose} furnishes this room with their own beans. You can look, but not change it.`,
+          )}
         </p>
       )}
       {cafe.kind === "lobby" && (
-        <p className="alerts-hint">Спільну залу обставляє вся команда: зерна на неї заробляють усі разом.</p>
+        <p className="alerts-hint">
+          {t(
+            "Спільну залу обставляє вся команда: зерна на неї заробляють усі разом.",
+            "The whole team furnishes the lobby: everyone earns its beans together.",
+          )}
+        </p>
       )}
-      {cafe.error && <p className="key-paste-bad">Не вдалося дістати зерна, спробую ще раз за хвилину.</p>}
+      {cafe.error && (
+        <p className="key-paste-bad">
+          {t(
+            "Не вдалося дістати зерна, спробую ще раз за хвилину.",
+            "Couldn't fetch the beans, I'll try again in a minute.",
+          )}
+        </p>
+      )}
       {cafe.progress && <Shop cafe={cafe} onPlace={onPlace} />}
       <section className="shop-own">
-        <div className="share-ttl">{OWN[cafe.kind](cafe.whose)}</div>
+        <div className="share-ttl">{OWN[cafe.kind](cafe.whose, ui)}</div>
         <ThemePicker cafe={cafe} />
         {cafe.editable && (cafe.kind === "cafe" || cafe.kind === "lobby") && (
           <NameForm
             id="cafe-title"
-            label="Назва кафе"
+            label={t("Назва кафе", "Café name")}
             value={cafe.interior.title ?? ""}
             max={TITLE_MAX}
-            placeholder={`${BRAND}, або назва команди`}
-            done="Готово, назва вже на вивісці й на даху."
+            placeholder={t(`${BRAND}, або назва команди`, `${BRAND}, or your team's name`)}
+            done={t("Готово, назва вже на вивісці й на даху.", "Done, the name is on the sign and the roof now.")}
             onSave={(v) => cafe.setNames({ title: v || undefined })}
           />
         )}
@@ -158,11 +197,14 @@ export default function ShopPanel({
         {cafe.editable && (
           <NameForm
             id="cat-name"
-            label={dog ? "Ім'я песика" : "Ім'я кота"}
+            label={dog ? t("Ім'я песика", "Dog's name") : t("Ім'я кота", "Cat's name")}
             value={cafe.settings.cat_name ?? ""}
             max={24}
-            placeholder={dog ? "песик без імені" : "рудий кіт без імені"}
-            done={`Готово, ім'я вже над ${dog ? "песиком" : "котом"}.`}
+            placeholder={dog ? t("песик без імені", "nameless dog") : t("рудий кіт без імені", "nameless ginger cat")}
+            done={t(
+              `Готово, ім'я вже над ${dog ? "песиком" : "котом"}.`,
+              `Done, the name is above the ${dog ? "dog" : "cat"} now.`,
+            )}
             onSave={(v) => cafe.save({ cat_name: v || null })}
           />
         )}

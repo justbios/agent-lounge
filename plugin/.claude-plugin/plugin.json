@@ -1,6 +1,6 @@
 {
   "name": "agent-lounge",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "Seats your Claude Code agents in the Agent Lounge pixel café: every chat, tool call and handoff live, plus a phone ping when Claude waits on you.",
   "author": {
     "name": "justbios"

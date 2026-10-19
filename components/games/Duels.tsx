@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { DUEL_NAMES, DuelKind, LiveDuel } from "@/lib/live/duel";
+import { useTr, useUi } from "@/lib/i18n";
+import { DuelKind, LiveDuel, duelName } from "@/lib/live/duel";
 import { Guest } from "@/lib/live/social";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
@@ -34,11 +35,19 @@ export default function Duels({
   /** a real-time match was played to the end */
   onEnd: (kind: LiveDuel, win: boolean) => void;
 }) {
+  const ui = useUi();
+  const t = useTr();
   const board = useRef<HTMLDivElement>(null);
   const m = duels.match;
   if (m) {
     const rival = m.x.id === duels.self ? m.o : m.x;
-    const note = m.over ? null : m.gone ? `${rival.name}: гру закрито` : duels.away ? `${rival.name} більше не в кафе` : null;
+    const note = m.over
+      ? null
+      : m.gone
+        ? t(`${rival.name}: гру закрито`, `${rival.name} closed the game`)
+        : duels.away
+          ? t(`${rival.name} більше не в кафе`, `${rival.name} left the café`)
+          : null;
     return (
       <div className="duel">
         <div className="duel-board" ref={board}>
@@ -56,7 +65,7 @@ export default function Duels({
         </div>
         <div className="duel-tools">
           <button className="btn" onClick={duels.close}>
-            {m.over || note ? "закрити" : "здатись і вийти"}
+            {m.over || note ? t("закрити", "close") : t("здатись і вийти", "give up and leave")}
           </button>
           <FullscreenButton target={board} />
         </div>
@@ -64,15 +73,25 @@ export default function Duels({
     );
   }
   if (!online) {
-    return <p className="alerts-hint">Удвох грають з кимось, хто теж відкрив це кафе. Це працює в хмарному режимі.</p>;
+    return (
+      <p className="alerts-hint">
+        {t(
+          "Удвох грають з кимось, хто теж відкрив це кафе. Це працює в хмарному режимі.",
+          "Games for two are played with someone else who opened this café. They work in cloud mode.",
+        )}
+      </p>
+    );
   }
   return (
     <div className="ttt-lobby">
       {duels.waiting ? (
         <div className="ttt-wait">
-          Чекаю, поки {duels.waiting.to.name} погодиться на {DUEL_NAMES[duels.waiting.kind]}…{" "}
+          {t(
+            `Чекаю, поки ${duels.waiting.to.name} погодиться на ${duelName(duels.waiting.kind, ui)}…`,
+            `Waiting for ${duels.waiting.to.name} to say yes to ${duelName(duels.waiting.kind, ui)}…`,
+          )}{" "}
           <button className="btn" onClick={duels.close}>
-            скасувати
+            {t("скасувати", "cancel")}
           </button>
         </div>
       ) : guests.length ? (
@@ -82,7 +101,7 @@ export default function Duels({
               <span>{g.name}</span>
               {KINDS.map((k) => (
                 <button key={k} className="btn" onClick={() => duels.invite(k, g)}>
-                  {DUEL_NAMES[k]}
+                  {duelName(k, ui)}
                 </button>
               ))}
             </li>
@@ -90,11 +109,19 @@ export default function Duels({
         </ul>
       ) : (
         <p className="alerts-hint">
-          Поки в кафе більше нікого. Запроси когось через двері в сцені: щойно людина відкриє кафе, тут з&apos;явиться
-          її ім&apos;я й кнопки ігор.
+          {t(
+            "Поки в кафе більше нікого. Запроси когось через двері в сцені: щойно людина відкриє кафе, " +
+              "тут з'явиться її ім'я й кнопки ігор.",
+            "Nobody else is in the café yet. Invite someone through the door in the scene: once they open the café, " +
+              "their name and the game buttons show up here.",
+          )}
         </p>
       )}
-      {duels.declined && <p className="alerts-hint">{duels.declined} зараз не хоче грати.</p>}
+      {duels.declined && (
+        <p className="alerts-hint">
+          {t(`${duels.declined} зараз не хоче грати.`, `${duels.declined} does not want to play right now.`)}
+        </p>
+      )}
     </div>
   );
 }

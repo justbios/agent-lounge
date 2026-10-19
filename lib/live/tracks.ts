@@ -1,3 +1,4 @@
+import type { Ui } from "@/lib/i18n";
 import type { Kit } from "./music";
 
 export type TrackId = "lofi" | "rain" | "chip" | "jazz" | "synth" | "field" | "keys";
@@ -16,22 +17,43 @@ export interface Track {
 export interface TrackInfo {
   id: TrackId;
   icon: string;
+  /** Ukrainian; {@link trackText} gives the name and mood in the viewer's language */
   name: string;
+  nameEn: string;
   mood: string;
+  moodEn: string;
 }
 
 /** The jukebox's records, in the order it shows them. «Лише клавіатури» plays no music, only the typing. */
 export const TRACKS: TrackInfo[] = [
-  { id: "lofi", icon: "🌙", name: "Lo-fi вечір", mood: "тепло й повільно" },
-  { id: "rain", icon: "🌧", name: "Дощ за вікном", mood: "піаніно під дощ" },
-  { id: "jazz", icon: "🎷", name: "Джаз-кафе", mood: "свінг і контрабас" },
-  { id: "synth", icon: "🌆", name: "Нічне місто", mood: "синтвейв" },
-  { id: "chip", icon: "👾", name: "8 біт", mood: "як у старій приставці" },
-  { id: "field", icon: "🌄", name: "Світанок над полем", mood: "арфа й флейта, повільно" },
-  { id: "keys", icon: "⌨️", name: "Лише клавіатури", mood: "без музики, стукіт, поки агенти працюють" },
+  { id: "lofi", icon: "🌙", name: "Lo-fi вечір", nameEn: "Lo-fi Evening", mood: "тепло й повільно", moodEn: "warm and slow" },
+  { id: "rain", icon: "🌧", name: "Дощ за вікном", nameEn: "Rain Outside", mood: "піаніно під дощ", moodEn: "piano in the rain" },
+  { id: "jazz", icon: "🎷", name: "Джаз-кафе", nameEn: "Jazz Café", mood: "свінг і контрабас", moodEn: "swing and double bass" },
+  { id: "synth", icon: "🌆", name: "Нічне місто", nameEn: "Night City", mood: "синтвейв", moodEn: "synthwave" },
+  { id: "chip", icon: "👾", name: "8 біт", nameEn: "8-Bit", mood: "як у старій приставці", moodEn: "like an old game console" },
+  {
+    id: "field",
+    icon: "🌄",
+    name: "Світанок над полем",
+    nameEn: "Dawn Over the Fields",
+    mood: "арфа й флейта, повільно",
+    moodEn: "harp and flute, slowly",
+  },
+  {
+    id: "keys",
+    icon: "⌨️",
+    name: "Лише клавіатури",
+    nameEn: "Just Keyboards",
+    mood: "без музики, стукіт, поки агенти працюють",
+    moodEn: "no music, just typing while agents work",
+  },
 ];
 
 export const trackInfo = (id: TrackId) => TRACKS.find((t) => t.id === id) ?? TRACKS[0];
+
+/** A record's name and mood in one interface language. */
+export const trackText = (t: TrackInfo, ui: Ui = "uk"): { name: string; mood: string } =>
+  ui === "en" ? { name: t.nameEn, mood: t.moodEn } : { name: t.name, mood: t.mood };
 export const isTrack = (v: unknown): v is TrackId => TRACKS.some((t) => t.id === v);
 
 const pick = <T,>(a: T[]) => a[Math.floor(Math.random() * a.length)];

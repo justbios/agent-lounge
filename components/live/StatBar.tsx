@@ -2,6 +2,7 @@
 
 import { ReactNode } from "react";
 import { Activity, Coins, Users } from "lucide-react";
+import { useTr, useUi } from "@/lib/i18n";
 import { fmtTokens } from "./tokens";
 
 const ICON = { display: "inline", verticalAlign: "-1px", marginRight: 4 } as const;
@@ -25,6 +26,8 @@ export default function StatBar({
   limits?: ReactNode;
   children: ReactNode;
 }) {
+  const t = useTr();
+  const ui = useUi();
   return (
     <div className="statbar live-bar">
       {status !== "open" && (
@@ -46,16 +49,22 @@ export default function StatBar({
       <div className="stat">
         <span className="stat-k">
           <Activity size={11} style={ICON} />
-          зараз працюють
+          {t("зараз працюють", "working now")}
         </span>
         <span className="stat-v">{working}</span>
       </div>
-      <div className="stat" title="токени, які хук порахував за останню добу в цьому чаті чи команді">
+      <div
+        className="stat"
+        title={t(
+          "токени, які хук порахував за останню добу в цьому чаті чи команді",
+          "tokens the hook counted over the last day in this chat or team",
+        )}
+      >
         <span className="stat-k">
           <Coins size={11} style={ICON} />
-          токенів
+          {t("токенів", "tokens")}
         </span>
-        <span className="stat-v">{tokens > 0 ? fmtTokens(tokens) : "—"}</span>
+        <span className="stat-v">{tokens > 0 ? fmtTokens(tokens, ui) : "—"}</span>
       </div>
       {limits}
       <div className="bar-r">{children}</div>

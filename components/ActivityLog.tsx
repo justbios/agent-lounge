@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Ui, tr, useUi } from "@/lib/i18n";
 import { AgentDef, AgentEvent } from "@/lib/types";
 import { MockRun } from "@/lib/mockRun";
 
@@ -8,14 +9,14 @@ function fmt(ts: number): string {
   return `${(ts / 1000).toFixed(1)}s`;
 }
 
-function message(e: AgentEvent, agents: AgentDef[]): string {
+function message(e: AgentEvent, agents: AgentDef[], ui: Ui): string {
   switch (e.type) {
     case "start":
-      return `старт · ${e.payload?.label ?? ""}`;
+      return `${tr(ui, "старт", "start")} · ${e.payload?.label ?? ""}`;
     case "tool_call":
       return `${e.payload?.tool}()  ${e.payload?.summary ?? ""}`;
     case "complete":
-      return `готово · ${e.payload?.tokens ?? 0} ток.`;
+      return tr(ui, `готово · ${e.payload?.tokens ?? 0} ток.`, `done · ${e.payload?.tokens ?? 0} tok.`);
     case "handoff": {
       const to = agents.find((a) => a.id === e.to_agent);
       return `→ ${to?.name ?? e.to_agent}: ${e.payload?.label ?? ""}`;
@@ -26,6 +27,7 @@ function message(e: AgentEvent, agents: AgentDef[]): string {
 }
 
 export default function ActivityLog({ run, clock, cycle }: { run: MockRun; clock: number; cycle: number }) {
+  const ui = useUi();
   const ref = useRef<HTMLDivElement>(null);
   const visible = run.events.filter((e) => e.ts <= clock);
 
@@ -37,7 +39,7 @@ export default function ActivityLog({ run, clock, cycle }: { run: MockRun; clock
   return (
     <div className="card">
       <div className="card-hd">
-        <span className="card-ttl">потік подій</span>
+        <span className="card-ttl">{tr(ui, "потік подій", "event stream")}</span>
         <span className="muted-sm">run #{cycle}</span>
       </div>
       <div className="log" ref={ref}>
@@ -50,7 +52,7 @@ export default function ActivityLog({ run, clock, cycle }: { run: MockRun; clock
               <span className="log-nm" style={{ color: a?.color }}>
                 {a?.name}
               </span>
-              <span className="log-msg">{message(e, run.agents)}</span>
+              <span className="log-msg">{message(e, run.agents, ui)}</span>
             </div>
           );
         })}

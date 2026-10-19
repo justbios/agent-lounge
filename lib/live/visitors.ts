@@ -2,14 +2,48 @@
 
 import { useSyncExternalStore } from "react";
 import { rng } from "@/lib/cafe/layout";
+import type { Ui } from "@/lib/i18n";
 
 export type VisitorKind = "courier" | "goldcat" | "shiny";
 
-export const VISITORS: Record<VisitorKind, { icon: string; name: string; hint: string }> = {
-  courier: { icon: "🍕", name: "Кур'єр з піцою", hint: "Приносить піцу, сідає за стійку й чекає, хто її замовив" },
-  goldcat: { icon: "🐈", name: "Золотий кіт", hint: "Мандрує кафе світу й зрідка вмощується на стільці біля стійки" },
-  shiny: { icon: "✨", name: "Блискучий агент", hint: "Один гість із п'ятисот. Хто його бачив, той знає" },
+export interface VisitorDef {
+  icon: string;
+  /** Ukrainian; {@link visitorText} gives the name and hint in the viewer's language */
+  name: string;
+  nameEn: string;
+  hint: string;
+  hintEn: string;
+}
+
+export const VISITORS: Record<VisitorKind, VisitorDef> = {
+  courier: {
+    icon: "🍕",
+    name: "Кур'єр з піцою",
+    nameEn: "Pizza courier",
+    hint: "Приносить піцу, сідає за стійку й чекає, хто її замовив",
+    hintEn: "Brings a pizza, sits at the counter and waits for whoever ordered it",
+  },
+  goldcat: {
+    icon: "🐈",
+    name: "Золотий кіт",
+    nameEn: "Golden cat",
+    hint: "Мандрує кафе світу й зрідка вмощується на стільці біля стійки",
+    hintEn: "Roams the cafés of the world and now and then curls up on a stool by the counter",
+  },
+  shiny: {
+    icon: "✨",
+    name: "Блискучий агент",
+    nameEn: "Shiny agent",
+    hint: "Один гість із п'ятисот. Хто його бачив, той знає",
+    hintEn: "One guest in five hundred. If you've seen it, you know",
+  },
 };
+
+/** A visitor's icon, name and hint in one interface language. */
+export function visitorText(kind: VisitorKind, ui: Ui = "uk"): { icon: string; name: string; hint: string } {
+  const v = VISITORS[kind];
+  return ui === "en" ? { icon: v.icon, name: v.nameEn, hint: v.hintEn } : { icon: v.icon, name: v.name, hint: v.hint };
+}
 
 export const VISITOR_KINDS = Object.keys(VISITORS) as VisitorKind[];
 

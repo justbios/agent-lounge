@@ -1,5 +1,6 @@
 import { CafeLayout } from "@/lib/cafe/layout";
 import { Bubble } from "@/lib/cafe/timeline";
+import { tr, uiNow } from "@/lib/i18n";
 import { titleFit } from "@/lib/live/interior";
 import { chip, line, speechNow } from "@/lib/live/speech";
 import { AgentDef } from "@/lib/types";
@@ -81,7 +82,8 @@ function neon(ctx: CanvasRenderingContext2D, o: OverlayInput, s: number, k: numb
   };
   const big: [string, number][] = [["#1aa7d8", 26], ["#5ce1ff", 14], ["#5ce1ff", 6], ["#ffffff", 2]];
   glowText(o.title, top, main * titleFit(o.title), 700, "#e3fcff", big);
-  glowText(o.sign ?? "інтернет-кафе", top + main + gap, sub, 400, "#ffe0f0", [["#ff4fa3", 14], ["#ff4fa3", 6], ["#ffffff", 2]]);
+  const second = o.sign ?? tr(uiNow(), "інтернет-кафе", "internet café");
+  glowText(second, top + main + gap, sub, 400, "#ffe0f0", [["#ff4fa3", 14], ["#ff4fa3", 6], ["#ffffff", 2]]);
   spacing(ctx, 0, 1);
 }
 

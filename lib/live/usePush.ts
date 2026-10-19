@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { enPlural, tr, uiNow } from "@/lib/i18n";
 import { PushState, disablePush, enablePush, pushDonePref, pushState, setPushDone, testPush } from "./push";
 
 export interface PushControl {
@@ -40,7 +41,7 @@ export function usePush(key: string | null, enabled: boolean, member: string | n
     try {
       await job();
     } catch {
-      setNote("не вдалося, спробуй ще раз");
+      setNote(tr(uiNow(), "не вдалося, спробуй ще раз", "that didn't work, try again"));
     } finally {
       setBusy(false);
     }
@@ -56,7 +57,7 @@ export function usePush(key: string | null, enabled: boolean, member: string | n
       run(async () => {
         const next = state === "on" ? await disablePush(key) : await enablePush(key, done, member);
         setOverride(next);
-        if (next === "on") setNote("готово: пуші йтимуть на цей пристрій");
+        if (next === "on") setNote(tr(uiNow(), "готово: пуші йтимуть на цей пристрій", "done: push will come to this device"));
       }),
     setDone: (d) => {
       setDoneState(d);
@@ -66,7 +67,12 @@ export function usePush(key: string | null, enabled: boolean, member: string | n
       key &&
       run(async () => {
         const n = await testPush(key);
-        setNote(n ? `надіслано на ${n} пристр.` : "жоден пристрій не підписаний");
+        const ui = uiNow();
+        setNote(
+          n
+            ? tr(ui, `надіслано на ${n} пристр.`, `sent to ${n} ${enPlural(n, "device", "devices")}`)
+            : tr(ui, "жоден пристрій не підписаний", "no device is subscribed"),
+        );
       }),
   };
 }

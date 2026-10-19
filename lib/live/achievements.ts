@@ -1,4 +1,5 @@
 import type { ThemeId } from "@/components/cafe/theme";
+import type { Ui } from "@/lib/i18n";
 import { HourRow } from "./recap";
 import type { TrackId } from "./tracks";
 
@@ -63,14 +64,18 @@ interface Stats {
 export interface AchievementDef {
   id: string;
   icon: string;
+  /** Ukrainian; {@link achText} gives the name, hint and decor in the viewer's language */
   title: string;
+  titleEn: string;
   hint: string;
+  hintEn: string;
   goal: number;
   value: (s: Stats) => number;
   /** counted over the whole history at once, so there is no day it was earned on */
   lifetime?: boolean;
   decor?: Decor;
   decorName?: string;
+  decorNameEn?: string;
   /** coffee beans it pays when reached after the beans started over */
   reward: number;
   /** a theme it opens; the night café is open from the start */
@@ -83,37 +88,44 @@ export interface AchievementDef {
 
 const used = (kind: string) => (s: Stats) => (s.kinds.has(kind) ? 1 : 0);
 
+/** An achievement's name, hint and the decor it brings, in one interface language. */
+export function achText(a: AchievementDef, ui: Ui): { title: string; hint: string; decorName?: string } {
+  return ui === "en"
+    ? { title: a.titleEn, hint: a.hintEn, decorName: a.decorNameEn }
+    : { title: a.title, hint: a.hint, decorName: a.decorName };
+}
+
 export const ACHIEVEMENTS: AchievementDef[] = [
-  { id: "learn_plan", icon: "🗺", title: "План наперед", hint: "Shift+Tab двічі вмикає режим плану: Claude спершу покаже план, а ти його затвердиш", goal: 1, value: used("exitplanmode"), reward: 50, learn: true },
-  { id: "learn_todo", icon: "📝", title: "Список справ", hint: "попроси Claude розбити велику задачу на кроки: він складе список справ і відмічатиме зроблене", goal: 1, value: used("plan"), reward: 50, learn: true },
-  { id: "learn_skill", icon: "🧩", title: "Навичка", hint: "скіл — готова інструкція для Claude: набери / з назвою скіла або попроси взяти потрібний", goal: 1, value: used("skill"), reward: 50, learn: true },
-  { id: "learn_web", icon: "🌐", title: "В мережу", hint: "попроси Claude пошукати в інтернеті або прочитати сторінку за посиланням", goal: 1, value: used("web"), reward: 50, learn: true },
-  { id: "learn_ask", icon: "❓", title: "Питання з варіантами", hint: "напиши Claude «спершу розпитай мене»: він спитає з готовими варіантами відповіді", goal: 1, value: used("ask"), reward: 50, learn: true },
-  { id: "learn_team", icon: "👥", title: "Командна година", hint: "попроси Claude розкидати задачу на агентів паралельно: три різні агенти за одну годину", goal: 3, value: (s) => s.crowd, reward: 50, learn: true },
-  { id: "first_question", icon: "💬", title: "Перше питання", hint: "постав Claude перше питання", goal: 1, value: (s) => s.prompts, reward: 50 },
-  { id: "first_handoff", icon: "🤝", title: "Перше доручення", hint: "Claude вперше доручив роботу агенту", goal: 1, value: (s) => s.dispatches, decor: "plant", decorName: "рослина в кутку", reward: 50 },
-  { id: "questions_100", icon: "💯", title: "Сотня питань", hint: "100 питань за весь час", goal: 100, value: (s) => s.prompts, reward: 100, track: "jazz" },
-  { id: "questions_1000", icon: "👑", title: "Тисяча питань", hint: "1000 питань за весь час", goal: 1000, value: (s) => s.prompts, decor: "crown", decorName: "корона для кота", reward: 300 },
-  { id: "tools_1000", icon: "🏆", title: "Тисяча дій", hint: "1000 дій інструментами", goal: 1000, value: (s) => s.tools, decor: "trophy", decorName: "кубок на автоматі", reward: 100, track: "synth" },
-  { id: "tools_10000", icon: "🚀", title: "Десять тисяч дій", hint: "10 000 дій інструментами", goal: 10000, value: (s) => s.tools, reward: 200 },
-  { id: "team_5", icon: "👾", title: "Команда з п'яти", hint: "5 різних агентів отримали роботу", goal: 5, value: (s) => s.agents, lifetime: true, decor: "arcade", decorName: "аркадний автомат", reward: 100, track: "chip" },
-  { id: "team_10", icon: "🎉", title: "Повна зала", hint: "10 різних агентів отримали роботу", goal: 10, value: (s) => s.agents, lifetime: true, reward: 200 },
-  { id: "rush_hour", icon: "⚡", title: "Година пік", hint: "10 доручень агентам за одну годину", goal: 10, value: (s) => s.peak, decor: "goldMachine", decorName: "золота кавоварка", reward: 200, theme: "space" },
-  { id: "rush_50", icon: "🌪", title: "Шторм", hint: "50 доручень агентам за одну годину", goal: 50, value: (s) => s.peak, reward: 300 },
-  { id: "factory", icon: "🏭", title: "Фабрика", hint: "300 доручень агентам за один день", goal: 300, value: (s) => s.dayDispatches, reward: 300 },
-  { id: "polyglot", icon: "🐠", title: "На всі руки", hint: "15 різних інструментів", goal: 15, value: (s) => s.toolKinds, lifetime: true, decor: "aquarium", decorName: "акваріум", reward: 100 },
-  { id: "projects_5", icon: "📁", title: "П'ять проєктів", hint: "Claude працював у 5 різних проєктах", goal: 5, value: (s) => s.projects, lifetime: true, reward: 100 },
-  { id: "night_owl", icon: "🦉", title: "Нічна сова", hint: "питання між північчю і п'ятою ранку", goal: 1, value: (s) => s.night, decor: "owl", decorName: "сова на підвіконні", reward: 50, track: "rain" },
-  { id: "early_bird", icon: "🐦", title: "Рання пташка", hint: "питання між п'ятою і сьомою ранку", goal: 1, value: (s) => s.early, reward: 50 },
-  { id: "streak_3", icon: "🔥", title: "Три дні поспіль", hint: "питання три дні поспіль", goal: 3, value: (s) => s.streak, decor: "garland", decorName: "гірлянда", reward: 100, theme: "forest" },
-  { id: "streak_7", icon: "📅", title: "Тиждень поспіль", hint: "питання сім днів поспіль", goal: 7, value: (s) => s.streak, reward: 200 },
-  { id: "streak_30", icon: "🌙", title: "Місяць поспіль", hint: "питання тридцять днів поспіль", goal: 30, value: (s) => s.streak, reward: 300 },
-  { id: "marathon", icon: "🏃", title: "Марафон", hint: "5 годин роботи за один день", goal: 300, value: (s) => s.minutes, reward: 200, theme: "winter" },
-  { id: "ultra", icon: "🏔", title: "Ультрамарафон", hint: "16 годин роботи за один день", goal: 960, value: (s) => s.minutes, reward: 300 },
-  { id: "tokens_1m", icon: "🪙", title: "Мільйон токенів", hint: "Claude і агенти разом витратили мільйон токенів", goal: 1e6, value: (s) => s.tokens, reward: 50 },
-  { id: "tokens_day_2b", icon: "🍩", title: "Ненажера", hint: "два мільярди токенів за один день, разом із кешем", goal: 2e9, value: (s) => s.dayTokens, reward: 300 },
-  { id: "tokens_1b", icon: "💎", title: "Мільярд токенів", hint: "мільярд токенів за весь час, разом із кешем", goal: 1e9, value: (s) => s.tokens, reward: 300 },
-  { id: "fails_50", icon: "🧯", title: "Загартований", hint: "50 невдалих викликів інструментів", goal: 50, value: (s) => s.fails, decor: "extinguisher", decorName: "вогнегасник", reward: 50 },
+  { id: "learn_plan", icon: "🗺", title: "План наперед", titleEn: "Plan ahead", hint: "Shift+Tab двічі вмикає режим плану: Claude спершу покаже план, а ти його затвердиш", hintEn: "Shift+Tab twice turns on plan mode: Claude shows you a plan first, and you approve it", goal: 1, value: used("exitplanmode"), reward: 50, learn: true },
+  { id: "learn_todo", icon: "📝", title: "Список справ", titleEn: "To-do list", hint: "попроси Claude розбити велику задачу на кроки: він складе список справ і відмічатиме зроблене", hintEn: "ask Claude to break a big task into steps: it writes a to-do list and ticks off what's done", goal: 1, value: used("plan"), reward: 50, learn: true },
+  { id: "learn_skill", icon: "🧩", title: "Навичка", titleEn: "Skill", hint: "скіл — готова інструкція для Claude: набери / з назвою скіла або попроси взяти потрібний", hintEn: "a skill is a ready-made instruction for Claude: type / and the skill's name, or ask Claude to use one", goal: 1, value: used("skill"), reward: 50, learn: true },
+  { id: "learn_web", icon: "🌐", title: "В мережу", titleEn: "Online", hint: "попроси Claude пошукати в інтернеті або прочитати сторінку за посиланням", hintEn: "ask Claude to search the web or read a page from a link", goal: 1, value: used("web"), reward: 50, learn: true },
+  { id: "learn_ask", icon: "❓", title: "Питання з варіантами", titleEn: "Multiple choice", hint: "напиши Claude «спершу розпитай мене»: він спитає з готовими варіантами відповіді", hintEn: "tell Claude “ask me first”: it asks you questions with ready answers to pick from", goal: 1, value: used("ask"), reward: 50, learn: true },
+  { id: "learn_team", icon: "👥", title: "Командна година", titleEn: "Team hour", hint: "попроси Claude розкидати задачу на агентів паралельно: три різні агенти за одну годину", hintEn: "ask Claude to split a task across agents in parallel: three different agents in one hour", goal: 3, value: (s) => s.crowd, reward: 50, learn: true },
+  { id: "first_question", icon: "💬", title: "Перше питання", titleEn: "First question", hint: "постав Claude перше питання", hintEn: "ask Claude your first question", goal: 1, value: (s) => s.prompts, reward: 50 },
+  { id: "first_handoff", icon: "🤝", title: "Перше доручення", titleEn: "First handoff", hint: "Claude вперше доручив роботу агенту", hintEn: "Claude handed work to an agent for the first time", goal: 1, value: (s) => s.dispatches, decor: "plant", decorName: "рослина в кутку", decorNameEn: "corner plant", reward: 50 },
+  { id: "questions_100", icon: "💯", title: "Сотня питань", titleEn: "A hundred questions", hint: "100 питань за весь час", hintEn: "100 questions in all", goal: 100, value: (s) => s.prompts, reward: 100, track: "jazz" },
+  { id: "questions_1000", icon: "👑", title: "Тисяча питань", titleEn: "A thousand questions", hint: "1000 питань за весь час", hintEn: "1,000 questions in all", goal: 1000, value: (s) => s.prompts, decor: "crown", decorName: "корона для кота", decorNameEn: "crown for the cat", reward: 300 },
+  { id: "tools_1000", icon: "🏆", title: "Тисяча дій", titleEn: "A thousand actions", hint: "1000 дій інструментами", hintEn: "1,000 tool actions", goal: 1000, value: (s) => s.tools, decor: "trophy", decorName: "кубок на автоматі", decorNameEn: "trophy on the vending machine", reward: 100, track: "synth" },
+  { id: "tools_10000", icon: "🚀", title: "Десять тисяч дій", titleEn: "Ten thousand actions", hint: "10 000 дій інструментами", hintEn: "10,000 tool actions", goal: 10000, value: (s) => s.tools, reward: 200 },
+  { id: "team_5", icon: "👾", title: "Команда з п'яти", titleEn: "Team of five", hint: "5 різних агентів отримали роботу", hintEn: "5 different agents got work", goal: 5, value: (s) => s.agents, lifetime: true, decor: "arcade", decorName: "аркадний автомат", decorNameEn: "arcade machine", reward: 100, track: "chip" },
+  { id: "team_10", icon: "🎉", title: "Повна зала", titleEn: "Full house", hint: "10 різних агентів отримали роботу", hintEn: "10 different agents got work", goal: 10, value: (s) => s.agents, lifetime: true, reward: 200 },
+  { id: "rush_hour", icon: "⚡", title: "Година пік", titleEn: "Rush hour", hint: "10 доручень агентам за одну годину", hintEn: "10 handoffs to agents in one hour", goal: 10, value: (s) => s.peak, decor: "goldMachine", decorName: "золота кавоварка", decorNameEn: "golden coffee machine", reward: 200, theme: "space" },
+  { id: "rush_50", icon: "🌪", title: "Шторм", titleEn: "Storm", hint: "50 доручень агентам за одну годину", hintEn: "50 handoffs to agents in one hour", goal: 50, value: (s) => s.peak, reward: 300 },
+  { id: "factory", icon: "🏭", title: "Фабрика", titleEn: "Factory", hint: "300 доручень агентам за один день", hintEn: "300 handoffs to agents in one day", goal: 300, value: (s) => s.dayDispatches, reward: 300 },
+  { id: "polyglot", icon: "🐠", title: "На всі руки", titleEn: "Jack of all trades", hint: "15 різних інструментів", hintEn: "15 different tools", goal: 15, value: (s) => s.toolKinds, lifetime: true, decor: "aquarium", decorName: "акваріум", decorNameEn: "aquarium", reward: 100 },
+  { id: "projects_5", icon: "📁", title: "П'ять проєктів", titleEn: "Five projects", hint: "Claude працював у 5 різних проєктах", hintEn: "Claude worked in 5 different projects", goal: 5, value: (s) => s.projects, lifetime: true, reward: 100 },
+  { id: "night_owl", icon: "🦉", title: "Нічна сова", titleEn: "Night owl", hint: "питання між північчю і п'ятою ранку", hintEn: "a question between midnight and 5 a.m.", goal: 1, value: (s) => s.night, decor: "owl", decorName: "сова на підвіконні", decorNameEn: "owl on the windowsill", reward: 50, track: "rain" },
+  { id: "early_bird", icon: "🐦", title: "Рання пташка", titleEn: "Early bird", hint: "питання між п'ятою і сьомою ранку", hintEn: "a question between 5 and 7 a.m.", goal: 1, value: (s) => s.early, reward: 50 },
+  { id: "streak_3", icon: "🔥", title: "Три дні поспіль", titleEn: "Three days running", hint: "питання три дні поспіль", hintEn: "questions three days in a row", goal: 3, value: (s) => s.streak, decor: "garland", decorName: "гірлянда", decorNameEn: "string lights", reward: 100, theme: "forest" },
+  { id: "streak_7", icon: "📅", title: "Тиждень поспіль", titleEn: "A week running", hint: "питання сім днів поспіль", hintEn: "questions seven days in a row", goal: 7, value: (s) => s.streak, reward: 200 },
+  { id: "streak_30", icon: "🌙", title: "Місяць поспіль", titleEn: "A month running", hint: "питання тридцять днів поспіль", hintEn: "questions thirty days in a row", goal: 30, value: (s) => s.streak, reward: 300 },
+  { id: "marathon", icon: "🏃", title: "Марафон", titleEn: "Marathon", hint: "5 годин роботи за один день", hintEn: "5 hours of work in one day", goal: 300, value: (s) => s.minutes, reward: 200, theme: "winter" },
+  { id: "ultra", icon: "🏔", title: "Ультрамарафон", titleEn: "Ultramarathon", hint: "16 годин роботи за один день", hintEn: "16 hours of work in one day", goal: 960, value: (s) => s.minutes, reward: 300 },
+  { id: "tokens_1m", icon: "🪙", title: "Мільйон токенів", titleEn: "A million tokens", hint: "Claude і агенти разом витратили мільйон токенів", hintEn: "Claude and the agents spent a million tokens together", goal: 1e6, value: (s) => s.tokens, reward: 50 },
+  { id: "tokens_day_2b", icon: "🍩", title: "Ненажера", titleEn: "Glutton", hint: "два мільярди токенів за один день, разом із кешем", hintEn: "two billion tokens in one day, cache included", goal: 2e9, value: (s) => s.dayTokens, reward: 300 },
+  { id: "tokens_1b", icon: "💎", title: "Мільярд токенів", titleEn: "A billion tokens", hint: "мільярд токенів за весь час, разом із кешем", hintEn: "a billion tokens in all, cache included", goal: 1e9, value: (s) => s.tokens, reward: 300 },
+  { id: "fails_50", icon: "🧯", title: "Загартований", titleEn: "Battle-hardened", hint: "50 невдалих викликів інструментів", hintEn: "50 failed tool calls", goal: 50, value: (s) => s.fails, decor: "extinguisher", decorName: "вогнегасник", decorNameEn: "fire extinguisher", reward: 50 },
 ];
 
 export interface Earned {

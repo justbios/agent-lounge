@@ -351,14 +351,19 @@ if [ "$1" = "statusline" ] || [ "$1" = "limits" ]; then
   save_limits "$j"
   save_ctx "$j"
   [ "$1" = "limits" ] && exit 0
+  # the terminal's own language: Ukrainian or Russian locales read Ukrainian, any other English
+  case "${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}" in
+    uk* | ru*) w_ctx="контекст" w_5h="5 год" w_till="до" w_week="тиждень" ;;
+    *) w_ctx="context" w_5h="5h" w_till="till" w_week="week" ;;
+  esac
   line=$(field "$j" display_name)
   ctx=$(printf '%s' "$j" | grep -oE '"context_window":\{[^}]*' | grep -oE '"used_percentage":[0-9.]+' | head -n 1 | cut -d: -f2)
-  [ -n "$ctx" ] && line="${line:+$line · }контекст ${ctx%.*}%"
+  [ -n "$ctx" ] && line="${line:+$line · }$w_ctx ${ctx%.*}%"
   if [ -n "$p5" ]; then
     at=$(clock "$r5")
-    line="${line:+$line · }5 год ${p5%.*}%${at:+ до $at}"
+    line="${line:+$line · }$w_5h ${p5%.*}%${at:+ $w_till $at}"
   fi
-  [ -n "$p7" ] && line="${line:+$line · }тиждень ${p7%.*}%"
+  [ -n "$p7" ] && line="${line:+$line · }$w_week ${p7%.*}%"
   printf '%s\n' "${line:-Agent Lounge}"
   exit 0
 fi

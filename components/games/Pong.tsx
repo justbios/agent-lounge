@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { tr, uiNow, useTr } from "@/lib/i18n";
 import { Match, Side, sideOf } from "@/lib/live/duel";
 import {
   Ball,
@@ -72,6 +73,7 @@ export default function Pong({
   note: string | null;
   onEnd: (win: boolean) => void;
 }) {
+  const t = useTr();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mineRef = useRef<HTMLElement>(null);
   const theirsRef = useRef<HTMLElement>(null);
@@ -116,6 +118,7 @@ export default function Pong({
     const say = (s: string) => {
       if (sayRef.current) sayRef.current.textContent = s;
     };
+    const sayT = (uk: string, en: string) => say(tr(uiNow(), uk, en));
     const hud = () => {
       if (mineRef.current) mineRef.current.textContent = String(score[me]);
       if (theirsRef.current) theirsRef.current.textContent = String(score[rival]);
@@ -140,8 +143,8 @@ export default function Pong({
         send({ t: "hello" });
         if (me === "x") {
           serveAt = now + FIRST_SERVE_MS;
-          say("подаєш ти");
-        } else say("готуйся, подає суперник");
+          sayT("подаєш ти", "your serve");
+        } else sayT("готуйся, подає суперник", "get ready, their serve");
       } else if (m.t === "ping") send({ t: "pong", a: m.a });
       else if (m.t === "pong") rtt = Math.min(600, Math.max(20, rtt * 0.6 + (now - m.a) * 0.4));
       else if (m.t === "pad") pads[rival] = clampPad(m.y);
@@ -165,7 +168,7 @@ export default function Pong({
     ch.subscribe((s) => {
       if (s !== "SUBSCRIBED") return;
       send({ t: "hello" });
-      say("чекаю на суперника…");
+      sayT("чекаю на суперника…", "waiting for the other player…");
     });
 
     const step = (dt: number, now: number) => {
@@ -240,7 +243,9 @@ export default function Pong({
           pingAt = now;
           send({ t: "ping", a: now });
         }
-        if (quietSince && now - quietSince > QUIET_MS) say("суперник не відповідає…");
+        if (quietSince && now - quietSince > QUIET_MS) {
+          sayT("суперник не відповідає…", "the other player is not answering…");
+        }
       }
       shown += (pads[rival] - shown) * Math.min(1, dt / 50);
       draw();
@@ -264,15 +269,24 @@ export default function Pong({
     <div className="pong">
       <div className="ttt-hd">
         <span>
-          ти <b ref={mineRef}>0</b> : <b ref={theirsRef}>0</b> {rival.name} · до {WIN_AT}
+          {t("ти", "you")} <b ref={mineRef}>0</b> : <b ref={theirsRef}>0</b> {rival.name} · {t("до", "to")} {WIN_AT}
         </span>
-        <b>{result !== null ? (result ? "перемога твоя!" : `перемога: ${rival.name}`) : (note ?? <span ref={sayRef} />)}</b>
+        <b>
+          {result !== null
+            ? result
+              ? t("перемога твоя!", "you win!")
+              : t(`перемога: ${rival.name}`, `${rival.name} wins`)
+            : (note ?? <span ref={sayRef} />)}
+        </b>
       </div>
       <canvas
         ref={canvasRef}
         width={W}
         height={H}
-        aria-label="Пінг-понг: веди ракетку мишкою, пальцем або стрілками вгору й униз"
+        aria-label={t(
+          "Пінг-понг: веди ракетку мишкою, пальцем або стрілками вгору й униз",
+          "Ping-pong: move your paddle with the mouse, a finger or the up and down arrows",
+        )}
       />
     </div>
   );

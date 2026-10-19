@@ -1,45 +1,48 @@
+import type { Ui } from "@/lib/i18n";
 import type { Decor } from "./achievements";
 
 /** sill — on a window sill; wall — hangs between the fixtures; floor — stands among people; rug — flat under them; perk — not placed */
 export type ItemPlace = "sill" | "wall" | "floor" | "rug" | "perk";
 
 export const ITEMS = [
-  { id: "candle", name: "свічка", price: 60, place: "sill", w: 5, h: 9 },
-  { id: "cactus", name: "кактус", price: 80, place: "sill", w: 7, h: 10 },
-  { id: "luckycat", name: "кіт-манекі", price: 150, place: "sill", w: 7, h: 10 },
-  { id: "bonsai", name: "бонсай", price: 200, place: "sill", w: 11, h: 10 },
-  { id: "posterHills", name: "постер з горами", price: 90, place: "wall", w: 9, h: 12 },
-  { id: "posterCat", name: "постер з котом", price: 90, place: "wall", w: 9, h: 12 },
-  { id: "posterRocket", name: "постер з ракетою", price: 90, place: "wall", w: 9, h: 12 },
-  { id: "rug", name: "килимок", price: 140, place: "rug", w: 28, h: 9 },
-  { id: "catbed", name: "лежак для кота", price: 120, place: "floor", w: 14, h: 6 },
-  { id: "lamp", name: "торшер", price: 220, place: "floor", w: 9, h: 28 },
-  { id: "palm", name: "пальма в діжці", price: 260, place: "floor", w: 14, h: 28 },
-  { id: "shelf", name: "книжкова шафа", price: 320, place: "floor", w: 18, h: 30 },
-  { id: "gramophone", name: "грамофон", price: 380, place: "floor", w: 12, h: 17 },
-  { id: "couch", name: "диван", price: 450, place: "floor", w: 30, h: 15 },
-  { id: "jukebox", name: "музичний автомат", price: 600, place: "floor", w: 16, h: 26 },
-  { id: "neon", name: "неонова вивіска зі своїм написом", price: 500, place: "perk", w: 22, h: 10 },
-  { id: "cat2", name: "другий кіт", price: 700, place: "perk", w: 14, h: 11 },
-  { id: "goldcat", name: "золотий кіт-манекі", price: 1500, place: "sill", w: 7, h: 11, rare: true },
-  { id: "disco", name: "диско-куля", price: 2000, place: "wall", w: 11, h: 13, rare: true },
-  { id: "piano", name: "піаніно", price: 3000, place: "floor", w: 24, h: 22, rare: true },
-  { id: "fireplace", name: "камін", price: 4500, place: "floor", w: 24, h: 24, rare: true },
+  { id: "candle", name: "свічка", nameEn: "candle", price: 60, place: "sill", w: 5, h: 9 },
+  { id: "cactus", name: "кактус", nameEn: "cactus", price: 80, place: "sill", w: 7, h: 10 },
+  { id: "luckycat", name: "кіт-манекі", nameEn: "lucky cat", price: 150, place: "sill", w: 7, h: 10 },
+  { id: "bonsai", name: "бонсай", nameEn: "bonsai", price: 200, place: "sill", w: 11, h: 10 },
+  { id: "posterHills", name: "постер з горами", nameEn: "mountain poster", price: 90, place: "wall", w: 9, h: 12 },
+  { id: "posterCat", name: "постер з котом", nameEn: "cat poster", price: 90, place: "wall", w: 9, h: 12 },
+  { id: "posterRocket", name: "постер з ракетою", nameEn: "rocket poster", price: 90, place: "wall", w: 9, h: 12 },
+  { id: "rug", name: "килимок", nameEn: "rug", price: 140, place: "rug", w: 28, h: 9 },
+  { id: "catbed", name: "лежак для кота", nameEn: "cat bed", price: 120, place: "floor", w: 14, h: 6 },
+  { id: "lamp", name: "торшер", nameEn: "floor lamp", price: 220, place: "floor", w: 9, h: 28 },
+  { id: "palm", name: "пальма в діжці", nameEn: "potted palm", price: 260, place: "floor", w: 14, h: 28 },
+  { id: "shelf", name: "книжкова шафа", nameEn: "bookcase", price: 320, place: "floor", w: 18, h: 30 },
+  { id: "gramophone", name: "грамофон", nameEn: "gramophone", price: 380, place: "floor", w: 12, h: 17 },
+  { id: "couch", name: "диван", nameEn: "couch", price: 450, place: "floor", w: 30, h: 15 },
+  { id: "jukebox", name: "музичний автомат", nameEn: "jukebox", price: 600, place: "floor", w: 16, h: 26 },
+  { id: "neon", name: "неонова вивіска зі своїм написом", nameEn: "neon sign with your own text", price: 500, place: "perk", w: 22, h: 10 },
+  { id: "cat2", name: "другий кіт", nameEn: "second cat", price: 700, place: "perk", w: 14, h: 11 },
+  { id: "goldcat", name: "золотий кіт-манекі", nameEn: "golden lucky cat", price: 1500, place: "sill", w: 7, h: 11, rare: true },
+  { id: "disco", name: "диско-куля", nameEn: "disco ball", price: 2000, place: "wall", w: 11, h: 13, rare: true },
+  { id: "piano", name: "піаніно", nameEn: "piano", price: 3000, place: "floor", w: 24, h: 22, rare: true },
+  { id: "fireplace", name: "камін", nameEn: "fireplace", price: 4500, place: "floor", w: 24, h: 24, rare: true },
 ] as const;
 
 /** Earned decor that can be moved like bought furniture; it starts where it always stood. */
 export const DECOR_PIECES = [
-  { id: "arcade", name: "аркадний автомат", price: 0, place: "floor", w: 14, h: 30, decor: "arcade" },
-  { id: "aquarium", name: "акваріум", price: 0, place: "floor", w: 18, h: 22, decor: "aquarium" },
-  { id: "plant", name: "рослина в кутку", price: 0, place: "floor", w: 14, h: 24, decor: "plant" },
-  { id: "owl", name: "сова на підвіконні", price: 0, place: "sill", w: 7, h: 11, decor: "owl" },
+  { id: "arcade", name: "аркадний автомат", nameEn: "arcade machine", price: 0, place: "floor", w: 14, h: 30, decor: "arcade" },
+  { id: "aquarium", name: "акваріум", nameEn: "aquarium", price: 0, place: "floor", w: 18, h: 22, decor: "aquarium" },
+  { id: "plant", name: "рослина в кутку", nameEn: "corner plant", price: 0, place: "floor", w: 14, h: 24, decor: "plant" },
+  { id: "owl", name: "сова на підвіконні", nameEn: "owl on the windowsill", price: 0, place: "sill", w: 7, h: 11, decor: "owl" },
 ] as const;
 
 export type ItemId = (typeof ITEMS)[number]["id"] | (typeof DECOR_PIECES)[number]["id"];
 
 export interface ItemDef {
   id: ItemId;
+  /** Ukrainian; {@link itemName} gives the name in the viewer's language */
   name: string;
+  nameEn: string;
   price: number;
   place: ItemPlace;
   w: number;
@@ -52,6 +55,9 @@ export interface ItemDef {
 const BY_ID = new Map<string, ItemDef>([...ITEMS, ...DECOR_PIECES].map((i) => [i.id, i]));
 export const itemOf = (id: string): ItemDef | undefined => BY_ID.get(id);
 export const SHOP: readonly ItemDef[] = ITEMS;
+
+/** A piece's name in one interface language. */
+export const itemName = (it: ItemDef, ui: Ui = "uk"): string => (ui === "en" ? it.nameEn : it.name);
 
 /** Earned decor keeps one fixed pid, so moving it twice moves the same piece. */
 export const decorPid = (id: ItemId) => `d-${id}`;

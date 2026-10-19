@@ -1,3 +1,4 @@
+import type { Ui } from "@/lib/i18n";
 import { TrackId, isTrack } from "./tracks";
 import { Tune, cleanTune } from "./tune";
 
@@ -29,8 +30,11 @@ export interface Reaction {
 const text = (v: unknown, max: number): string | null =>
   typeof v === "string" && v.trim() && v.length <= max ? v.trim() : null;
 
+/** What a guest who sent no name is called on this screen. */
+const nameless = (ui: Ui) => (ui === "en" ? "guest" : "гість");
+
 /** A reaction from the channel, kept only when every field is what this page itself would send. */
-export function cleanReaction(p: unknown, at: number): Reaction | null {
+export function cleanReaction(p: unknown, at: number, ui: Ui = "uk"): Reaction | null {
   if (!p || typeof p !== "object") return null;
   const r = p as Record<string, unknown>;
   const emoji = REACTIONS.find((e) => e === r.emoji);
@@ -38,7 +42,7 @@ export function cleanReaction(p: unknown, at: number): Reaction | null {
   const scene = text(r.scene, 200);
   const agent = text(r.agent, 80);
   if (!emoji || !id || !scene || !agent) return null;
-  return { id, scene, agent, emoji, from: text(r.from, 24) ?? "гість", at };
+  return { id, scene, agent, emoji, from: text(r.from, 24) ?? nameless(ui), at };
 }
 
 export function addReaction(list: Reaction[], r: Reaction, now: number): Reaction[] {
@@ -85,12 +89,12 @@ export function barOf(guests: Guest[], me: Guest): Guest[] {
 }
 
 /** Everyone tracked on the channel but this tab, one entry per tab. */
-export function guestsOf(state: PresenceState, self: string): Guest[] {
+export function guestsOf(state: PresenceState, self: string, ui: Ui = "uk"): Guest[] {
   return Object.entries(state)
     .filter(([id, metas]) => id !== self && metas.length > 0)
     .map(([id, metas]) => ({
       id,
-      name: text(metas[0].name, 24) ?? "гість",
+      name: text(metas[0].name, 24) ?? nameless(ui),
       viewer: metas[0].viewer === true,
     }))
     .sort((a, b) => a.id.localeCompare(b.id));

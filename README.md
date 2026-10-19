@@ -44,8 +44,8 @@ npm run setup   # hooks + the café at http://127.0.0.1:3737
 
 `npm run unhook` removes the hooks.
 
-The café's buttons and menus are in Ukrainian for now. What the agents do can be shown in English: pick
-**eng** in the language menu at the top.
+The café speaks English and Ukrainian (agents' actions in Russian too): it follows your browser, and the language
+menu at the top switches it.
 
 ## More
 

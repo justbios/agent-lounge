@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useTr, useUi } from "@/lib/i18n";
 import { N, dark, isKing, legal, owner } from "@/lib/live/checkers";
 import { sideOf } from "@/lib/live/duel";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
 
-const COLOR = { x: "білі", o: "чорні" } as const;
+const COLOR = {
+  x: { uk: "білі", en: "white" },
+  o: { uk: "чорні", en: "black" },
+} as const;
 
 const disc = (r: number) =>
   Array.from({ length: 11 }, (_, y) => {
@@ -42,6 +46,8 @@ const row = (sq: number) => N - Math.floor(sq / N);
 
 /** Draughts for two: the inviter plays white from below, each side sees its own pieces at the bottom. */
 export default function Checkers({ chk, self, note }: { chk: CheckersState; self: string; note: string | null }) {
+  const ui = useUi();
+  const t = useTr();
   const m = chk.match!;
   const b = chk.board!;
   const mine = sideOf(m, self);
@@ -69,23 +75,28 @@ export default function Checkers({ chk, self, note }: { chk: CheckersState; self
 
   const status =
     b.winner === "draw"
-      ? "нічия: 15 ходів самими дамками"
+      ? t("нічия: 15 ходів самими дамками", "draw: 15 moves with only kings")
       : b.winner
         ? b.winner === mine
-          ? "перемога твоя!"
-          : `перемога: ${rival.name}`
-        : (note ?? (b.turn === mine ? (path.length > 1 ? "бий далі" : "твій хід") : `ходить ${rival.name}`));
+          ? t("перемога твоя!", "you win!")
+          : t(`перемога: ${rival.name}`, `${rival.name} wins`)
+        : (note ??
+          (b.turn === mine
+            ? path.length > 1
+              ? t("бий далі", "keep jumping")
+              : t("твій хід", "your move")
+            : t(`ходить ${rival.name}`, `${rival.name}’s move`)));
   const order = Array.from({ length: N * N }, (_, i) => (mine === "o" ? N * N - 1 - i : i));
 
   return (
     <div className="ttt chk">
       <div className="ttt-hd">
         <span>
-          ти: {COLOR[mine ?? "o"]} · {rival.name}: {COLOR[mine === "x" ? "o" : "x"]}
+          {t("ти", "you")}: {COLOR[mine ?? "o"][ui]} · {rival.name}: {COLOR[mine === "x" ? "o" : "x"][ui]}
         </span>
         <b>{status}</b>
       </div>
-      <div className="chk-grid" role="grid" aria-label="шашкова дошка">
+      <div className="chk-grid" role="grid" aria-label={t("шашкова дошка", "checkers board")}>
         {order.map((sq) => {
           const p = b.cells[sq];
           const cls = [
@@ -96,7 +107,12 @@ export default function Checkers({ chk, self, note }: { chk: CheckersState; self
             last.has(sq) ? "last" : "",
           ].join(" ");
           const who = owner(p);
-          const what = who ? `, ${who === mine ? "твоя" : "чужа"} ${isKing(p) ? "дамка" : "шашка"}` : "";
+          const what = who
+            ? t(
+                `, ${who === mine ? "твоя" : "чужа"} ${isKing(p) ? "дамка" : "шашка"}`,
+                `, ${who === mine ? "your" : "their"} ${isKing(p) ? "king" : "man"}`,
+              )
+            : "";
           return (
             <button
               key={sq}

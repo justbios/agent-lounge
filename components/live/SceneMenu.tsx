@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
+import { useTr } from "@/lib/i18n";
 
 export interface MenuItem {
   icon: ReactNode;
@@ -12,6 +13,7 @@ export interface MenuItem {
 
 /** The scene's tools behind one button: chat, games, agents, the log. The scene itself opens most of them too. */
 export default function SceneMenu({ items }: { items: MenuItem[] }) {
+  const t = useTr();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const badge = items.reduce((n, it) => n + (it.badge ?? 0), 0);
@@ -35,7 +37,7 @@ export default function SceneMenu({ items }: { items: MenuItem[] }) {
         className={`btn btn-ic btn-dot ${open ? "on" : ""}`}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        title="меню кафе"
+        title={t("меню кафе", "café menu")}
       >
         <Menu size={14} />
         {badge > 0 && <b>{badge}</b>}

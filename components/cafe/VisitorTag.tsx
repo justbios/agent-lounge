@@ -2,7 +2,8 @@
 
 import { CSSProperties, useEffect, useState } from "react";
 import { CafeLayout } from "@/lib/cafe/layout";
-import { VISITORS, noteVisitor, visitAt } from "@/lib/live/visitors";
+import { useUi } from "@/lib/i18n";
+import { noteVisitor, visitAt, visitorText } from "@/lib/live/visitors";
 import { visitorFrame, visitorSeat } from "./visitor";
 
 const TICK_MS = 5_000;
@@ -22,6 +23,7 @@ export default function VisitorTag({
   on: boolean;
   pos: (x: number, y: number) => CSSProperties;
 }) {
+  const ui = useUi();
   const [at, setAt] = useState(0);
   useEffect(() => {
     if (!on) return;
@@ -42,7 +44,7 @@ export default function VisitorTag({
   }, [sat, at]);
 
   if (!sat || !seat) return null;
-  const v = VISITORS[sat];
+  const v = visitorText(sat, ui);
   return (
     <span className="cafe-guest visitor" style={pos(seat.x, seat.y - 13)}>
       {v.icon} {v.name.toLowerCase()}

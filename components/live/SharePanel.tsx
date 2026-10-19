@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy, Download, Film, Share2, Eye } from "lucide-react";
 import { Clip, clipSupported, recordClip, useSceneOnScreen } from "@/components/cafe/clip";
+import { useTr } from "@/lib/i18n";
 import { useAccess } from "@/lib/live/access";
 import { useHosted, useRelayKey, useViewRoom } from "@/lib/live/relayKey";
 
@@ -15,15 +16,16 @@ function useOnClient(): boolean {
 }
 
 function ClipSection() {
+  const t = useTr();
   const onScreen = useSceneOnScreen();
   const [clip, setClip] = useState<{ clip: Clip; url: string; file: File } | null>(null);
   const [left, setLeft] = useState(0);
-  const [err, setErr] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => () => void (clip && URL.revokeObjectURL(clip.url)), [clip]);
 
   const record = async () => {
-    setErr(null);
+    setFailed(false);
     setClip(null);
     const t0 = Date.now();
     setLeft(CLIP_SECONDS);
@@ -33,31 +35,38 @@ function ClipSection() {
       const file = new File([c.blob], `relay-${Date.now()}.${c.ext}`, { type: c.mime });
       setClip({ clip: c, url: URL.createObjectURL(c.blob), file });
     } catch {
-      setErr("не вдалося записати, спробуй ще раз");
+      setFailed(true);
     } finally {
       clearInterval(tick);
       setLeft(0);
     }
   };
 
-  if (!clipSupported()) return <p className="alerts-hint">Цей браузер не вміє записувати відео з canvas.</p>;
+  if (!clipSupported())
+    return (
+      <p className="alerts-hint">
+        {t("Цей браузер не вміє записувати відео з canvas.", "This browser can't record video from a canvas.")}
+      </p>
+    );
   const file = clip?.file ?? null;
   const canShare = !!file && typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
 
   return (
     <div className="share-sec">
       <div className="share-ttl">
-        <Film size={13} /> Кліп кафе, {CLIP_SECONDS} секунд
+        <Film size={13} /> {t(`Кліп кафе, ${CLIP_SECONDS} секунд`, `Café clip, ${CLIP_SECONDS} seconds`)}
       </div>
       {!onScreen ? (
-        <p className="alerts-hint">Відкрий кафе (не схему), тоді його можна записати.</p>
+        <p className="alerts-hint">
+          {t("Відкрий кафе (не схему), тоді його можна записати.", "Open the café (not the diagram) to record it.")}
+        </p>
       ) : left ? (
         <p className="share-rec">
-          <span className="rec-dot" /> запис… {left} с
+          <span className="rec-dot" /> {t(`запис… ${left} с`, `recording… ${left} s`)}
         </p>
       ) : (
         <button className="btn" onClick={record}>
-          <span className="rec-dot" /> {clip ? "записати ще" : "записати"}
+          <span className="rec-dot" /> {clip ? t("записати ще", "record again") : t("записати", "record")}
         </button>
       )}
       {clip && (
@@ -65,33 +74,52 @@ function ClipSection() {
           <video className="share-video" src={clip.url} autoPlay loop muted playsInline />
           <div className="share-actions">
             <a className="btn" href={clip.url} download={file!.name}>
-              <Download size={13} /> завантажити
+              <Download size={13} /> {t("завантажити", "download")}
             </a>
             {canShare && (
-              <button className="btn" onClick={() => navigator.share({ files: [file!], title: "Мої агенти в Agent Lounge" }).catch(() => {})}>
-                <Share2 size={13} /> поділитися
+              <button
+                className="btn"
+                onClick={() =>
+                  navigator
+                    .share({ files: [file!], title: t("Мої агенти в Agent Lounge", "My agents in Agent Lounge") })
+                    .catch(() => {})
+                }
+              >
+                <Share2 size={13} /> {t("поділитися", "share")}
               </button>
             )}
           </div>
         </>
       )}
-      {err && <p className="key-paste-bad">{err}</p>}
+      {failed && (
+        <p className="key-paste-bad">{t("не вдалося записати, спробуй ще раз", "couldn't record, try again")}</p>
+      )}
     </div>
   );
 }
 
 function ViewLinkSection({ url, locked }: { url: string; locked: boolean }) {
+  const t = useTr();
   const [copied, setCopied] = useState(false);
   return (
     <div className="share-sec">
       <div className="share-ttl">
-        <Eye size={13} /> Посилання лише для перегляду
+        <Eye size={13} /> {t("Посилання лише для перегляду", "View-only link")}
       </div>
       <p className="alerts-hint">
-        Хто відкриє, бачитиме твоє кафе наживо: питання, назви файлів, імена агентів. Писати чи керувати не зможе.
+        {t(
+          "Хто відкриє, бачитиме твоє кафе наживо: питання, назви файлів, імена агентів. Писати чи керувати не зможе.",
+          "Whoever opens it sees your café live: questions, file names, agent names. They can't write or control anything.",
+        )}
         {locked
-          ? " Посилання змінюється щоразу, коли когось прибирають із команди, і старе перестає діяти."
-          : " Закрити доступ можна лише новим ключем на сторінці підключення."}
+          ? t(
+              " Посилання змінюється щоразу, коли когось прибирають із команди, і старе перестає діяти.",
+              " The link changes each time someone is removed from the team, and the old one stops working.",
+            )
+          : t(
+              " Закрити доступ можна лише новим ключем на сторінці підключення.",
+              " The only way to revoke access is a new key on the connect page.",
+            )}
       </p>
       <div className="share-link">
         <code>{url}</code>
@@ -111,6 +139,7 @@ function ViewLinkSection({ url, locked }: { url: string; locked: boolean }) {
 }
 
 export default function SharePanel() {
+  const t = useTr();
   const hosted = useHosted();
   const key = useRelayKey();
   const viewing = useViewRoom();
@@ -135,10 +164,10 @@ export default function SharePanel() {
   return (
     <div className="alerts share" ref={box}>
       <button className="btn" onClick={() => setOpen(!open)} aria-expanded={open}>
-        <Share2 size={14} /> поділитися
+        <Share2 size={14} /> {t("поділитися", "share")}
       </button>
       {client && (
-        <div className="alerts-pop" role="dialog" aria-label="поділитися" hidden={!open}>
+        <div className="alerts-pop" role="dialog" aria-label={t("поділитися", "share")} hidden={!open}>
           <ClipSection />
           {viewUrl && <ViewLinkSection url={viewUrl} locked={!!access?.locked} />}
         </div>

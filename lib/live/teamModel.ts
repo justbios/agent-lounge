@@ -1,4 +1,5 @@
 import { Note, Stint } from "@/lib/cafe/model";
+import type { Ui } from "@/lib/i18n";
 import { AgentDef } from "@/lib/types";
 import { Attention } from "./attention";
 import { LiveScene, LiveSession, PALETTE, QUIET_MS, hash, hushStints, stopNote } from "./liveModel";
@@ -17,7 +18,7 @@ export function teamKeys(events: LiveEvent[]): string[] {
 }
 
 export const memberOf = (s: { member?: string }) => s.member ?? "";
-export const memberName = (m: string) => m || NO_NAME;
+export const memberName = (m: string, ui: Ui = "uk") => m || (ui === "en" ? "unnamed" : NO_NAME);
 
 /** One colour per teammate, unique while the palette lasts, the same everywhere the team shows up. */
 export function memberColors(members: string[]): string[] {
@@ -31,15 +32,16 @@ export function memberColors(members: string[]): string[] {
 }
 
 /** The whole team in one room: a desk per teammate, busy while any of their chats is mid-turn. */
-export function buildTeamModel(events: LiveEvent[], members: string[]): LiveScene {
+export function buildTeamModel(events: LiveEvent[], members: string[], ui: Ui): LiveScene {
+  const en = ui === "en";
   const index = new Map(members.map((m, i) => [m, i]));
   const evs = events.filter((e) => e.kind !== "roster");
   const origin = evs[0]?.at ?? Date.now();
   const colors = memberColors(members);
   const agents: AgentDef[] = members.map((m, i) => ({
     id: `member-${i}`,
-    name: memberName(m),
-    role: "учасник команди",
+    name: memberName(m, ui),
+    role: en ? "teammate" : "учасник команди",
     color: colors[i],
     icon: "bot",
     look: (hash(m || "?") >>> 4) % 16,
@@ -70,35 +72,37 @@ export function buildTeamModel(events: LiveEvent[], members: string[]): LiveScen
     last[i] = t;
     spent[i] += tokensOf(e.usage);
     const key = `e${e.seq}`;
-    const who = e.agent ? `${e.agentType ?? "агент"}: ` : "";
+    const who = e.agent ? `${e.agentType ?? (en ? "agent" : "агент")}: ` : "";
+    const fallback = (uk: string, english: string) => e.text ?? (en ? english : uk);
     switch (e.kind) {
       case "prompt":
         busy[i].add(e.session);
         open(i, t);
-        notes[i].push({ key, ts: t, text: e.text ?? "нове питання", tool: e.tool, tone: "alert" });
+        notes[i].push({ key, ts: t, text: fallback("нове питання", "new prompt"), tool: e.tool, tone: "alert" });
         break;
       case "tool":
       case "fail": {
         busy[i].add(e.session);
         open(i, t);
         const tone = e.kind === "fail" ? "error" : "work";
-        notes[i].push({ key, ts: t, text: `${who}${e.text ?? "працює"}`, say: e.say, pre: who, tool: e.tool, tone });
+        notes[i].push({ key, ts: t, text: `${who}${fallback("працює", "working")}`, say: e.say, tech: e.tech, pre: who, tool: e.tool, tone });
         break;
       }
       case "dispatch": {
         busy[i].add(e.session);
         open(i, t);
-        const say = { a: "delegate", o: e.target ?? "агенту" };
-        notes[i].push({ key, ts: t, text: `доручає ${say.o}`, say, tool: "agent", tone: "work" });
+        const say = { a: "delegate", o: e.target ?? (en ? "an agent" : "агенту") };
+        const text = en ? `hands off to ${say.o}` : `доручає ${say.o}`;
+        notes[i].push({ key, ts: t, text, say, tool: "agent", tone: "work" });
         break;
       }
       case "notify":
-        notes[i].push({ key, ts: t, text: e.text ?? "чекає", say: e.say, tool: e.tool, tone: "alert" });
+        notes[i].push({ key, ts: t, text: fallback("чекає", "waiting"), say: e.say, tech: e.tech, tool: e.tool, tone: "alert" });
         break;
       case "stop":
         if (e.agent) break;
         leave(i, e.session, t);
-        notes[i].push(stopNote(e, key, t));
+        notes[i].push(stopNote(e, key, t, ui));
         break;
       case "session_end":
         leave(i, e.session, t);

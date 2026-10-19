@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Inbox, Search, ClipboardCheck, Network, Code, Eye, FlaskConical, Rocket, Bot, Cpu, Package } from "lucide-react";
+import { Ui, tr, useUi } from "@/lib/i18n";
 import { IconKey } from "@/lib/types";
 import { MockRun } from "@/lib/mockRun";
 import { STAGE_W, diagramLayout, getStageState, NodeState } from "@/lib/stage";
@@ -20,14 +21,15 @@ const ICONS: Record<IconKey, React.ComponentType<{ size?: number }>> = {
   cpu: Cpu,
 };
 
-function statusText(s: NodeState): string {
-  if (s === "active") return "працює…";
-  if (s === "incoming") return "приймає…";
-  if (s === "done") return "готово";
-  return "очікує";
+function statusText(s: NodeState, ui: Ui): string {
+  if (s === "active") return tr(ui, "працює…", "working…");
+  if (s === "incoming") return tr(ui, "приймає…", "receiving…");
+  if (s === "done") return tr(ui, "готово", "done");
+  return tr(ui, "очікує", "waiting");
 }
 
 export default function PipelineStage({ run, clock }: { run: MockRun; clock: number }) {
+  const ui = useUi();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -79,7 +81,7 @@ export default function PipelineStage({ run, clock }: { run: MockRun; clock: num
                 <span className="node-nm">{a.name}</span>
               </div>
               <div className="node-rl">{a.role}</div>
-              <div className="node-st">{statusText(state)}</div>
+              <div className="node-st">{statusText(state, ui)}</div>
             </div>
           );
         })}

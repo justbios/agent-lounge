@@ -7,10 +7,13 @@ export const BET_SHOW_MS = 20_000;
 const STALE_MS = 60 * 60_000;
 
 export const CHOICES = [
-  { id: "fast", label: "до 2 хв", max: 2 * 60_000 },
-  { id: "mid", label: "2–8 хв", max: 8 * 60_000 },
-  { id: "slow", label: "8+ хв", max: Infinity },
+  { id: "fast", label: { uk: "до 2 хв", en: "under 2 min" }, max: 2 * 60_000 },
+  { id: "mid", label: { uk: "2–8 хв", en: "2–8 min" }, max: 8 * 60_000 },
+  { id: "slow", label: { uk: "8+ хв", en: "8+ min" }, max: Infinity },
 ] as const;
+
+/** The type a round gets when the hook did not name the subagent's; BetStrip shows it in the viewer's language. */
+export const NO_TYPE = "агент";
 export type ChoiceId = (typeof CHOICES)[number]["id"];
 
 /** One subagent run, from its start to its stop: the thing everyone bets on. */
@@ -37,7 +40,7 @@ export function roundsOf(events: LiveEvent[]): Round[] {
   for (const e of events) {
     if (e.kind === "dispatch" && e.target) task.set(`${e.session}|${e.target}`, e.text ?? "");
     else if (e.kind === "sub_start" && e.agent) {
-      const type = e.agentType ?? "агент";
+      const type = e.agentType ?? NO_TYPE;
       rounds.set(e.agent, {
         id: `${e.session}:${e.agent}`,
         session: e.session,

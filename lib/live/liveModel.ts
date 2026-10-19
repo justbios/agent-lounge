@@ -1,5 +1,6 @@
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel, Note, Stint, TripRequest, scheduleTrips } from "@/lib/cafe/model";
+import type { Ui } from "@/lib/i18n";
 import { AgentDef, PotLevel } from "@/lib/types";
 import { Attention, nextAttention, stopText } from "./attention";
 import { sessionLabel } from "./label";
@@ -44,9 +45,9 @@ export interface LiveSession {
 
 /** The palette colour a subagent type usually gets in the café, for places outside the scene such as the day card. */
 /** The note a finished turn leaves: answered, or broke off on the limit or an error. */
-export function stopNote(e: LiveEvent, key: string, ts: number): Note {
-  if (!e.err) return { key, ts, text: "відповів ✓", say: { a: "answered" }, tone: "done" };
-  return { key, ts, text: stopText(e.err), say: e.say, tone: "error" };
+export function stopNote(e: LiveEvent, key: string, ts: number, ui: Ui = "uk"): Note {
+  if (!e.err) return { key, ts, text: ui === "en" ? "answered ✓" : "відповів ✓", say: { a: "answered" }, tone: "done" };
+  return { key, ts, text: stopText(e.err, ui), say: e.say, tone: "error" };
 }
 
 export function agentColor(type: string): string {
@@ -138,12 +139,13 @@ export interface LiveScene {
 }
 
 /** Turns one session's hook events into the café: desk 0 is the main Claude, every subagent type gets its own desk. */
-export function buildLiveModel(events: LiveEvent[], session: string, roster: string[] = []): LiveScene {
+export function buildLiveModel(events: LiveEvent[], session: string, roster: string[] = [], ui: Ui = "uk"): LiveScene {
+  const en = ui === "en";
   const evs = events.filter((e) => e.session === session && (e.kind !== "roster" || e.compact));
   const origin = evs[0]?.at ?? Date.now();
   const seed = hash(session) % 100000;
 
-  const agents: AgentDef[] = [{ id: "main", name: "Claude", role: "головна сесія", color: CLAUDE_COLOR, icon: "bot", look: 2 }];
+  const agents: AgentDef[] = [{ id: "main", name: "Claude", role: en ? "main session" : "головна сесія", color: CLAUDE_COLOR, icon: "bot", look: 2 }];
   const seats: Seat[] = [{ type: "main", busy: true, parent: 0 }];
   const stints: Stint[][] = [[]];
   const notes: Note[][] = [[]];
@@ -188,7 +190,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     agents.push({
       id: `seat-${i}`,
       name: twins ? `${type} ${twins + 1}` : type,
-      role: "субагент",
+      role: en ? "subagent" : "субагент",
       color: hue ?? PALETTE[h % PALETTE.length],
       icon: "cpu",
       look: (h >>> 4) % 16,
@@ -224,25 +226,41 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     switch (e.kind) {
       case "prompt":
         open(0, t);
-        note(0, { key, ts: t, text: e.text ?? "нове питання", tool: e.tool, tone: "alert" });
+        note(0, { key, ts: t, text: e.text ?? (en ? "new prompt" : "нове питання"), tool: e.tool, tone: "alert" });
         break;
       case "tool":
         open(actor, t);
-        note(actor, { key, ts: t, text: e.text ?? "працює", say: e.say, tool: e.tool, tone: "work" });
+        note(actor, { key, ts: t, text: e.text ?? (en ? "working" : "працює"), say: e.say, tech: e.tech, tool: e.tool, tone: "work" });
         break;
       case "fail":
         open(actor, t);
-        note(actor, { key, ts: t, text: e.text ?? "помилка", say: e.say, tool: e.tool, tone: "error" });
+        note(actor, {
+          key,
+          ts: t,
+          text: e.text ?? (en ? "error" : "помилка"),
+          say: e.say ?? { a: "fail" },
+          tech: e.tech,
+          tool: e.tool,
+          tone: "error",
+        });
         break;
       case "notify":
-        note(actor, { key, ts: t, text: e.text ?? "чекає на тебе", say: e.say, tool: e.tool, tone: "alert" });
+        note(actor, {
+          key,
+          ts: t,
+          text: e.text ?? (en ? "waiting for you" : "чекає на тебе"),
+          say: e.say ?? { a: e.need === "permission" ? "wait_perm" : "wait_you" },
+          tech: e.tech,
+          tool: e.tool,
+          tone: "alert",
+        });
         break;
       case "dispatch": {
         open(actor, t);
         const type = e.target ?? "general-purpose";
-        pending.push({ from: actor, type, label: e.text ?? "нове завдання", ts: t, used: false });
+        pending.push({ from: actor, type, label: e.text ?? (en ? "new task" : "нове завдання"), ts: t, used: false });
         const say = { a: "delegate", o: type };
-        note(actor, { key, ts: t, text: `доручає ${type}`, say, tool: "agent", tone: "work" });
+        note(actor, { key, ts: t, text: en ? `hands off to ${type}` : `доручає ${type}`, say, tool: "agent", tone: "work" });
         break;
       }
       case "sub_start":
@@ -257,14 +275,14 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
         open(actor, t);
         close(actor, t);
         seats[actor].busy = false;
-        note(actor, { key, ts: t, text: "готово ✓", say: { a: "done" }, tone: "done" });
+        note(actor, { key, ts: t, text: en ? "done ✓" : "готово ✓", say: { a: "done" }, tone: "done" });
         const own = stints[actor];
         returns.push({ seat: actor, ts: t, key: `${key}-back`, stint: own[own.length - 1] });
         break;
       }
       case "stop":
         close(0, t);
-        note(0, stopNote(e, key, t));
+        note(0, stopNote(e, key, t, ui));
         break;
       case "session_end":
         stints.forEach((_, i) => close(i, t));
@@ -288,7 +306,8 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   const backReqs: TripRequest[] = returns.map((r) => {
     const parent = seats[r.seat].parent;
     const ts = Math.max(r.ts, r.stint?.end ?? r.ts);
-    return { key: r.key, from: r.seat, to: parent, ts, label: `результат → ${agents[parent].name}`, say: { a: "returns" } };
+    const label = `${en ? "result" : "результат"} → ${agents[parent].name}`;
+    return { key: r.key, from: r.seat, to: parent, ts, label, say: { a: "returns" } };
   });
 
   for (const [n, s] of owner) n.ts = n.tone === "done" ? Math.max(n.ts, s.end) : Math.max(n.ts, s.start);

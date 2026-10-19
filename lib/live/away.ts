@@ -56,7 +56,7 @@ export function awaySummary(events: LiveEvent[], sessions: LiveSession[], since:
     } else if (e.kind === "stop" && !e.err) a.answers += 1;
     else if (e.kind === "dispatch") {
       a.dispatches += 1;
-      agents.set(e.target ?? "агент", (agents.get(e.target ?? "агент") ?? 0) + 1);
+      agents.set(e.target ?? "", (agents.get(e.target ?? "") ?? 0) + 1);
     } else if (e.kind === "tool") a.tools += 1;
     else if (e.kind === "fail") a.fails += 1;
   }

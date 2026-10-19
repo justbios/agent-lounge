@@ -6,7 +6,9 @@ import Link from "next/link";
 import { CalendarDays, Gamepad2, MessageCircle, ShoppingBag, Trophy, X } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
+import { Two, Ui, useTr, useUi } from "@/lib/i18n";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
+import { attentionText } from "@/lib/live/attention";
 import { openTracks } from "@/lib/live/achievements";
 import { hideStale, staleVersion, useStaleHidden } from "@/lib/live/hookHealth";
 import { LOBBY, houseFloors, useHouseScenes } from "@/lib/live/house";
@@ -57,7 +59,6 @@ import Presence from "./live/Presence";
 import SceneMenu from "./live/SceneMenu";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
-import SpeechPick from "./live/SpeechPick";
 import Stage from "./live/Stage";
 import StatBar from "./live/StatBar";
 import TeamBar from "./live/TeamBar";
@@ -72,14 +73,15 @@ const QUIET_MS = 20 * 60 * 1000;
 const ASLEEP_MS = 60 * 60 * 1000;
 const NONE: string[] = [];
 
-const EMPTY: CafeModel = {
-  agents: [{ id: "main", name: "Claude", role: "головна сесія", color: CLAUDE_COLOR, icon: "bot", look: 2 }],
+const emptyModel = (role: string): CafeModel => ({
+  agents: [{ id: "main", name: "Claude", role, color: CLAUDE_COLOR, icon: "bot", look: 2 }],
   stints: [[]],
   notes: [[]],
   trips: [],
   doneHoldMs: 0,
   seed: 4242,
-};
+});
+const EMPTY: Record<Ui, CafeModel> = { uk: emptyModel("головна сесія"), en: emptyModel("main session") };
 
 /** A tapped push opens /?chat=<session>, which wins over the chat picked last time. */
 function readPick(): string | null {
@@ -138,12 +140,22 @@ function useRoster(cwd: string | undefined): string[] {
   return roster && roster.cwd === cwd ? roster.agents : NONE;
 }
 
-const STALE_OLD =
-  "Підключення Claude Code в тебе старої версії: Agent Lounge не бачить лімітів підписки, заповнення контексту " +
-  "і не всі назви чатів.";
-const STALE_ASKS =
-  "Підключення Claude Code в тебе старої версії: кафе більше не відповідає йому на запити дозволу, питання й " +
-  "плани. Нове приймає лише відповіді, підписані твоїм телефоном, спареним з комп'ютером.";
+const STALE_OLD: Two = {
+  uk:
+    "Підключення Claude Code в тебе старої версії: Agent Lounge не бачить лімітів підписки, заповнення контексту " +
+    "і не всі назви чатів.",
+  en:
+    "Your Claude Code connection is an old version: Agent Lounge can't see your subscription limits, how full the " +
+    "context is, or every chat's name.",
+};
+const STALE_ASKS: Two = {
+  uk:
+    "Підключення Claude Code в тебе старої версії: кафе більше не відповідає йому на запити дозволу, питання й " +
+    "плани. Нове приймає лише відповіді, підписані твоїм телефоном, спареним з комп'ютером.",
+  en:
+    "Your Claude Code connection is an old version: the café no longer answers its permission requests, questions " +
+    "and plans. The new one only accepts answers signed by your phone, paired with your computer.",
+};
 
 function useNow(): number {
   const [now, setNow] = useState(0);
@@ -170,6 +182,8 @@ export default function LiveDashboard({
   roomKey: string | null;
   viewing: boolean;
 }) {
+  const ui = useUi();
+  const t = useTr();
   const [view, setView] = useState<View>(readView);
   const [pick, setPick] = useState<string | null>(readPick);
   const choose = (id: string) => {
@@ -251,12 +265,18 @@ export default function LiveDashboard({
   const gainsFor = cafe.kind === "mine" || cafe.kind === "theirs" ? cafe.whose : null;
   const gains = useBeanGains(feed.events, gainsFor, !!cafe.progress && cafe.beans.earned > 0 && !playing);
   const cafeName = rooms.common.interior.title;
-  const whoseTip = cafe.whose ? `: ${cafe.kind === "mine" ? "твої" : cafe.whose}` : "";
+  const whoseTip = cafe.whose ? `: ${cafe.kind === "mine" ? t("твої", "yours") : cafe.whose}` : "";
   const lookOf = (m: string | null) => {
     const r = rooms.roomOf(m);
     return { theme: themeOf(r.settings.theme), decor: r.decor, interior: r.interior };
   };
-  const scenes = useHouseScenes(feed.events, chats.map((s) => s.id).join("|"), team.on ? team.members : null, inHouse);
+  const scenes = useHouseScenes(
+    feed.events,
+    chats.map((s) => s.id).join("|"),
+    team.on ? team.members : null,
+    inHouse,
+    ui,
+  );
   const zoom = (next: View, act?: () => void) => {
     const go = () =>
       flushSync(() => {
@@ -269,17 +289,17 @@ export default function LiveDashboard({
     else go();
   };
   const scene = useMemo(() => {
-    if (playing && replay && replayEvents) return buildLiveModel(replayEvents, replay.session, roster);
-    if (whole) return buildTeamModel(feed.events, team.members);
-    return session ? buildLiveModel(feed.events, session.id, roster) : null;
-  }, [playing, replay, replayEvents, whole, feed.events, team.members, session, roster]);
-  const model = scene?.model ?? EMPTY;
+    if (playing && replay && replayEvents) return buildLiveModel(replayEvents, replay.session, roster, ui);
+    if (whole) return buildTeamModel(feed.events, team.members, ui);
+    return session ? buildLiveModel(feed.events, session.id, roster, ui) : null;
+  }, [playing, replay, replayEvents, whole, feed.events, team.members, session, roster, ui]);
+  const model = scene?.model ?? EMPTY[ui];
   const lobbyAttn = team.on ? teamAlert(sessions, team.members) : null;
   const teamAttn = whole ? lobbyAttn : null;
   const attn = playing ? null : whole ? teamAttn?.attn : session?.attn;
   const alertSeat = whole ? teamAttn?.seat : attn ? (attn.agent ? scene?.seatOf[attn.agent] : 0) : undefined;
   const alert: SceneAlert | undefined =
-    attn && alertSeat != null ? { agent: alertSeat, kind: attn.kind, text: attn.text } : undefined;
+    attn && alertSeat != null ? { agent: alertSeat, kind: attn.kind, text: attentionText(attn, ui) } : undefined;
   const clock = !scene || !now ? 0 : playing && rp ? rp.vnow - scene.origin : now - scene.origin;
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model]);
   const tl = useMemo(() => buildTimeline(model), [model]);
@@ -332,7 +352,16 @@ export default function LiveDashboard({
 
   const offline = feed.status === "offline";
   const unplugged = cloud && !roomKey && !viewing;
-  const pill = feed.status === "open" ? "на зв'язку" : unplugged ? "ще не підключено" : offline ? (cloud ? "немає зв'язку" : "сервер Agent Lounge не запущений") : "підключаюсь…";
+  const pill =
+    feed.status === "open"
+      ? t("на зв'язку", "connected")
+      : unplugged
+        ? t("ще не підключено", "not connected yet")
+        : offline
+          ? cloud
+            ? t("немає зв'язку", "no connection")
+            : t("сервер Agent Lounge не запущений", "the Agent Lounge server isn't running")
+          : t("підключаюсь…", "connecting…");
 
   return (
     <>
@@ -340,27 +369,30 @@ export default function LiveDashboard({
         status={feed.status}
         pill={pill}
         seats={model.agents.length}
-        seatsLabel={whole ? "учасників" : "агентів"}
+        seatsLabel={whole ? t("учасників", "teammates") : t("агентів", "agents")}
         working={working}
         tokens={spent}
         limits={<LimitsMini limits={myLimits} now={now} onOpen={() => setRecapOpen(true)} />}
       >
         <button className="btn" onClick={() => setRecapOpen(true)}>
-          <CalendarDays size={14} /> підсумок
+          <CalendarDays size={14} /> {t("підсумок", "recap")}
         </button>
         <JukeboxMenu sound={sound} tracks={openTracks(cafe.earned)} />
-        <SpeechPick />
         {cafe.progress && (
           <>
-            <button className="btn" onClick={() => setSheet("ach")} title={`досягнення${whoseTip}`}>
+            <button
+              className="btn"
+              onClick={() => setSheet("ach")}
+              title={`${t("досягнення", "achievements")}${whoseTip}`}
+            >
               <Trophy size={14} /> {earnedCount}/{cafe.earned.length}
             </button>
             <button
               className="btn"
               onClick={() => setSheet("shop")}
-              title={`кав'ярня: меблі за кавові зерна${whoseTip}`}
+              title={`${t("кав'ярня: меблі за кавові зерна", "coffee shop: furniture for coffee beans")}${whoseTip}`}
             >
-              <ShoppingBag size={14} /> ☕ {Math.max(0, cafe.beans.left).toLocaleString("uk-UA")}
+              <ShoppingBag size={14} /> ☕ {Math.max(0, cafe.beans.left).toLocaleString(ui === "en" ? "en-GB" : "uk-UA")}
             </button>
           </>
         )}
@@ -370,10 +402,19 @@ export default function LiveDashboard({
       {stale != null && !staleHidden && (
         <div className="notice stale-hooks">
           <span>
-            {stale >= 3 ? STALE_ASKS : STALE_OLD}{" "}
-            Онови його тією самою фразою на сторінці <Link href="/connect">підключити Claude</Link>, це пів хвилини.
+            {(stale >= 3 ? STALE_ASKS : STALE_OLD)[ui]}{" "}
+            {ui === "en" ? (
+              <>
+                Update it with the same sentence on the <Link href="/connect">connect Claude</Link> page, it takes
+                half a minute.
+              </>
+            ) : (
+              <>
+                Онови його тією самою фразою на сторінці <Link href="/connect">підключити Claude</Link>, це пів хвилини.
+              </>
+            )}
           </span>
-          <button className="btn btn-ic" onClick={hideStale} aria-label="сховати">
+          <button className="btn btn-ic" onClick={hideStale} aria-label={t("сховати", "hide")}>
             <X size={14} />
           </button>
         </div>
@@ -476,10 +517,19 @@ export default function LiveDashboard({
       {viewing && (
         <div className="view-banner">
           <span>
-            <b>Лише перегляд.</b> Це чуже кафе за посиланням: бачиш, що роблять агенти, але нічого не можеш змінити.
+            {ui === "en" ? (
+              <>
+                <b>View only.</b> This is someone else&apos;s café, shared by link: you see what the agents do, but
+                can&apos;t change anything.
+              </>
+            ) : (
+              <>
+                <b>Лише перегляд.</b> Це чуже кафе за посиланням: бачиш, що роблять агенти, але нічого не можеш змінити.
+              </>
+            )}
           </span>
           <button className="btn" onClick={leaveView}>
-            до свого кафе
+            {t("до свого кафе", "to my café")}
           </button>
         </div>
       )}
@@ -497,7 +547,7 @@ export default function LiveDashboard({
       )}
       {inHouse ? (
         <House
-          floors={houseFloors(chats, team)}
+          floors={houseFloors(chats, team, ui)}
           scenes={scenes}
           lobby={team.on}
           lobbyAlert={lobbyAttn && { agent: lobbyAttn.seat, kind: lobbyAttn.attn.kind }}
@@ -516,13 +566,13 @@ export default function LiveDashboard({
                     ? [
                         {
                           icon: <MessageCircle size={14} />,
-                          label: "чат кафе",
+                          label: t("чат кафе", "café chat"),
                           onClick: () => setChatOpen(true),
                           badge: chat.unread,
                         },
                       ]
                     : []),
-                  { icon: <Gamepad2 size={14} />, label: "ігри", onClick: () => setGamesOpen(true) },
+                  { icon: <Gamepad2 size={14} />, label: t("ігри", "games"), onClick: () => setGamesOpen(true) },
                 ]}
               />
             </>
@@ -531,7 +581,13 @@ export default function LiveDashboard({
         />
       ) : (
         <Stage
-          title={whole ? "уся команда" : session ? session.label : (cafeName ?? "інтернет-кафе")}
+          title={
+            whole
+              ? t("уся команда", "the whole team")
+              : session
+                ? session.label
+                : (cafeName ?? t("інтернет-кафе", "internet café"))
+          }
           sub={
             replay && replay.session === session?.id ? (
               <ReplayBar
@@ -543,7 +599,11 @@ export default function LiveDashboard({
               />
             ) : (
               <span className="muted-sm">
-                {whole ? `${team.members.length} за столами` : session ? `остання дія ${ago(now - session.last)}` : "чекаю на події"}
+                {whole
+                  ? `${team.members.length} ${t("за столами", "at desks")}`
+                  : session
+                    ? `${t("остання дія", "last action")} ${ago(now - session.last, ui)}`
+                    : t("чекаю на події", "waiting for events")}
               </span>
             )
           }
@@ -587,8 +647,8 @@ export default function LiveDashboard({
               clock={clock}
               alert={alert}
               rosterCount={whole ? 0 : roster.length}
-              title={whole ? "команда" : "агенти"}
-              askText={whole && teamAttn && team.members[teamAttn.seat] !== team.me ? "чекає" : undefined}
+              title={whole ? t("команда", "team") : t("агенти", "agents")}
+              askText={whole && teamAttn && team.members[teamAttn.seat] !== team.me ? t("чекає", "waiting") : undefined}
             />
           }
           log={

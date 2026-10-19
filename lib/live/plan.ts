@@ -1,3 +1,4 @@
+import type { Two } from "@/lib/i18n";
 import { Interior, ItemId, LookPick, Placed, cleanInterior, decorPid, itemOf, newPid } from "./interior";
 
 /** What the plan editor moves around: where each piece stands and how each agent looks. */
@@ -5,8 +6,8 @@ export type Arrangement = Pick<Interior, "placed" | "looks">;
 
 export interface Pack {
   id: string;
-  name: string;
-  hint: string;
+  name: Two;
+  hint: Two;
   /** handed out to the room's agents in turn; skin stays each agent's own */
   looks: Omit<LookPick, "skin" | "name">[];
 }
@@ -14,8 +15,8 @@ export interface Pack {
 export const PACKS: Pack[] = [
   {
     id: "office",
-    name: "Офіс",
-    hint: "сорочки, навушники, книжки й лампи",
+    name: { uk: "Офіс", en: "Office" },
+    hint: { uk: "сорочки, навушники, книжки й лампи", en: "shirts, headphones, books and lamps" },
     looks: [
       { style: 0, shirt: 0, prop: 3 },
       { style: 2, shirt: 1, prop: 4 },
@@ -25,8 +26,8 @@ export const PACKS: Pack[] = [
   },
   {
     id: "neon",
-    name: "Неон",
-    hint: "фіолетове й рожеве, банки з енергетиком",
+    name: { uk: "Неон", en: "Neon" },
+    hint: { uk: "фіолетове й рожеве, банки з енергетиком", en: "purple and pink, energy drink cans" },
     looks: [
       { style: 3, hair: 6, shirt: 8, prop: 2 },
       { style: 0, hair: 5, shirt: 7, prop: 4 },
@@ -36,8 +37,8 @@ export const PACKS: Pack[] = [
   },
   {
     id: "coffee",
-    name: "Кав'ярня",
-    hint: "теплі кольори й кактуси",
+    name: { uk: "Кав'ярня", en: "Coffee shop" },
+    hint: { uk: "теплі кольори й кактуси", en: "warm tones and cacti" },
     looks: [
       { style: 2, hair: 1, shirt: 3, prop: 0 },
       { style: 1, hair: 7, shirt: 2, prop: 3 },
@@ -47,8 +48,8 @@ export const PACKS: Pack[] = [
   },
   {
     id: "retro",
-    name: "Ретро",
-    hint: "кепки, качки й нічого зайвого на столі",
+    name: { uk: "Ретро", en: "Retro" },
+    hint: { uk: "кепки, качки й нічого зайвого на столі", en: "caps, rubber ducks and a tidy desk" },
     looks: [
       { style: 3, hair: 2, shirt: 2, prop: 1 },
       { style: 1, hair: 4, shirt: 4, prop: 5 },
@@ -125,7 +126,7 @@ export function readPlan(code: string): Arrangement | null {
 
 export interface Fitted {
   next: Interior;
-  /** the pieces of the plan this room has not bought, by name */
+  /** the pieces of the plan this room has not bought, by item id, for the caller to name in the viewer's language */
   missing: string[];
 }
 
@@ -138,7 +139,7 @@ export function fitPlan(interior: Interior, plan: Arrangement): Fitted {
   for (const q of plan.placed) {
     const n = left.get(q.item) ?? 0;
     if (n > 0) left.set(q.item, n - 1);
-    else missing.push(itemOf(q.item)?.name ?? q.item);
+    else missing.push(q.item);
   }
   return { next, missing };
 }

@@ -21,6 +21,8 @@ export interface PushAlert {
   detail?: string;
   label: string;
   member?: string;
+  /** the same alert for a phone whose browser reads English; the service worker picks one */
+  en?: { title: string; label?: string; detail?: string };
 }
 
 /** Only the moments the user has to act on: a permission prompt, Claude idling for an answer, a finished turn. */
@@ -29,10 +31,18 @@ export function alertFor(e: LiveEvent): PushAlert | null {
   const label = e.member ? `${e.member} · ${chat}` : chat;
   const member = e.member;
   const who = e.agent ? (e.agentType ?? "агент") : "Claude";
+  const whoEn = e.agent ? (e.agentType ?? "an agent") : "Claude";
   if (e.kind === "notify") {
     const permission = e.need !== "input";
     const tool = permission ? /: (.+)$/.exec(e.text ?? "")?.[1] : undefined;
     const asks = tool ? "просить дозвіл" : (e.text ?? "чекає на дозвіл");
+    const asksEn = tool
+      ? "asks for permission"
+      : e.tool === "ask"
+        ? "waits for your answer"
+        : e.tool === "plan"
+          ? "waits for you to approve the plan"
+          : "waits for permission";
     return {
       kind: "ask",
       need: permission ? "permission" : "input",
@@ -41,11 +51,13 @@ export function alertFor(e: LiveEvent): PushAlert | null {
       member,
       title: permission ? `${who} ${asks}` : `${who} чекає на тебе`,
       detail: tool,
+      en: { title: permission ? `${whoEn} ${asksEn}` : `${whoEn} is waiting for you` },
     };
   }
   if (e.kind === "stop" && !e.agent) {
     const title = e.err ? `Claude ${stopText(e.err)}` : "Claude відповів";
-    return { kind: "done", session: e.session, label, member, title };
+    const titleEn = e.err ? `Claude ${stopText(e.err, "en")}` : "Claude answered";
+    return { kind: "done", session: e.session, label, member, title, en: { title: titleEn } };
   }
   return null;
 }
@@ -67,8 +79,10 @@ export async function sendPush(roomKey: string, a: PushAlert, origin: string): P
   const { targets, ask } = await cloudPushTargets(roomKey, a.session);
   const chosen = targets.filter((t) => wants(t, a));
   if (!chosen.length) return 0;
-  const body = [a.label, a.detail, a.kind !== "test" ? ask : null].filter(Boolean).join(" · ");
-  const payload = JSON.stringify({ title: a.title, body, tag: `relay-${a.session}`, session: a.session, url: "/" });
+  const lines = (label: string, detail?: string) => [label, detail, a.kind !== "test" ? ask : null].filter(Boolean).join(" · ");
+  const body = lines(a.label, a.detail);
+  const en = a.en && { title: a.en.title, body: lines(a.en.label ?? a.label, a.en.detail ?? a.detail) };
+  const payload = JSON.stringify({ title: a.title, body, en, tag: `relay-${a.session}`, session: a.session, url: "/" });
   const topic = a.session.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "relay";
   const vapidDetails = { subject: subject(origin), publicKey: PUBLIC!, privateKey: PRIVATE! };
   let sent = 0;

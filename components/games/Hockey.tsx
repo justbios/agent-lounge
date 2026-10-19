@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { tr, uiNow, useTr } from "@/lib/i18n";
 import { Match, Side, sideOf } from "@/lib/live/duel";
 import {
   GOAL_W,
@@ -109,6 +110,7 @@ export default function Hockey({
   note: string | null;
   onEnd: (win: boolean) => void;
 }) {
+  const t = useTr();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mineRef = useRef<HTMLElement>(null);
   const theirsRef = useRef<HTMLElement>(null);
@@ -161,6 +163,7 @@ export default function Hockey({
     const say = (s: string) => {
       if (sayRef.current) sayRef.current.textContent = s;
     };
+    const sayT = (uk: string, en: string) => say(tr(uiNow(), uk, en));
     const hud = () => {
       if (mineRef.current) mineRef.current.textContent = String(score[me]);
       if (theirsRef.current) theirsRef.current.textContent = String(score[rival]);
@@ -196,8 +199,8 @@ export default function Hockey({
         send({ t: "hello" });
         if (me === "x") {
           serveAt = now + FIRST_MS;
-          say("шайба твоя: бий її битою");
-        } else say("готуйся, шайба в суперника");
+          sayT("шайба твоя: бий її битою", "your puck: hit it with your mallet");
+        } else sayT("готуйся, шайба в суперника", "get ready, their puck");
       } else if (m.t === "ping") send({ t: "pong", a: m.a });
       else if (m.t === "pong") rtt = Math.min(600, Math.max(20, rtt * 0.6 + (now - m.a) * 0.4));
       else if (m.t === "mal") theirs = keepIn(rival, m.x, m.y);
@@ -216,7 +219,7 @@ export default function Hockey({
     ch.subscribe((s) => {
       if (s !== "SUBSCRIBED") return;
       send({ t: "hello" });
-      say("чекаю на суперника…");
+      sayT("чекаю на суперника…", "waiting for the other player…");
     });
 
     const moveMallet = (dt: number) => {
@@ -328,7 +331,7 @@ export default function Hockey({
         }
         if (boss === rival && !quiet && heardAt && now - heardAt > QUIET_MS) {
           quiet = true;
-          say("суперник не відповідає…");
+          sayT("суперник не відповідає…", "the other player is not answering…");
         }
       } else if (over && finals && finals < FINAL_SENDS && last && now - sentAt >= RESEND_MS) {
         finals += 1;
@@ -354,12 +357,17 @@ export default function Hockey({
   }, [id, me, room]);
 
   const rival = me === "x" ? match.o : match.x;
-  const verdict = result === null ? null : result ? "перемога твоя!" : `перемога: ${rival.name}`;
+  const verdict =
+    result === null
+      ? null
+      : result
+        ? t("перемога твоя!", "you win!")
+        : t(`перемога: ${rival.name}`, `${rival.name} wins`);
   return (
     <div className="pong hockey">
       <div className="ttt-hd">
         <span>
-          ти <b ref={mineRef}>0</b> : <b ref={theirsRef}>0</b> {rival.name} · до {WIN_AT}
+          {t("ти", "you")} <b ref={mineRef}>0</b> : <b ref={theirsRef}>0</b> {rival.name} · {t("до", "to")} {WIN_AT}
         </span>
         <b>{verdict ?? note ?? <span ref={sayRef} />}</b>
       </div>
@@ -367,7 +375,10 @@ export default function Hockey({
         ref={canvasRef}
         width={W}
         height={H}
-        aria-label="Аерохокей: веди биту мишкою, пальцем, стрілками або WASD і забий шайбу у ворота вгорі"
+        aria-label={t(
+          "Аерохокей: веди биту мишкою, пальцем, стрілками або WASD і забий шайбу у ворота вгорі",
+          "Air hockey: move your mallet with the mouse, a finger, the arrows or WASD and score in the goal at the top",
+        )}
       />
     </div>
   );

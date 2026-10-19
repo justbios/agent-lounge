@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { Radio, Plug } from "lucide-react";
+import { useTr } from "@/lib/i18n";
 import { FeedStatus } from "@/lib/live/useLiveFeed";
 import SharePanel from "./live/SharePanel";
+import SpeechPick from "./live/SpeechPick";
 
 export type Mode = "demo" | "live";
 
@@ -19,6 +21,7 @@ export default function TopBar({
   /** Claude Code already reports here: the connect link shrinks to an icon */
   connected: boolean;
 }) {
+  const t = useTr();
   return (
     <header className="header">
       <div className="brand">
@@ -27,27 +30,28 @@ export default function TopBar({
         </span>
         <div>
           <div className="brand-name">Agent Lounge</div>
-          <div className="brand-sub">живий конвеєр агентів</div>
+          <div className="brand-sub">{t("живий конвеєр агентів", "your agents, live")}</div>
         </div>
       </div>
       <div className="header-r">
+        <SpeechPick />
         <SharePanel />
         {connected ? (
-          <Link className="btn btn-ic" href="/connect" title="Claude підключено. Ще один комп'ютер чи оновлення: тут">
+          <Link className="btn btn-ic" href="/connect" title={t("Claude підключено. Ще один комп'ютер чи оновлення: тут", "Claude is connected. Another computer or an update: here")}>
             <Plug size={14} />
           </Link>
         ) : (
           <Link className="btn" href="/connect">
-            <Plug size={14} /> підключити Claude
+            <Plug size={14} /> {t("підключити Claude", "connect Claude")}
           </Link>
         )}
         <div className="viewseg modeseg">
           <button className={mode === "demo" ? "on" : ""} onClick={() => onMode("demo")}>
-            демо
+            {t("демо", "demo")}
           </button>
           <button className={mode === "live" ? "on" : ""} onClick={() => onMode("live")}>
             <span className={`feed-dot feed-${status}`} />
-            наживо
+            {t("наживо", "live")}
           </button>
         </div>
       </div>

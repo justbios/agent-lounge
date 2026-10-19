@@ -1,3 +1,4 @@
+import type { Ui } from "@/lib/i18n";
 import { describeTool } from "./normalize";
 
 /** How long an ask waits in the café before the terminal asks instead; the same 10 minutes as relay_asks. */
@@ -40,6 +41,8 @@ export interface Ask {
   tool: string;
   /** exactly what Claude wants to do: the whole command, the file, the address */
   detail: string;
+  /** the same in English, read from raw; none when only the server's Ukrainian detail is known */
+  detailEn?: string;
   at: number;
   /** the question with its options, or the plan; none for a permission prompt */
   body?: AskBody | null;
@@ -95,32 +98,36 @@ export function askDetail(
   name: string,
   input: Record<string, unknown>,
   cwd?: string,
+  ui: Ui = "uk",
 ): { tool: string; detail: string } {
   const { tool, text } = describeTool(name, input);
   const s = (k: string) => (typeof input[k] === "string" ? (input[k] as string) : "");
+  const en = ui === "en";
   switch (name) {
     case "Bash":
       return { tool, detail: `$ ${s("command").trim()}` };
     case "Write":
-      return { tool, detail: `пише ${rel(input.file_path, cwd)}` };
+      return { tool, detail: `${en ? "writes" : "пише"} ${rel(input.file_path, cwd)}` };
     case "Edit":
     case "MultiEdit":
-      return { tool, detail: `редагує ${rel(input.file_path, cwd)}` };
+      return { tool, detail: `${en ? "edits" : "редагує"} ${rel(input.file_path, cwd)}` };
     case "NotebookEdit":
-      return { tool, detail: `редагує ${rel(input.notebook_path, cwd)}` };
+      return { tool, detail: `${en ? "edits" : "редагує"} ${rel(input.notebook_path, cwd)}` };
     case "WebFetch":
-      return { tool, detail: `відкриває ${s("url")}` };
+      return { tool, detail: `${en ? "opens" : "відкриває"} ${s("url")}` };
     case "AskUserQuestion": {
       const q = Array.isArray(input.questions) ? (input.questions[0] as { question?: unknown }) : null;
-      return { tool, detail: clip(`питає: ${typeof q?.question === "string" ? q.question : ""}`, 500) };
+      const asks = en ? "asks" : "питає";
+      return { tool, detail: clip(`${asks}: ${typeof q?.question === "string" ? q.question : ""}`, 500) };
     }
     case "ExitPlanMode": {
       const head = s("plan").split("\n").find((l) => l.trim()) ?? "";
-      return { tool, detail: clip(`план: ${head.replace(/^#+\s*/, "")}`, 200) };
+      return { tool, detail: clip(`${en ? "plan" : "план"}: ${head.replace(/^#+\s*/, "")}`, 200) };
     }
     default: {
       const args = JSON.stringify(input);
-      return { tool, detail: args && args !== "{}" ? `${text} ${args}` : text };
+      const what = en && !name.startsWith("mcp__") ? name : text;
+      return { tool, detail: args && args !== "{}" ? `${what} ${args}` : what };
     }
   }
 }
@@ -131,6 +138,7 @@ export function askDetail(
  */
 export function askFromRaw(
   raw: string,
+  ui: Ui = "uk",
 ): { tool: string; detail: string; body: AskBody | null; input: Record<string, unknown>; name: string } | null {
   let j: unknown;
   try {
@@ -146,7 +154,7 @@ export function askFromRaw(
   const input = ti && typeof ti === "object" && !Array.isArray(ti) ? (ti as Record<string, unknown>) : {};
   const body = ASK_TOOLS.has(name) ? askBody(name, input) : null;
   if (ASK_TOOLS.has(name) && !body) return null;
-  return { ...askDetail(name, input, typeof o.cwd === "string" ? o.cwd : undefined), body, input, name };
+  return { ...askDetail(name, input, typeof o.cwd === "string" ? o.cwd : undefined, ui), body, input, name };
 }
 
 /** What a write or an edit changes, whole: the new file, or each replaced text and what replaces it. */

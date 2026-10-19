@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { tr, uiNow } from "@/lib/i18n";
 import { supabase } from "@/lib/supabaseClient";
 import { sha256Hex, signWith, useAnswerKeys } from "./answerKeys";
 import { Ask, AskBody, answerText, askChange, askFromRaw } from "./asks";
@@ -47,7 +48,8 @@ function fromRow(r: Row): Ask {
   if (!own || !r.kid) return { ...base, tool: r.tool, detail: r.detail, body: r.body };
   const change = askChange(own.name, own.input);
   const { tool, detail, body, input } = own;
-  return { ...base, tool, detail, body, input, change, kid: r.kid, raw: r.raw! };
+  const detailEn = askFromRaw(r.raw!, "en")?.detail;
+  return { ...base, tool, detail, detailEn, body, input, change, kid: r.kid, raw: r.raw! };
 }
 
 /**
@@ -128,7 +130,13 @@ export function useAsks(key: string | null, personal: boolean): Asks {
       .then((done) => {
         if (done) return;
         answered.current.delete(a.id);
-        setFailed("Відповідь не пройшла: спробуй ще раз або відповідай у терміналі.");
+        setFailed(
+          tr(
+            uiNow(),
+            "Відповідь не пройшла: спробуй ще раз або відповідай у терміналі.",
+            "That answer didn't go through: try again, or answer in the terminal.",
+          ),
+        );
       });
   };
 

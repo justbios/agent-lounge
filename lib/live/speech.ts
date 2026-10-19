@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { techLine } from "./tech";
 import { Say } from "./types";
 
 export type Lang = "uk" | "en" | "ru";
@@ -401,16 +402,27 @@ export function phrase(say: Say, lang: Lang): string | null {
   return act ? fill(act) : null;
 }
 
-/** A note, bubble or event as the viewer reads it: plain words when it carries a `say`, else the hook's own line. */
-export function line(x: { text?: string; say?: Say; pre?: string }, sp: Speech, fallback = ""): string {
-  const plain = sp.plain && x.say ? phrase(x.say, sp.lang) : null;
-  return plain ? `${x.pre ?? ""}${plain}` : (x.text ?? fallback);
+/**
+ * A note, bubble or event as the viewer reads it: plain words when it carries a `say`, else the hook's own line, in
+ * the viewer's language when the café wrote it.
+ */
+export function line(x: { text?: string; say?: Say; tech?: Say; pre?: string }, sp: Speech, fallback = ""): string {
+  const own = (sp.plain && x.say ? phrase(x.say, sp.lang) : null) ?? (x.tech ? techLine(x.tech, sp.lang) : null);
+  return own ? `${x.pre ?? ""}${own}` : (x.text ?? fallback);
 }
 
-/** The little label next to an agent's name: the tool in technical mode, a plain category otherwise. */
+const CYRILLIC = /[\u0400-\u04FF]/;
+
+/**
+ * The little label next to an agent's name: the tool in technical mode, a plain category otherwise. The café's own
+ * labels («завдання», «питання», …) are lookup keys, not tool names, so an English viewer reads them in English in
+ * technical mode too.
+ */
 export function chip(tool: string | undefined, sp: Speech): string | undefined {
-  if (!tool || !sp.plain) return tool;
-  return WORDS[sp.lang].chips[tool] ?? WORDS[sp.lang].chips[tool.toLowerCase()];
+  if (!tool) return tool;
+  const plain = WORDS[sp.lang].chips[tool] ?? WORDS[sp.lang].chips[tool.toLowerCase()];
+  if (sp.plain) return plain;
+  return sp.lang === "en" && CYRILLIC.test(tool) ? (plain ?? tool) : tool;
 }
 
 /** A fixed phrase by its action key, for lines the café writes itself. */
@@ -419,14 +431,24 @@ export function said(a: string, sp: Speech, fallback: string, o?: string): strin
 }
 
 const KEY = "relay.speech";
-const DEFAULT: Speech = { lang: "uk", plain: true };
+/** What the server renders, and what a viewer reads before a choice of theirs or their browser's applies. */
+const DEFAULT: Speech = { lang: "en", plain: true };
 const listeners = new Set<() => void>();
 let speech: Speech | null = null;
+
+/** A first visit reads the browser's own language: Ukrainian or Russian when it prefers them, English otherwise. */
+function browserLang(): Lang {
+  for (const l of navigator.languages?.length ? navigator.languages : [navigator.language]) {
+    const p = l.slice(0, 2).toLowerCase();
+    if (p in WORDS) return p as Lang;
+  }
+  return DEFAULT.lang;
+}
 
 function read(): Speech {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<Speech> | null;
-    const lang = v?.lang && v.lang in WORDS ? v.lang : DEFAULT.lang;
+    const lang = v?.lang && v.lang in WORDS ? v.lang : browserLang();
     return { lang, plain: v?.plain ?? DEFAULT.plain };
   } catch {
     return DEFAULT;

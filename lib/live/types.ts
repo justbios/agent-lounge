@@ -63,6 +63,8 @@ export interface LiveEvent {
   tool?: string;
   text?: string;
   say?: Say;
+  /** `text` as its parts, for the café's own lines: technical mode shows them in the viewer's language */
+  tech?: Say;
   /** dispatch only: the subagent type being launched */
   target?: string;
   /** roster only: agent names from the project's .claude/agents */

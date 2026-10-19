@@ -1,3 +1,5 @@
+import type { Two } from "@/lib/i18n";
+
 /** A free homebrew game the café ships, with what its licence asks us to show. */
 export interface NesGame {
   id: string;
@@ -5,7 +7,7 @@ export interface NesGame {
   /** under public/roms */
   file: string;
   players: 1 | 2;
-  about: string;
+  about: Two;
   author: string;
   license: string;
   licenseUrl: string;
@@ -25,7 +27,10 @@ export const NES_GAMES: NesGame[] = [
     title: "Double Action Blaster Guys",
     file: "dabg.nes",
     players: 2,
-    about: "Платформер у дусі Bubble Bobble: 52 рівні, понад 25 видів ворогів, можна вдвох разом.",
+    about: {
+      uk: "Платформер у дусі Bubble Bobble: 52 рівні, понад 25 видів ворогів, можна вдвох разом.",
+      en: "A platformer in the spirit of Bubble Bobble: 52 levels, over 25 kinds of enemies, two can play together.",
+    },
     author: "NovaSquirrel",
     license: "zlib",
     licenseUrl: ZLIB,
@@ -36,7 +41,10 @@ export const NES_GAMES: NesGame[] = [
     title: "Thwaite",
     file: "thwaite128.nes",
     players: 1,
-    about: "Збивай ракети, поки вони не влучили в міста.",
+    about: {
+      uk: "Збивай ракети, поки вони не влучили в міста.",
+      en: "Shoot down the missiles before they hit the towns.",
+    },
     author: "Damian Yerrick",
     license: "GPL-3.0",
     licenseUrl: GPL3,
@@ -47,7 +55,10 @@ export const NES_GAMES: NesGame[] = [
     title: "Concentration Room",
     file: "croom.nes",
     players: 2,
-    about: "Знайди пари карток: сам, проти комп'ютера або вдвох.",
+    about: {
+      uk: "Знайди пари карток: сам, проти комп'ютера або вдвох.",
+      en: "Find the matching pairs of cards: alone, against the computer or with a friend.",
+    },
     author: "Damian Yerrick",
     license: "GPL-3.0",
     licenseUrl: GPL3,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { tr, useUi } from "@/lib/i18n";
 import { CLAUDE_COLOR } from "@/lib/live/liveModel";
 import { memberName } from "@/lib/live/teamModel";
 import { useSpeech } from "@/lib/live/speech";
@@ -31,6 +32,7 @@ export default function EventLog({
     return team ? events.filter((e) => e.kind !== "roster").slice(-LOG_ROWS) : NO_EVENTS;
   }, [events, session, team]);
   const sp = useSpeech();
+  const ui = useUi();
   const ref = useRef<HTMLDivElement>(null);
   const [tree, setTree] = useState(false);
   const asTree = tree && !!session;
@@ -47,22 +49,28 @@ export default function EventLog({
   const nameOf = (e: LiveEvent) => {
     if (team) {
       const m = e.member ?? "";
-      return { name: e.agent ? `${memberName(m)} · ${e.agentType ?? "агент"}` : memberName(m), color: team[m] ?? CLAUDE_COLOR };
+      const name = memberName(m, ui);
+      return {
+        name: e.agent ? `${name} · ${e.agentType ?? tr(ui, "агент", "agent")}` : name,
+        color: team[m] ?? CLAUDE_COLOR,
+      };
     }
     if (!e.agent) return { name: "Claude", color: CLAUDE_COLOR };
     const a = agents[seatOf?.[e.agent] ?? -1];
-    return { name: a?.name ?? e.agentType ?? "агент", color: a?.color ?? "#9a94b8" };
+    return { name: a?.name ?? e.agentType ?? tr(ui, "агент", "agent"), color: a?.color ?? "#9a94b8" };
   };
 
   return (
     <div className="card">
       <div className="card-hd">
-        <span className="card-ttl">{asTree ? "дерево дій" : "потік подій"}</span>
+        <span className="card-ttl">
+          {asTree ? tr(ui, "дерево дій", "action tree") : tr(ui, "потік подій", "event stream")}
+        </span>
         {session ? (
-          <div className="viewseg" role="radiogroup" aria-label="як показати">
-            {(["потік", "дерево"] as const).map((v, i) => (
+          <div className="viewseg" role="radiogroup" aria-label={tr(ui, "як показати", "view as")}>
+            {[tr(ui, "потік", "stream"), tr(ui, "дерево", "tree")].map((v, i) => (
               <button
-                key={v}
+                key={i}
                 role="radio"
                 aria-checked={tree === !!i}
                 className={tree === !!i ? "on" : ""}
@@ -73,7 +81,9 @@ export default function EventLog({
             ))}
           </div>
         ) : (
-          <span className="muted-sm">{log.length ? `останні ${log.length}` : "порожньо"}</span>
+          <span className="muted-sm">
+            {log.length ? tr(ui, `останні ${log.length}`, `last ${log.length}`) : tr(ui, "порожньо", "empty")}
+          </span>
         )}
       </div>
       <div className="log" ref={ref}>

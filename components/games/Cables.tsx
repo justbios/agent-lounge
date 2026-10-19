@@ -19,6 +19,7 @@ import {
   opposite,
   step,
 } from "@/lib/live/cables";
+import { tr, uiNow, useTr } from "@/lib/i18n";
 import { Match, Side, sideOf } from "@/lib/live/duel";
 import { supabase } from "@/lib/supabaseClient";
 import { Ctx, LINE, px, shade } from "../cafe/pixel";
@@ -76,6 +77,7 @@ export default function Cables({
   note: string | null;
   onEnd: (win: boolean) => void;
 }) {
+  const t = useTr();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mineRef = useRef<HTMLElement>(null);
   const theirsRef = useRef<HTMLElement>(null);
@@ -123,6 +125,7 @@ export default function Cables({
     const say = (s: string) => {
       if (sayRef.current) sayRef.current.textContent = s;
     };
+    const sayT = (uk: string, en: string) => say(tr(uiNow(), uk, en));
     const hud = () => {
       if (mineRef.current) mineRef.current.textContent = String(score[me]);
       if (theirsRef.current) theirsRef.current.textContent = String(score[rival]);
@@ -158,8 +161,9 @@ export default function Cables({
         const winner: Side = crashed[0] === "x" ? "o" : "x";
         score[winner] += 1;
         hud();
-        say(winner === me ? "раунд твій" : "раунд суперника");
-      } else say("нічия, ще раз");
+        if (winner === me) sayT("раунд твій", "your round");
+        else sayT("раунд суперника", "their round");
+      } else sayT("нічия, ще раз", "draw, again");
       if (Math.max(score.x, score.o) >= WIN_AT) {
         over = true;
         const win = score[me] >= WIN_AT;
@@ -210,7 +214,7 @@ export default function Cables({
         met = true;
         send({ t: "hello" });
         begin(performance.now(), FIRST_MS);
-        say("твій кабель жовтий, ліворуч");
+        sayT("твій кабель жовтий, ліворуч", "your cable is the yellow one, on the left");
       }
       if (m.t === "hello" || m.r < round) return;
       m.d.forEach((d, i) => {
@@ -222,7 +226,7 @@ export default function Cables({
       if (s !== "SUBSCRIBED") return;
       send({ t: "hello" });
       helloAt = performance.now();
-      say("чекаю на суперника…");
+      sayT("чекаю на суперника…", "waiting for the other player…");
     });
 
     const turn = (d: Dir) => {
@@ -282,7 +286,7 @@ export default function Cables({
           }
           if (!quiet && now - waitSince > QUIET_MS) {
             quiet = true;
-            say("суперник не відповідає…");
+            sayT("суперник не відповідає…", "the other player is not answering…");
           }
         }
       }
@@ -303,12 +307,17 @@ export default function Cables({
   }, [id, me, room]);
 
   const rival = me === "x" ? match.o : match.x;
-  const verdict = result === null ? null : result ? "перемога твоя!" : `перемога: ${rival.name}`;
+  const verdict =
+    result === null
+      ? null
+      : result
+        ? t("перемога твоя!", "you win!")
+        : t(`перемога: ${rival.name}`, `${rival.name} wins`);
   return (
     <div className="pong">
       <div className="ttt-hd">
         <span>
-          ти <b ref={mineRef}>0</b> : <b ref={theirsRef}>0</b> {rival.name} · до {WIN_AT}
+          {t("ти", "you")} <b ref={mineRef}>0</b> : <b ref={theirsRef}>0</b> {rival.name} · {t("до", "to")} {WIN_AT}
         </span>
         <b>{verdict ?? note ?? <span ref={sayRef} />}</b>
       </div>
@@ -316,7 +325,10 @@ export default function Cables({
         ref={canvasRef}
         width={W}
         height={H}
-        aria-label="Кабелі: повертай стрілками, WASD або проведи пальцем; не врізайся у стіни й кабелі"
+        aria-label={t(
+          "Кабелі: повертай стрілками, WASD або проведи пальцем; не врізайся у стіни й кабелі",
+          "Cables: turn with the arrows, WASD or a swipe; don't hit the walls or the cables",
+        )}
       />
     </div>
   );

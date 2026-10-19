@@ -1,5 +1,5 @@
 {
-  "description": "Forwards hook events, the chat name, token counts and the last usage limits to the Agent Lounge café saved by /agent-lounge:connect, silent and async; while you turned «я не за комп'ютером» on with /agent-lounge:away, a phone paired with this computer can answer Claude's permission prompts, questions and plans from the café, and the hook checks its signature before passing it on.",
+  "description": "Forwards hook events, the chat name, token counts and the last usage limits to the Agent Lounge café saved by /agent-lounge:connect, silent and async; while you turned away mode on with /agent-lounge:away, a phone paired with this computer can answer Claude's permission prompts, questions and plans from the café, and the hook checks its signature before passing it on.",
   "hooks": {
     "UserPromptSubmit": [
       {

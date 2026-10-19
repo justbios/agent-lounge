@@ -30,6 +30,7 @@ export interface Bubble {
   y: number;
   text: string;
   say?: Say;
+  tech?: Say;
   pre?: string;
   tool?: string;
   tone: BubbleTone;
@@ -142,6 +143,7 @@ export function bubbleFor(
     y: desk.top - 3,
     text: n.text,
     say: n.say,
+    tech: n.tech,
     pre: n.pre,
     tool: n.tool,
     tone: n.tone,
@@ -155,8 +157,8 @@ export function bubbleFor(
     if (!tr || clock >= tr.arrive) return null;
     const at = { agent: i, x: w.x, y: w.y - 21, seated: false };
     if (last && last.tone === "done" && clock - last.ts < COMPLETE_HOLD_MS) {
-      const { key, text, say, pre, tool, tone } = last;
-      return { ...at, key, text, say, pre, tool, tone, age: clock - last.ts };
+      const { key, text, say, tech, pre, tool, tone } = last;
+      return { ...at, key, text, say, tech, pre, tool, tone, age: clock - last.ts };
     }
     return { ...at, key: tr.key, text: tr.label, say: tr.say, tone: "handoff", age: clock - tr.start };
   }

@@ -2,6 +2,7 @@
 
 import { RefObject, useSyncExternalStore } from "react";
 import { Maximize, Minimize } from "lucide-react";
+import { useTr } from "@/lib/i18n";
 
 const subscribe = (cb: () => void) => {
   document.addEventListener("fullscreenchange", cb);
@@ -10,6 +11,7 @@ const subscribe = (cb: () => void) => {
 
 /** Opens a game on the whole screen and back; hidden where the browser cannot, as on an iPhone. */
 export default function FullscreenButton({ target }: { target: RefObject<HTMLElement | null> }) {
+  const t = useTr();
   const able = useSyncExternalStore(subscribe, () => !!document.fullscreenEnabled, () => false);
   const full = useSyncExternalStore(
     subscribe,
@@ -22,7 +24,7 @@ export default function FullscreenButton({ target }: { target: RefObject<HTMLEle
     if (full) void document.exitFullscreen().catch(() => {});
     else void target.current?.requestFullscreen().catch(() => {});
   };
-  const label = full ? "вийти з повного екрана" : "на весь екран";
+  const label = full ? t("вийти з повного екрана", "exit full screen") : t("на весь екран", "full screen");
   return (
     <button className="btn btn-ic" onClick={toggle} title={label} aria-label={label}>
       {full ? <Minimize size={14} /> : <Maximize size={14} />}

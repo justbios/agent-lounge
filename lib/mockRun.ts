@@ -1,3 +1,4 @@
+import type { Ui } from "./i18n";
 import { AGENTS, AgentDef, AgentEvent } from "./types";
 
 export interface AgentTiming {
@@ -25,6 +26,8 @@ export interface MockRunOptions {
   travelMs?: (index: number) => number;
   /** idle time after the last agent finishes, before the replay loops */
   tailMs?: number;
+  /** the language of the run's own words, where an agent brings none of its own */
+  ui?: Ui;
 }
 
 /**
@@ -71,7 +74,7 @@ export function buildMockRun(agents: AgentDef[] = AGENTS, runId = "run_demo", op
         type: "handoff",
         from_agent: a.id,
         to_agent: agents[i + 1].id,
-        payload: { label: a.handoff ?? "передає далі" },
+        payload: { label: a.handoff ?? (opts.ui === "en" ? "passing it on" : "передає далі") },
       });
     }
   }

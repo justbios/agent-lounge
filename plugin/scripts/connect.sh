@@ -21,7 +21,7 @@ key=$(printf '%s' "$url" | sed -nE 's#.*[?&]k=([A-Za-z0-9_-]+).*#\1#p')
 plain=$(printf '%s' "$url" | sed -E 's#([?&])k=[A-Za-z0-9_-]+&?#\1#; s#[?&]$##')
 set -- -s -m 8 -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data-binary @-
 [ -n "$key" ] && set -- "$@" -H "x-relay-key: $key"
-code=$(printf '%s' '{"session_id":"relay-check","cwd":"/relay","hook_event_name":"UserPromptSubmit","prompt":"перевірка Agent Lounge"}' |
+code=$(printf '%s' '{"session_id":"relay-check","cwd":"/relay","hook_event_name":"UserPromptSubmit","prompt":"Agent Lounge check"}' |
   curl "$@" "$plain")
 echo "check: ${code:-000}"
 s="$HOME/.claude/settings.json"

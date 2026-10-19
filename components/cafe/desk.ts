@@ -1,4 +1,5 @@
 import { CafeLayout, rng } from "@/lib/cafe/layout";
+import type { Ui } from "@/lib/i18n";
 import { AgentDef, PotLevel } from "@/lib/types";
 import { Ctx, LINE, px, shade } from "./pixel";
 
@@ -67,6 +68,11 @@ export function drawPot(ctx: Ctx, X: number, T: number, fill: number, t: number)
 type Prop = "cactus" | "duck" | "cans" | "books" | "lamp" | "none";
 const PROPS: Prop[] = ["cactus", "duck", "cans", "books", "lamp", "none"];
 export const PROP_NAMES = ["кактус", "качка", "банки", "книжки", "лампа", "нічого"] as const;
+export const PROP_NAMES_EN = ["cactus", "duck", "cans", "books", "lamp", "nothing"] as const;
+
+/** What stands on desk prop `i`, in the viewer's language. */
+export const propName = (i: number, ui: Ui = "uk"): string =>
+  (ui === "en" ? PROP_NAMES_EN : PROP_NAMES)[i % PROP_NAMES.length];
 
 function drawProp(ctx: Ctx, X: number, T: number, prop: Prop, r: () => number) {
   const L = X - 20;

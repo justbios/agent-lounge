@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { ROOM_KEY } from "@/lib/live/hookConfig.mjs";
 import { saveKey } from "@/lib/live/relayKey";
+import { useTr } from "@/lib/i18n";
 
 /** A home-screen app on iPhone keeps its own storage, so the link from another device is pasted here once. */
 const HINT = "Уже підключав на іншому пристрої? Встав посилання з ключем:";
+const HINT_EN = "Already connected on another device? Paste the link with the key:";
 
-export default function KeyPaste({ hint = HINT }: { hint?: string }) {
+export default function KeyPaste({ hint }: { hint?: string }) {
+  const t = useTr();
   const [text, setText] = useState("");
   const [bad, setBad] = useState(false);
   const submit = () => {
@@ -24,7 +27,7 @@ export default function KeyPaste({ hint = HINT }: { hint?: string }) {
         submit();
       }}
     >
-      <span className="key-paste-hint">{hint}</span>
+      <span className="key-paste-hint">{hint ?? t(HINT, HINT_EN)}</span>
       <span className="key-paste-row">
         <input
           value={text}
@@ -38,10 +41,10 @@ export default function KeyPaste({ hint = HINT }: { hint?: string }) {
           spellCheck={false}
         />
         <button className="btn" type="submit">
-          відкрити
+          {t("відкрити", "open")}
         </button>
       </span>
-      {bad && <span className="key-paste-bad">У цьому тексті немає ключа Agent Lounge.</span>}
+      {bad && <span className="key-paste-bad">{t("У цьому тексті немає ключа Agent Lounge.", "There's no Agent Lounge key in this text.")}</span>}
     </form>
   );
 }

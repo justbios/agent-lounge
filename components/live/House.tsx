@@ -2,6 +2,8 @@
 
 import { CSSProperties, ReactNode, useState } from "react";
 import { flushSync } from "react-dom";
+import { Ui, enPlural, tr, useUi } from "@/lib/i18n";
+import { attentionText } from "@/lib/live/attention";
 import { Floor, LOBBY } from "@/lib/live/house";
 import { BRAND, Interior } from "@/lib/live/interior";
 import { LiveScene, LiveSession } from "@/lib/live/liveModel";
@@ -20,7 +22,8 @@ interface Look {
   interior: Interior;
 }
 
-const FLAG_ERR = (err: string) => (err === "rate_limit" ? "! ліміт" : "! помилка");
+const FLAG_ERR = (err: string, ui: Ui) =>
+  err === "rate_limit" ? tr(ui, "! ліміт", "! limit") : tr(ui, "! помилка", "! error");
 
 function Hall({
   id,
@@ -54,12 +57,15 @@ function Hall({
   asleep: boolean;
   onOpen: (id: string) => void;
 }) {
+  const ui = useUi();
   return (
     <button className={`hall ${on ? "on" : ""} ${flag ? `attn-${flag}` : ""}`} onClick={() => onOpen(id)}>
       <span className="hall-pic" style={named ? ({ viewTransitionName: ZOOM_NAME } as CSSProperties) : undefined}>
         <MiniCafe model={scene.model} origin={scene.origin} alert={alert} asleep={asleep} {...look} />
         {flag && (
-          <span className={`chat-flag flag-${flag}`}>{flag === "ask" ? "! чекає" : err ? FLAG_ERR(err) : "✓ твоя черга"}</span>
+          <span className={`chat-flag flag-${flag}`}>
+            {flag === "ask" ? tr(ui, "! чекає", "! waiting") : err ? FLAG_ERR(err, ui) : tr(ui, "✓ твоя черга", "✓ your turn")}
+          </span>
         )}
       </span>
       <span className="hall-hd">
@@ -108,6 +114,7 @@ export default function House({
   tools?: ReactNode;
   onOpen: (id: string) => void;
 }) {
+  const ui = useUi();
   const [target, setTarget] = useState<string | null>(null);
   const named = target ?? current;
   const open = (id: string) => {
@@ -120,11 +127,11 @@ export default function House({
   return (
     <section className="card house-card">
       <div className="card-hd">
-        <span className="card-ttl">{title ?? "інтернет-кафе"}</span>
+        <span className="card-ttl">{title ?? tr(ui, "інтернет-кафе", "internet café")}</span>
         <div className="stage-tools">
           <span className="muted-sm">
-            {rooms} {plural(rooms, "зала", "зали", "зал")}
-            <span className="house-hint"> · клікни, щоб наблизити</span>
+            {tr(ui, `${rooms} ${plural(rooms, "зала", "зали", "зал")}`, `${rooms} ${enPlural(rooms, "room", "rooms")}`)}
+            <span className="house-hint"> · {tr(ui, "клікни, щоб наблизити", "click to zoom in")}</span>
           </span>
           {tools}
         </div>
@@ -147,8 +154,8 @@ export default function House({
                     id={s.id}
                     scene={scene}
                     title={s.label}
-                    sub={ago(now - s.last)}
-                    ask={w?.kind === "ask" ? w.text : s.ask}
+                    sub={ago(now - s.last, ui)}
+                    ask={w?.kind === "ask" ? attentionText(w, ui) : s.ask}
                     flag={w?.kind}
                     err={w?.err}
                     alert={alertOf(s, scene, waiting)}
@@ -166,13 +173,17 @@ export default function House({
         ))}
         {lobby && team && (
           <div className="house-floor lobby">
-            <span className="house-plate">лобі</span>
+            <span className="house-plate">{tr(ui, "лобі", "lobby")}</span>
             <div className="house-halls">
               <Hall
                 id={LOBBY}
                 scene={team}
-                title="уся команда"
-                sub={`${team.model.agents.length} ${plural(team.model.agents.length, "стіл", "столи", "столів")}`}
+                title={tr(ui, "уся команда", "the whole team")}
+                sub={tr(
+                  ui,
+                  `${team.model.agents.length} ${plural(team.model.agents.length, "стіл", "столи", "столів")}`,
+                  `${team.model.agents.length} ${enPlural(team.model.agents.length, "desk", "desks")}`,
+                )}
                 flag={lobbyAlert?.kind}
                 alert={lobbyAlert}
                 busy={false}

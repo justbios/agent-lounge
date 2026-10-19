@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { uiNow } from "@/lib/i18n";
 import { supabase } from "@/lib/supabaseClient";
 import { BUS_EVENTS, Bus } from "./bus";
 import { useAccess } from "./access";
@@ -83,7 +84,7 @@ export function useSocial({
     () =>
       bus.on("react", (p) => {
         const now = Date.now();
-        const x = cleanReaction(p, now);
+        const x = cleanReaction(p, now, uiNow());
         if (x) setReactions((list) => addReaction(list, x, now));
       }),
     [bus],
@@ -106,7 +107,7 @@ export function useSocial({
     for (const ev of BUS_EVENTS) c.on("broadcast", { event: ev }, ({ payload }) => live && bus.emit(ev, payload));
     c.on("presence", { event: "sync" }, () => {
       if (!live) return;
-      setSeen({ id, guests: guestsOf(c.presenceState(), self) });
+      setSeen({ id, guests: guestsOf(c.presenceState(), self, uiNow()) });
       const d = discOf(c.presenceState(), Date.now());
       if (d) setHeard(take(id, d));
     }).subscribe((status) => {

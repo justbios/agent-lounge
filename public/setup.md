@@ -65,7 +65,7 @@ echo '{"session_id":"relay-setup-check","cwd":"'"$HOME"'/agent-lounge","hook_eve
 
 `204` means it works. Then tell the user:
 
-- Open **http://127.0.0.1:3737** and pick **наживо** (live). Each Claude Code chat gets its own tab. Every agent from the project's `.claude/agents/` sits at a desk, even when idle.
+- Open **http://127.0.0.1:3737** and pick **live** (**наживо** in Ukrainian). Each Claude Code chat gets its own tab. Every agent from the project's `.claude/agents/` sits at a desk, even when idle.
 - New Claude Code sessions report straight away. The desktop app also picks the hooks up in chats that are already open. A terminal `claude` session needs a restart.
 - After a reboot, start Agent Lounge again with `cd ~/agent-lounge && npm run up`.
 - To update: `cd ~/agent-lounge && git pull && npm install && npm run up -- --restart`.

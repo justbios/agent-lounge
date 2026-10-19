@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Play, Pause, RotateCcw, Zap, Package, Coins, Layers, Coffee, GitBranch, Dices } from "lucide-react";
-import { AGENTS, AgentDef } from "@/lib/types";
+import { Two, useTr, useUi } from "@/lib/i18n";
+import { DEMO_AGENTS, DemoAgent, demoAgent } from "@/lib/types";
 import { buildMockRun } from "@/lib/mockRun";
 import { useReplay } from "@/lib/useReplay";
 import { getStageState } from "@/lib/stage";
@@ -17,19 +18,19 @@ const XP_PER_HANDOFF = 18;
 const XP_PER_LEVEL = 120;
 const CAFE_TAIL_MS = 2600;
 
-const byId = Object.fromEntries(AGENTS.map((a) => [a.id, a]));
-const MINI: AgentDef[] = [byId.intake, byId.planner, byId.coder, byId.deployer];
-const EXTRA: AgentDef[] = [
-  { id: "security", name: "Security", role: "аудит безпеки", color: "#f87171", icon: "eye", workMs: 1800, tool: "scan", work: "шукає вразливості", handoff: "віддає звіт", tokens: 900 },
-  { id: "docs", name: "Docs", role: "пише доки", color: "#a3e635", icon: "clipboard", workMs: 1500, tool: "write_docs", work: "оновлює документацію", handoff: "передає доки", tokens: 640 },
-  { id: "perf", name: "Perf", role: "оптимізує", color: "#2dd4bf", icon: "cpu", workMs: 1700, tool: "profile", work: "профілює й прискорює", handoff: "віддає метрики", tokens: 720 },
-  { id: "release", name: "Release", role: "реліз-менеджер", color: "#c084fc", icon: "rocket", workMs: 1400, tool: "tag_release", work: "готує реліз-ноти", handoff: "дає добро", tokens: 500 },
+const byId = Object.fromEntries(DEMO_AGENTS.map((a) => [a.id, a]));
+const MINI: DemoAgent[] = [byId.intake, byId.planner, byId.coder, byId.deployer];
+const EXTRA: DemoAgent[] = [
+  { id: "security", name: "Security", role: { uk: "аудит безпеки", en: "security audit" }, color: "#f87171", icon: "eye", workMs: 1800, tool: "scan", work: { uk: "шукає вразливості", en: "hunting for vulnerabilities" }, handoff: { uk: "віддає звіт", en: "handing over the report" }, tokens: 900 },
+  { id: "docs", name: "Docs", role: { uk: "пише доки", en: "writes docs" }, color: "#a3e635", icon: "clipboard", workMs: 1500, tool: "write_docs", work: { uk: "оновлює документацію", en: "updating the docs" }, handoff: { uk: "передає доки", en: "passing the docs" }, tokens: 640 },
+  { id: "perf", name: "Perf", role: { uk: "оптимізує", en: "optimizes" }, color: "#2dd4bf", icon: "cpu", workMs: 1700, tool: "profile", work: { uk: "профілює й прискорює", en: "profiling and speeding up" }, handoff: { uk: "віддає метрики", en: "handing over metrics" }, tokens: 720 },
+  { id: "release", name: "Release", role: { uk: "реліз-менеджер", en: "release manager" }, color: "#c084fc", icon: "rocket", workMs: 1400, tool: "tag_release", work: { uk: "готує реліз-ноти", en: "writing release notes" }, handoff: { uk: "дає добро", en: "giving the go-ahead" }, tokens: 500 },
 ];
-const BIG: AgentDef[] = [...AGENTS.slice(0, 7), ...EXTRA, AGENTS[7]];
+const BIG: DemoAgent[] = [...DEMO_AGENTS.slice(0, 7), ...EXTRA, DEMO_AGENTS[7]];
 
-const RANDOM = "🎲 випадково";
+const RANDOM = "random";
 
-function randomCrew(seed: number): AgentDef[] {
+function randomCrew(seed: number): DemoAgent[] {
   const r = rng(seed * 13 + 1);
   const n = 3 + Math.floor(r() * 10);
   const picked = BIG.map((a, i) => ({ a, i, k: r() }))
@@ -40,23 +41,25 @@ function randomCrew(seed: number): AgentDef[] {
   return picked;
 }
 
-const PRESETS: Record<string, (seed: number) => AgentDef[]> = {
-  [RANDOM]: randomCrew,
-  "8 · повний": () => AGENTS,
-  "4 · міні": () => MINI,
-  "12 · макс": () => BIG,
+const PRESETS: Record<string, { label: Two; crew: (seed: number) => DemoAgent[] }> = {
+  [RANDOM]: { label: { uk: "🎲 випадково", en: "🎲 random" }, crew: randomCrew },
+  full: { label: { uk: "8 · повний", en: "8 · full" }, crew: () => DEMO_AGENTS },
+  mini: { label: { uk: "4 · міні", en: "4 · mini" }, crew: () => MINI },
+  max: { label: { uk: "12 · макс", en: "12 · max" }, crew: () => BIG },
 };
 
 export default function PipelineDashboard() {
+  const ui = useUi();
+  const t = useTr();
   const [preset, setPreset] = useState(RANDOM);
   const [seed, setSeed] = useState(7);
   const [view, setView] = useState<"game" | "diagram">("game");
   const { run, cafe } = useMemo(() => {
-    const agents = PRESETS[preset](seed);
+    const agents = PRESETS[preset].crew(seed).map((a) => demoAgent(a, ui));
     const lay = cafeLayout(agents.length, seed);
-    const run = buildMockRun(agents, "run_demo", { travelMs: (i) => cafeTravelMs(lay, i), tailMs: CAFE_TAIL_MS });
-    return { run, cafe: modelFromRun(run, lay, seed) };
-  }, [preset, seed]);
+    const run = buildMockRun(agents, "run_demo", { travelMs: (i) => cafeTravelMs(lay, i), tailMs: CAFE_TAIL_MS, ui });
+    return { run, cafe: modelFromRun(run, lay, seed, ui) };
+  }, [preset, seed, ui]);
   const { clock, cycle, playing, speed, setPlaying, setSpeed, restart } = useReplay(run.totalMs);
 
   const n = run.agents.length;
@@ -79,14 +82,14 @@ export default function PipelineDashboard() {
   const st = getStageState(clock, run);
   const activeIdx = st.travelFrom != null ? st.travelFrom : st.activeIndex >= 0 ? st.activeIndex : 0;
   const active = run.agents[activeIdx];
-  const activeLabel = st.travelFrom != null ? `${active.name} → передача` : `${active.name} · ${active.role}`;
+  const activeLabel = st.travelFrom != null ? `${active.name} → ${t("передача", "handoff")}` : `${active.name} · ${active.role}`;
 
   return (
     <>
 
       <div className="statbar">
         <span className="level-pill">
-          <Zap size={14} /> рівень {level}
+          <Zap size={14} /> {t("рівень", "level")} {level}
         </span>
         <div className="xp">
           <div className="xp-track">
@@ -101,30 +104,35 @@ export default function PipelineDashboard() {
         <div className="stat">
           <span className="stat-k">
             <Package size={11} style={{ display: "inline", verticalAlign: "-1px", marginRight: 4 }} />
-            передач
+            {t("передач", "handoffs")}
           </span>
           <span className="stat-v">{delivered}</span>
         </div>
         <div className="stat">
           <span className="stat-k">
             <Coins size={11} style={{ display: "inline", verticalAlign: "-1px", marginRight: 4 }} />
-            токенів
+            {t("токенів", "tokens")}
           </span>
-          <span className="stat-v">{totalTokens.toLocaleString("uk-UA")}</span>
+          <span className="stat-v">{totalTokens.toLocaleString(ui === "en" ? "en-GB" : "uk-UA")}</span>
         </div>
         <div className="stat">
           <span className="stat-k">
             <Layers size={11} style={{ display: "inline", verticalAlign: "-1px", marginRight: 4 }} />
-            цикл
+            {t("цикл", "cycle")}
           </span>
           <span className="stat-v">{cycle}</span>
         </div>
 
         <div className="controls">
-          <select className="preset" value={preset} onChange={(e) => setPreset(e.target.value)} aria-label="розмір пайплайну">
-            {Object.keys(PRESETS).map((k) => (
+          <select
+            className="preset"
+            value={preset}
+            onChange={(e) => setPreset(e.target.value)}
+            aria-label={t("розмір пайплайну", "pipeline size")}
+          >
+            {Object.entries(PRESETS).map(([k, p]) => (
               <option key={k} value={k}>
-                {k}
+                {p.label[ui]}
               </option>
             ))}
           </select>
@@ -134,16 +142,16 @@ export default function PipelineDashboard() {
               setSeed(Math.floor(Math.random() * 1e6));
               restart();
             }}
-            aria-label="перемішати кафе"
-            title="перемішати кафе"
+            aria-label={t("перемішати кафе", "shuffle the café")}
+            title={t("перемішати кафе", "shuffle the café")}
           >
             <Dices size={15} />
           </button>
           <button className="btn btn-primary" onClick={() => setPlaying(!playing)}>
             {playing ? <Pause size={15} /> : <Play size={15} />}
-            {playing ? "пауза" : "грати"}
+            {playing ? t("пауза", "pause") : t("грати", "play")}
           </button>
-          <button className="btn" onClick={restart} aria-label="почати спочатку">
+          <button className="btn" onClick={restart} aria-label={t("почати спочатку", "start over")}>
             <RotateCcw size={15} />
           </button>
           <span className="speed">
@@ -157,10 +165,10 @@ export default function PipelineDashboard() {
         <div className="card-hd">
           <div className="viewseg">
             <button className={view === "game" ? "on" : ""} onClick={() => setView("game")}>
-              <Coffee size={13} /> кафе
+              <Coffee size={13} /> {t("кафе", "café")}
             </button>
             <button className={view === "diagram" ? "on" : ""} onClick={() => setView("diagram")}>
-              <GitBranch size={13} /> схема
+              <GitBranch size={13} /> {t("схема", "diagram")}
             </button>
           </div>
           <span className="hd-active">
@@ -179,9 +187,19 @@ export default function PipelineDashboard() {
       </div>
 
       <p className="foot">
-        Це <strong>replay</strong>-демо. Перемкни <strong>розмір пайплайну</strong> вгорі — і схема, і інтернет-кафе
-        самі розставлять будь-яке N агентів. Наживо список агентів (назви, ролі, порядок) приходить із хуків твого Claude
-        Code — нічого хардкодити.
+        {ui === "en" ? (
+          <>
+            This is a <strong>replay</strong> demo. Switch the <strong>pipeline size</strong> up top, and both the
+            diagram and the internet café lay out any number of agents on their own. Live, the agent list (names, roles,
+            order) comes from your Claude Code&apos;s hooks, nothing hard-coded.
+          </>
+        ) : (
+          <>
+            Це <strong>replay</strong>-демо. Перемкни <strong>розмір пайплайну</strong> вгорі — і схема, і інтернет-кафе
+            самі розставлять будь-яке N агентів. Наживо список агентів (назви, ролі, порядок) приходить із хуків твого
+            Claude Code — нічого хардкодити.
+          </>
+        )}
       </p>
     </>
   );

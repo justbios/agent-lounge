@@ -1,3 +1,4 @@
+import { Ui, enPlural, tr } from "@/lib/i18n";
 import { agentColor } from "@/lib/live/liveModel";
 import { Summary } from "@/lib/live/recap";
 
@@ -16,10 +17,13 @@ export interface CardInput {
   date: string;
   scene: HTMLCanvasElement | null;
   site: string;
+  /** the language the card's own words are drawn in */
+  ui: Ui;
 }
 
 /** A portrait PNG of the day for sharing: the café as it looks now, the day's numbers and the busiest agents. */
 export async function drawDayCard(c: CardInput): Promise<Blob> {
+  const t = (uk: string, en: string) => tr(c.ui, uk, en);
   await document.fonts?.ready;
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -44,7 +48,7 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
   ctx.shadowBlur = 0;
   ctx.font = pixelFont(58, 700);
   ctx.fillStyle = "#f3f0ff";
-  ctx.fillText("Мій день з Claude Code", PAD, 100);
+  ctx.fillText(t("Мій день з Claude Code", "My day with Claude Code"), PAD, 100);
   ctx.font = pixelFont(30);
   ctx.fillStyle = "#99a2b4";
   ctx.fillText(c.date, PAD, 176);
@@ -60,13 +64,14 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
     y += h + 50;
   }
 
+  const { prompts, tools, dispatches, minutes, chats } = c.day;
   const stats: [string, number | string][] = [
-    ["питань", c.day.prompts],
-    ["дій інструментами", c.day.tools],
-    ["доручень агентам", c.day.dispatches],
-    ["хвилин роботи", c.day.minutes],
-    ["чатів", c.day.chats],
-    ["днів поспіль", c.streak],
+    [t("питань", enPlural(prompts, "question", "questions")), prompts],
+    [t("дій інструментами", enPlural(tools, "tool action", "tool actions")), tools],
+    [t("доручень агентам", enPlural(dispatches, "handoff to agents", "handoffs to agents")), dispatches],
+    [t("хвилин роботи", enPlural(minutes, "minute of work", "minutes of work")), minutes],
+    [t("чатів", enPlural(chats, "chat", "chats")), chats],
+    [t("днів поспіль", enPlural(c.streak, "day in a row", "days in a row")), c.streak],
   ];
   const colW = (W - PAD * 2) / 3;
   stats.forEach(([label, value], i) => {
@@ -84,7 +89,7 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
   if (c.day.agents.length) {
     ctx.font = pixelFont(28, 700);
     ctx.fillStyle = "#e9ebf2";
-    ctx.fillText("Найзайнятіші агенти", PAD, y);
+    ctx.fillText(t("Найзайнятіші агенти", "Busiest agents"), PAD, y);
     y += 50;
     const max = c.day.agents[0][1];
     for (const [name, n] of c.day.agents.slice(0, 3)) {
@@ -112,7 +117,7 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
     y += 22;
     ctx.font = pixelFont(28, 700);
     ctx.fillStyle = "#e9ebf2";
-    ctx.fillText("Інструменти", PAD, y);
+    ctx.fillText(t("Інструменти", "Tools"), PAD, y);
     y += 50;
     ctx.font = pixelFont(26);
     let x = PAD;
@@ -131,7 +136,11 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
   ctx.font = pixelFont(24);
   ctx.fillStyle = "#5d6577";
   ctx.textAlign = "left";
-  ctx.fillText("зібрано з хуків Claude Code, без жодного токена", PAD, H - 70);
+  ctx.fillText(
+    t("зібрано з хуків Claude Code, без жодного токена", "built from Claude Code hooks, not a single token spent"),
+    PAD,
+    H - 70,
+  );
   ctx.textAlign = "right";
   ctx.fillStyle = "#99a2b4";
   ctx.fillText(c.site, W - PAD, H - 70);

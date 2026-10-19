@@ -1,3 +1,4 @@
+import type { Ui } from "@/lib/i18n";
 import { MockRun } from "@/lib/mockRun";
 import { AgentDef, AgentEvent } from "@/lib/types";
 import { CafeLayout, GIVE_MS, SIT_MS, STAND_MS, WALK_PX_PER_MS, handoffPath, pathLength } from "./layout";
@@ -20,6 +21,8 @@ export interface Note {
   text: string;
   /** the same in plain words, for the viewer's language */
   say?: Say;
+  /** the same line as its parts, when the café wrote it, for technical mode in the viewer's language */
+  tech?: Say;
   /** goes before the plain words: whose subagent it is in a team café */
   pre?: string;
   tool?: string;
@@ -89,29 +92,32 @@ export function scheduleTrips(reqs: TripRequest[], lay: CafeLayout, basePace = 1
     });
 }
 
-function noteOf(e: AgentEvent): Note | null {
+function noteOf(e: AgentEvent, ui: Ui): Note | null {
+  const t = (uk: string, en: string) => (ui === "en" ? en : uk);
   switch (e.type) {
     case "start":
-      return { key: e.id, ts: e.ts, text: e.payload?.label ?? e.agent_role ?? "береться до роботи", tone: "work" };
+      return { key: e.id, ts: e.ts, text: e.payload?.label ?? e.agent_role ?? t("береться до роботи", "getting to work"), tone: "work" };
     case "thinking":
-      return { key: e.id, ts: e.ts, text: e.payload?.summary ?? "думає…", tone: "work" };
+      return { key: e.id, ts: e.ts, text: e.payload?.summary ?? t("думає…", "thinking…"), tone: "work" };
     case "tool_call":
-      return { key: e.id, ts: e.ts, text: e.payload?.summary ?? "працює", tool: e.payload?.tool, tone: "work" };
+      return { key: e.id, ts: e.ts, text: e.payload?.summary ?? t("працює", "working"), tool: e.payload?.tool, tone: "work" };
     case "complete":
       return {
         key: e.id,
         ts: e.ts,
-        text: e.payload?.tokens ? `готово ✓ · ${e.payload.tokens} ток.` : "готово ✓",
+        text: e.payload?.tokens
+          ? t(`готово ✓ · ${e.payload.tokens} ток.`, `done ✓ · ${e.payload.tokens} tok.`)
+          : t("готово ✓", "done ✓"),
         tone: "done",
       };
     case "error":
-      return { key: e.id, ts: e.ts, text: e.payload?.summary ?? "помилка", tone: "error" };
+      return { key: e.id, ts: e.ts, text: e.payload?.summary ?? t("помилка", "error"), tone: "error" };
     case "handoff":
       return null;
   }
 }
 
-export function modelFromRun(run: MockRun, lay: CafeLayout, seed: number): CafeModel {
+export function modelFromRun(run: MockRun, lay: CafeLayout, seed: number, ui: Ui = "uk"): CafeModel {
   const index = new Map(run.agents.map((a, i) => [a.id, i]));
   const notes: Note[][] = run.agents.map(() => []);
   const reqs: TripRequest[] = [];
@@ -121,11 +127,11 @@ export function modelFromRun(run: MockRun, lay: CafeLayout, seed: number): CafeM
     if (e.type === "handoff") {
       const to = e.to_agent != null ? index.get(e.to_agent) : undefined;
       if (to == null) continue;
-      const label = e.payload?.label ?? "передає далі";
+      const label = e.payload?.label ?? (ui === "en" ? "passing it on" : "передає далі");
       reqs.push({ key: e.id, from: i, to, ts: e.ts, label: `${label} → ${run.agents[to].name}` });
       continue;
     }
-    const n = noteOf(e);
+    const n = noteOf(e, ui);
     if (n) notes[i].push(n);
   }
   return {

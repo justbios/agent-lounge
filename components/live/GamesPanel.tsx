@@ -2,7 +2,8 @@
 
 import { ReactNode, useEffect, useEffectEvent } from "react";
 import { X } from "lucide-react";
-import { DUEL_NAMES, DuelKind, TURN_BASED } from "@/lib/live/duel";
+import { useTr, useUi } from "@/lib/i18n";
+import { DuelKind, TURN_BASED, duelName } from "@/lib/live/duel";
 import { Guest } from "@/lib/live/social";
 import { Checkers } from "@/lib/live/useCheckers";
 import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
@@ -20,6 +21,7 @@ const played = (rows: ScoreRow[], game: Game, by: "wins" | "best") =>
   rows.filter((r) => r.game === game && (by === "best" ? r.best > 0 : r.played > 0));
 
 function Leaders({ rows, game, by, me }: { rows: ScoreRow[]; game: Game; by: "wins" | "best"; me: string }) {
+  const t = useTr();
   const list = played(rows, game, by)
     .sort((a, b) => (by === "best" ? b.best - a.best : b.wins - a.wins || a.played - b.played))
     .slice(0, TOP);
@@ -30,7 +32,7 @@ function Leaders({ rows, game, by, me }: { rows: ScoreRow[]; game: Game; by: "wi
         <li key={r.player} className={r.player === me ? "me" : ""}>
           <span className="ld-n">{i + 1}</span>
           <span className="ld-who">{r.player}</span>
-          <b>{by === "best" ? r.best : `${r.wins} з ${r.played}`}</b>
+          <b>{by === "best" ? r.best : t(`${r.wins} з ${r.played}`, `${r.wins} of ${r.played}`)}</b>
         </li>
       ))}
     </ol>
@@ -67,6 +69,8 @@ export default function GamesPanel({
   me: string;
   onClose: () => void;
 }) {
+  const ui = useUi();
+  const t = useTr();
   const shut = () => {
     if (duels.match && !TURN_BASED.includes(duels.match.kind)) duels.close();
     onClose();
@@ -81,20 +85,20 @@ export default function GamesPanel({
 
   return (
     <div className="recap-backdrop" onClick={shut}>
-      <div className="recap games" role="dialog" aria-label="ігри" onClick={(e) => e.stopPropagation()}>
+      <div className="recap games" role="dialog" aria-label={t("ігри", "games")} onClick={(e) => e.stopPropagation()}>
         <div className="recap-hd">
-          <div className="recap-ttl">Ігри</div>
-          <button className="btn recap-x" onClick={shut} aria-label="закрити">
+          <div className="recap-ttl">{t("Ігри", "Games")}</div>
+          <button className="btn recap-x" onClick={shut} aria-label={t("закрити", "close")}>
             <X size={15} />
           </button>
         </div>
 
-        <Section title="Денді">
+        <Section title={t("Денді", "NES")}>
           <Dendy />
         </Section>
 
         <div className="games-row">
-          <Section title="Удвох">
+          <Section title={t("Удвох", "For two")}>
             <Duels
               duels={duels}
               ttt={ttt}
@@ -110,21 +114,21 @@ export default function GamesPanel({
             <div className="leaders-2">
               {BOARDS.filter((k) => played(scores.rows, k, "wins").length > 0).map((k) => (
                 <div key={k}>
-                  <div className="muted-sm">{DUEL_NAMES[k]}</div>
+                  <div className="muted-sm">{duelName(k, ui)}</div>
                   <Leaders rows={scores.rows} game={k} by="wins" me={me} />
                 </div>
               ))}
             </div>
           </Section>
 
-          <Section title="Лови чашки">
+          <Section title={t("Лови чашки", "Catch the Cups")}>
             <CatchCups best={best} onFinish={(n) => scores.record(me, "cups", false, n)} />
             <Leaders rows={scores.rows} game="cups" by="best" me={me} />
           </Section>
         </div>
 
         {played(scores.rows, "bets", "wins").length > 0 && (
-          <Section title="Ставки">
+          <Section title={t("Ставки", "Bets")}>
             <Leaders rows={scores.rows} game="bets" by="wins" me={me} />
           </Section>
         )}

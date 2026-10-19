@@ -1,13 +1,13 @@
 ---
-description: Turn «я не за комп'ютером» on or off for this computer, or pair a phone that may answer Claude from the Agent Lounge café. Takes on, off, pair, pair new or nothing for the current state.
+description: Turn away mode («я не за комп'ютером», "I'm away") on or off for this computer, or pair a phone that may answer Claude from the Agent Lounge café. Takes on, off, pair, pair new or nothing for the current state.
 argument-hint: "on | off | pair | pair new"
 disable-model-invocation: true
 allowed-tools: Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh" away *), Bash(sh "${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh" pair*)
 ---
 
-While «я не за комп'ютером» is on, Claude's permission prompts, questions and plans from this computer wait up to 10
+While away mode is on, Claude's permission prompts, questions and plans from this computer wait up to 10
 minutes in the café, where a phone paired with this computer can answer them. It is switched on only here, on the
-computer; the café can only switch it off («я повернувся»).
+computer; the café can only switch it off ("I'm back", «я повернувся»).
 
 1. Run exactly one of these, by the argument:
    - `on`: `sh "${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh" away on`
@@ -20,7 +20,7 @@ computer; the café can only switch it off («я повернувся»).
    - `away: on` with `until: HH:MM`: on until then (12 hours). If `key: new` is there too, no phone can answer yet:
      tell the user to run `/agent-lounge:away pair` and open the link on the phone they will answer from.
    - `away: off` with `cafe: 403`: the café needs a personal key for this; the owner turns personal keys on at the
-     «підключити Claude» page. Any other `cafe:` code with `away: off`: the café did not answer, nothing changed.
+     "connect Claude" page («підключити Claude»). Any other `cafe:` code with `away: off`: the café did not answer, nothing changed.
    - `link: copied`: the pairing link is in the clipboard. Tell the user to send it to their phone (AirDrop, a note to
      themselves) and open it there in the browser they use for the café; that browser then can answer for this
      computer. The link is a secret: anyone who opens it and also has the café key can answer for this computer.

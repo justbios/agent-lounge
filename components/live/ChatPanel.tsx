@@ -2,19 +2,22 @@
 
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 import { MessageCircle, Send, X } from "lucide-react";
+import { Two, Ui, useTr, useUi } from "@/lib/i18n";
 import { BODY_MAX } from "@/lib/live/chat";
 import { cleanMember } from "@/lib/live/member";
 import { Guest } from "@/lib/live/social";
 import { Chat, SendResult } from "@/lib/live/useChat";
 
-const time = (at: number) => new Date(at).toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" });
+const time = (at: number, ui: Ui) =>
+  new Date(at).toLocaleTimeString(ui === "en" ? "en-GB" : "uk-UA", { hour: "2-digit", minute: "2-digit" });
 
-const SEND_NOTE: Record<Exclude<SendResult, "ok">, string> = {
-  fast: "Забагато повідомлень за хвилину, зачекай трохи.",
-  fail: "Не вдалося надіслати, спробуй ще раз.",
+const SEND_NOTE: Record<Exclude<SendResult, "ok">, Two> = {
+  fast: { uk: "Забагато повідомлень за хвилину, зачекай трохи.", en: "Too many messages this minute, wait a bit." },
+  fail: { uk: "Не вдалося надіслати, спробуй ще раз.", en: "Couldn't send, try again." },
 };
 
 function NameStep({ onName }: { onName: (name: string) => void }) {
+  const t = useTr();
   const [v, setV] = useState("");
   const clean = cleanMember(v);
   return (
@@ -25,11 +28,22 @@ function NameStep({ onName }: { onName: (name: string) => void }) {
         if (clean) onName(clean);
       }}
     >
-      <label htmlFor="chat-name">Як тебе підписати? Це ім&apos;я побачить уся команда.</label>
+      <label htmlFor="chat-name">
+        {t(
+          "Як тебе підписати? Це ім'я побачить уся команда.",
+          "What name goes on your messages? The whole team will see it.",
+        )}
+      </label>
       <div className="key-paste-row">
-        <input id="chat-name" value={v} maxLength={24} placeholder="твоє ім'я" onChange={(e) => setV(e.target.value)} />
+        <input
+          id="chat-name"
+          value={v}
+          maxLength={24}
+          placeholder={t("твоє ім'я", "your name")}
+          onChange={(e) => setV(e.target.value)}
+        />
         <button className="btn" disabled={!clean}>
-          далі
+          {t("далі", "next")}
         </button>
       </div>
     </form>
@@ -37,6 +51,8 @@ function NameStep({ onName }: { onName: (name: string) => void }) {
 }
 
 function Composer({ chat, me }: { chat: Chat; me: string }) {
+  const ui = useUi();
+  const t = useTr();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<Exclude<SendResult, "ok"> | null>(null);
@@ -62,18 +78,18 @@ function Composer({ chat, me }: { chat: Chat; me: string }) {
         value={text}
         rows={2}
         maxLength={BODY_MAX}
-        placeholder={`${me}, напиши команді… (Enter надсилає)`}
-        aria-label="повідомлення в чат кафе"
+        placeholder={t(`${me}, напиши команді… (Enter надсилає)`, `${me}, write to the team… (Enter sends)`)}
+        aria-label={t("повідомлення в чат кафе", "message to the café chat")}
         onChange={(e) => {
           setText(e.target.value);
           setNote(null);
         }}
         onKeyDown={keys}
       />
-      <button className="btn btn-ic" disabled={!body || busy} title="надіслати">
+      <button className="btn btn-ic" disabled={!body || busy} title={t("надіслати", "send")}>
         <Send size={14} />
       </button>
-      {note && <span className="key-paste-bad">{SEND_NOTE[note]}</span>}
+      {note && <span className="key-paste-bad">{SEND_NOTE[note][ui]}</span>}
     </form>
   );
 }
@@ -96,6 +112,8 @@ export default function ChatPanel({
   onName: (name: string) => void;
   onClose: () => void;
 }) {
+  const ui = useUi();
+  const t = useTr();
   const listRef = useRef<HTMLDivElement>(null);
   const count = chat.msgs.length;
 
@@ -110,16 +128,20 @@ export default function ChatPanel({
     return () => document.removeEventListener("keydown", esc);
   }, [onClose]);
 
-  const names = here.map((g) => (g.me ? "ти" : g.name));
+  const names = here.map((g) => (g.me ? t("ти", "you") : g.name));
   return (
-    <aside className="chat-panel" role="dialog" aria-label="чат кафе">
+    <aside className="chat-panel" role="dialog" aria-label={t("чат кафе", "café chat")}>
       <div className="chat-hd">
         <MessageCircle size={15} />
         <div className="chat-ttl">
-          <b>Чат кафе</b>
-          <span className="muted-sm">{names.length ? `біля бару: ${names.join(", ")}` : "усі, хто має це кафе"}</span>
+          <b>{t("Чат кафе", "Café chat")}</b>
+          <span className="muted-sm">
+            {names.length
+              ? t(`біля бару: ${names.join(", ")}`, `at the bar: ${names.join(", ")}`)
+              : t("усі, хто має це кафе", "everyone who has this café")}
+          </span>
         </div>
-        <button className="btn btn-ic" onClick={onClose} aria-label="закрити">
+        <button className="btn btn-ic" onClick={onClose} aria-label={t("закрити", "close")}>
           <X size={14} />
         </button>
       </div>
@@ -127,8 +149,14 @@ export default function ChatPanel({
         {!count && (
           <p className={chat.error ? "key-paste-bad" : "alerts-hint"}>
             {chat.error
-              ? "Не вдалося дістати повідомлення, спробую ще раз за хвилину."
-              : "Тут ще тихо. Напиши першим: побачать усі, хто відкрив це кафе."}
+              ? t(
+                  "Не вдалося дістати повідомлення, спробую ще раз за хвилину.",
+                  "Couldn't load messages, I'll try again in a minute.",
+                )
+              : t(
+                  "Тут ще тихо. Напиши першим: побачать усі, хто відкрив це кафе.",
+                  "It's quiet here. Say something first: everyone who opens this café will see it.",
+                )}
           </p>
         )}
         {chat.msgs.map((m, i) => {
@@ -139,7 +167,7 @@ export default function ChatPanel({
               {head && (
                 <div className="chat-who">
                   <b style={{ color: colorOf[m.author] }}>{m.author}</b>
-                  <span>{time(m.at)}</span>
+                  <span>{time(m.at, ui)}</span>
                 </div>
               )}
               <p>{m.body}</p>
@@ -148,7 +176,12 @@ export default function ChatPanel({
         })}
       </div>
       {!chat.canWrite ? (
-        <p className="alerts-hint chat-ro">Лише перегляд: писати можуть ті, в кого є ключ цього кафе.</p>
+        <p className="alerts-hint chat-ro">
+          {t(
+            "Лише перегляд: писати можуть ті, в кого є ключ цього кафе.",
+            "View only: anyone with this café's key can write.",
+          )}
+        </p>
       ) : me ? (
         <Composer chat={chat} me={me} />
       ) : (

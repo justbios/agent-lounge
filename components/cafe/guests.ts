@@ -1,3 +1,4 @@
+import type { Ui } from "@/lib/i18n";
 import { Guest } from "@/lib/live/social";
 import { Look, drawSeated, lookFor } from "./people";
 import { Ctx } from "./pixel";
@@ -12,6 +13,8 @@ export interface GuestSeat {
   /** the top of the seat */
   y: number;
   me: boolean;
+  /** what the tag over the stool reads: «ти» for this tab, the name for everyone else */
+  tag: string;
   look: Look;
 }
 
@@ -22,17 +25,18 @@ function hashOf(s: string): number {
 }
 
 /** The first six take the seats at the bar, each with a look that stays the same for that tab; the rest only count. */
-export function seatGuests(guests: Guest[]): GuestSeat[] {
+export function seatGuests(guests: Guest[], ui: Ui = "uk"): GuestSeat[] {
   return guests.slice(0, BAR_SEATS.length).map((g, i) => {
     const h = hashOf(g.id);
     const { x, y } = BAR_SEATS[i];
-    return { id: g.id, name: g.name, x, y, me: !!g.me, look: lookFor(h, COATS[h % COATS.length]) };
+    const tag = g.me ? (ui === "en" ? "you" : "ти") : g.name;
+    return { id: g.id, name: g.name, x, y, me: !!g.me, tag, look: lookFor(h, COATS[h % COATS.length]) };
   });
 }
 
 export const barOverflow = (guests: Guest[]) => Math.max(0, guests.length - BAR_SEATS.length);
 
-export const guestTag = (s: GuestSeat) => (s.me ? "ти" : s.name);
+export const guestTag = (s: GuestSeat) => s.tag;
 
 /** Guests sit with their backs to the room, now and then leaning in to sip. */
 export function drawGuests(ctx: Ctx, seats: GuestSeat[], t: number) {

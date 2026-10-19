@@ -13,8 +13,9 @@ import {
   X,
 } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
+import { useTr, useUi } from "@/lib/i18n";
 import { openTracks } from "@/lib/live/achievements";
-import { ItemId, Placed, itemOf } from "@/lib/live/interior";
+import { ItemId, Placed, itemName, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { Gain } from "@/lib/live/useBeanGains";
 import { CafeState } from "@/lib/live/useCafe";
@@ -22,7 +23,7 @@ import { CafeSound } from "@/lib/live/useCafeSound";
 import { ScenePop } from "../cafe/AgentCard";
 import CafeScene, { Anchor, FixturePick, Placing, SceneAlert } from "../cafe/CafeScene";
 import { SeatReaction } from "../cafe/SceneSocial";
-import { THEMES, THEME_IDS, themeOf } from "../cafe/theme";
+import { THEMES, THEME_IDS, themeOf, themeText } from "../cafe/theme";
 import DoorInvite from "./DoorInvite";
 import { JukeboxList, playingName } from "./Jukebox";
 import Presence from "./Presence";
@@ -50,11 +51,12 @@ function Drawer({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const t = useTr();
   return (
     <aside className={`drawer drawer-${side} ${open ? "on" : ""}`} aria-label={title} aria-hidden={!open} inert={!open}>
       <div className="drawer-hd">
         <span className="card-ttl">{title}</span>
-        <button className="btn recap-x" onClick={onClose} aria-label="закрити">
+        <button className="btn recap-x" onClick={onClose} aria-label={t("закрити", "close")}>
           <X size={15} />
         </button>
       </div>
@@ -64,7 +66,11 @@ function Drawer({
 }
 
 function PlacingBar({ placing, onCancel }: { placing: Placing; onCancel: () => void }) {
+  const ui = useUi();
+  const t = useTr();
   const it = itemOf(placing.item);
+  const name = it ? itemName(it, ui) : "";
+  const sill = it?.place === "sill";
   const cancel = useEffectEvent(onCancel);
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && cancel();
@@ -74,11 +80,18 @@ function PlacingBar({ placing, onCancel }: { placing: Placing; onCancel: () => v
   return (
     <div className="placing-bar" role="status">
       <span>
-        {it?.place === "sill" ? "Постав" : "Став"} «{it?.name}»:{" "}
-        {it?.place === "sill" ? "клацни на підвіконні" : "клацни на вільному місці підлоги"}
+        {ui === "en" ? (
+          <>
+            Place “{name}”: {sill ? "click on the windowsill" : "click a free spot on the floor"}
+          </>
+        ) : (
+          <>
+            {sill ? "Постав" : "Став"} «{name}»: {sill ? "клацни на підвіконні" : "клацни на вільному місці підлоги"}
+          </>
+        )}
       </span>
       <button className="btn" onClick={onCancel}>
-        скасувати
+        {t("скасувати", "cancel")}
       </button>
     </div>
   );
@@ -182,6 +195,8 @@ export default function Stage({
   /** what the latest work earned, floating up from the bean sack */
   gains?: Gain[];
 }) {
+  const ui = useUi();
+  const t = useTr();
   const [pop, setPop] = useState<Pop | null>(null);
   const [drawer, setDrawer] = useState<Side | null>(null);
   const [full, toggleFull] = useFullscreen();
@@ -193,41 +208,48 @@ export default function Stage({
     setTimeout(() => setPop((p) => (p?.kind === "note" && p.id === id ? null : p)), 2400);
   };
   const nextTheme = async (anchor: Anchor) => {
-    const keeper = cafe.kind === "theirs" ? cafe.whose : "власник кафе";
-    if (!cafe.editable) return note(anchor, `вид за вікном змінює ${keeper}`);
+    const keeper = cafe.kind === "theirs" ? cafe.whose : t("власник кафе", "the café owner");
+    if (!cafe.editable) return note(anchor, t(`вид за вікном змінює ${keeper}`, `${keeper} picks the view outside`));
     const next = THEME_IDS[(THEME_IDS.indexOf(theme.id) + 1) % THEME_IDS.length];
-    note(anchor, `за вікном: ${THEMES[next].name.toLowerCase()}`);
-    if (!(await cafe.save({ theme: next }))) note(anchor, "не вдалося змінити, спробуй ще раз");
+    note(anchor, `${t("за вікном", "outside")}: ${themeText(THEMES[next], ui).name.toLowerCase()}`);
+    if (!(await cafe.save({ theme: next }))) {
+      note(anchor, t("не вдалося змінити, спробуй ще раз", "couldn't change it, try again"));
+    }
   };
   const pick = (p: FixturePick | null) => {
     if (!p) return setPop(null);
     if (p.kind === "board") return onRecap();
     if (p.kind === "vending" || p.kind === "beans") return onShop();
     if (p.kind === "window") return nextTheme(p.anchor);
-    if (p.kind === "bar") return onChat ? onChat() : note(p.anchor, "груповий чат є в хмарному кафе");
+    if (p.kind === "bar") {
+      return onChat ? onChat() : note(p.anchor, t("груповий чат є в хмарному кафе", "the group chat lives in the hosted café"));
+    }
     setPop(pop?.kind === "door" ? null : { kind: "door", anchor: p.anchor });
   };
   const flip = (s: Side) => setDrawer(drawer === s ? null : s);
   const menu: MenuItem[] = [
-    ...(onChat ? [{ icon: <MessageCircle size={14} />, label: "чат кафе", onClick: onChat, badge: chatUnread }] : []),
-    { icon: <Gamepad2 size={14} />, label: "ігри", onClick: onGames },
-    { icon: <Users size={14} />, label: "агенти", onClick: () => flip("agents") },
-    { icon: <ScrollText size={14} />, label: "журнал подій", onClick: () => flip("log") },
-    ...(cafe.editable ? [{ icon: <LayoutGrid size={14} />, label: "план кафе", onClick: onPlan }] : []),
+    ...(onChat
+      ? [{ icon: <MessageCircle size={14} />, label: t("чат кафе", "café chat"), onClick: onChat, badge: chatUnread }]
+      : []),
+    { icon: <Gamepad2 size={14} />, label: t("ігри", "games"), onClick: onGames },
+    { icon: <Users size={14} />, label: t("агенти", "agents"), onClick: () => flip("agents") },
+    { icon: <ScrollText size={14} />, label: t("журнал подій", "event log"), onClick: () => flip("log") },
+    ...(cafe.editable ? [{ icon: <LayoutGrid size={14} />, label: t("план кафе", "café plan"), onClick: onPlan }] : []),
   ];
   const place = async (p: Placed) => {
     onPlacing(null);
-    if (!(await cafe.place(p))) note(TOP, "не вдалося поставити, спробуй ще раз");
+    if (!(await cafe.place(p))) note(TOP, t("не вдалося поставити, спробуй ще раз", "couldn't place it, try again"));
   };
   const furn = pop?.kind === "furniture" ? pop : undefined;
   const furnDef = furn && itemOf(furn.item);
+  const furnName = furnDef ? itemName(furnDef, ui) : "";
   const moved = !!furn && cafe.interior.placed.some((p) => p.pid === furn.pid);
 
   const pops =
     furn && furnDef ? (
-      <ScenePop anchor={furn.anchor} label={furnDef.name} onClose={() => setPop(null)}>
+      <ScenePop anchor={furn.anchor} label={furnName} onClose={() => setPop(null)}>
         <div className="furn-pop">
-          <b>{furnDef.name}</b>
+          <b>{furnName}</b>
           <div>
             <button
               className="btn"
@@ -236,7 +258,7 @@ export default function Stage({
                 onPlacing({ item: furn.item, pid: furn.pid });
               }}
             >
-              перемістити
+              {t("перемістити", "move")}
             </button>
             {(!furnDef.decor || moved) && (
               <button
@@ -246,7 +268,7 @@ export default function Stage({
                   void cafe.stow(furn.pid);
                 }}
               >
-                {furnDef.decor ? "на звичне місце" : "прибрати"}
+                {furnDef.decor ? t("на звичне місце", "back to its spot") : t("прибрати", "put away")}
               </button>
             )}
           </div>
@@ -255,13 +277,13 @@ export default function Stage({
     ) : pop?.kind === "machine" ? (
       <ScenePop
         anchor={pop.anchor}
-        label={pop.item === "arcade" ? "ігровий автомат" : "музичний автомат"}
+        label={pop.item === "arcade" ? t("ігровий автомат", "arcade machine") : t("музичний автомат", "jukebox")}
         onClose={() => setPop(null)}
       >
         <div className="juke-pop">
           {pop.item === "arcade" ? (
             <>
-              <b>Ігровий автомат</b>
+              <b>{t("Ігровий автомат", "Arcade machine")}</b>
               <button
                 className="btn"
                 onClick={() => {
@@ -269,12 +291,12 @@ export default function Stage({
                   onGames();
                 }}
               >
-                <Gamepad2 size={14} /> грати
+                <Gamepad2 size={14} /> {t("грати", "play")}
               </button>
             </>
           ) : (
             <>
-              <b>Музичний автомат</b>
+              <b>{t("Музичний автомат", "Jukebox")}</b>
               <JukeboxList sound={sound} open={openTracks(cafe.earned)} />
             </>
           )}
@@ -287,7 +309,7 @@ export default function Stage({
                   onPlacing({ item: pop.item, pid: pop.pid });
                 }}
               >
-                перемістити
+                {t("перемістити", "move")}
               </button>
               <button
                 className="btn"
@@ -296,14 +318,14 @@ export default function Stage({
                   void cafe.stow(pop.pid);
                 }}
               >
-                прибрати
+                {t("прибрати", "put away")}
               </button>
             </div>
           )}
         </div>
       </ScenePop>
     ) : pop?.kind === "door" ? (
-      <ScenePop anchor={pop.anchor} label="запросити команду" onClose={() => setPop(null)}>
+      <ScenePop anchor={pop.anchor} label={t("запросити команду", "invite the team")} onClose={() => setPop(null)}>
         <DoorInvite cloud={cloud} roomKey={roomKey} viewing={viewing} />
       </ScenePop>
     ) : pop?.kind === "note" ? (
@@ -319,7 +341,11 @@ export default function Stage({
     <section className={`card stage-card ${full ? "stage-full" : ""} ${onHouse ? "zoomed" : ""}`}>
       <div className="card-hd">
         {onHouse && (
-          <button className="btn btn-ic house-back" onClick={onHouse} title="до всього будинку">
+          <button
+            className="btn btn-ic house-back"
+            onClick={onHouse}
+            title={t("до всього будинку", "back to the whole house")}
+          >
             <Building2 size={14} />
           </button>
         )}
@@ -328,7 +354,11 @@ export default function Stage({
           {sub}
           <Presence guests={guests} />
           <SceneMenu items={menu} />
-          <button className="btn btn-ic" onClick={toggleFull} title={full ? "вийти з повного екрана" : "на весь екран"}>
+          <button
+            className="btn btn-ic"
+            onClick={toggleFull}
+            title={full ? t("вийти з повного екрана", "exit full screen") : t("на весь екран", "full screen")}
+          >
             {full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </button>
         </div>
@@ -358,7 +388,7 @@ export default function Stage({
           onMachine={(f, anchor) =>
             f.item === "arcade" && !cafe.editable ? onGames() : setPop({ kind: "machine", ...f, anchor })
           }
-          playing={sound.on ? playingName(sound) : null}
+          playing={sound.on ? playingName(sound, ui) : null}
           beans={cafe.beans.left}
           gains={gains}
           pops={pops}
@@ -368,10 +398,15 @@ export default function Stage({
         {empty}
         {below}
       </div>
-      <Drawer side="left" title="агенти" open={drawer === "agents"} onClose={() => setDrawer(null)}>
+      <Drawer side="left" title={t("агенти", "agents")} open={drawer === "agents"} onClose={() => setDrawer(null)}>
         {agents}
       </Drawer>
-      <Drawer side="right" title="журнал подій" open={drawer === "log"} onClose={() => setDrawer(null)}>
+      <Drawer
+        side="right"
+        title={t("журнал подій", "event log")}
+        open={drawer === "log"}
+        onClose={() => setDrawer(null)}
+      >
         {log}
       </Drawer>
     </section>

@@ -3,6 +3,7 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { FolderOpen, Pause, Play, RotateCcw, X } from "lucide-react";
 import type { Browser, Controller } from "jsnes";
+import { Two, Ui, tr, useTr, useUi } from "@/lib/i18n";
 import { Cart } from "@/lib/live/cartShelf";
 import { NES_GAMES, NesGame, fetchRom, readRom } from "@/lib/live/nesGames";
 import { CartShelf, useCartShelf } from "./CartShelf";
@@ -43,14 +44,20 @@ const TWO: Key[] = [
 ];
 
 const FAILS = {
-  big: "Файл завеликий для гри з Денді.",
-  notnes: "Це не файл гри для Денді: потрібен .nes.",
-  net: "Не вдалося завантажити гру, спробуй ще раз.",
-  load: "Емулятор не завантажився, спробуй ще раз.",
-  crash: "Гра зависла в емуляторі. Натисни «спочатку».",
-  full: "Полиця повна: прибери з неї картридж, щоб поставити цей.",
-  shelf: "Браузер не дав зберегти гру на полицю, але грати можна.",
-} as const;
+  big: { uk: "Файл завеликий для гри з Денді.", en: "This file is too big for an NES game." },
+  notnes: { uk: "Це не файл гри для Денді: потрібен .nes.", en: "This is not an NES game file: it needs to be .nes." },
+  net: { uk: "Не вдалося завантажити гру, спробуй ще раз.", en: "Could not load the game, try again." },
+  load: { uk: "Емулятор не завантажився, спробуй ще раз.", en: "The emulator did not load, try again." },
+  crash: { uk: "Гра зависла в емуляторі. Натисни «спочатку».", en: "The game froze in the emulator. Press “restart”." },
+  full: {
+    uk: "Полиця повна: прибери з неї картридж, щоб поставити цей.",
+    en: "The shelf is full: take a cartridge off it to put this one on.",
+  },
+  shelf: {
+    uk: "Браузер не дав зберегти гру на полицю, але грати можна.",
+    en: "The browser would not let the game go on the shelf, but you can still play.",
+  },
+} satisfies Record<string, Two>;
 
 const keyMap = (C: typeof Controller, list: Key[]) =>
   Object.fromEntries(list.map(([code, p, b, label]) => [code, [p, C[`BUTTON_${b}`], label]])) as Record<
@@ -58,14 +65,22 @@ const keyMap = (C: typeof Controller, list: Key[]) =>
     [number, number, string]
   >;
 
-function romFail(e: unknown): string {
+function romFail(e: unknown): Two {
   const msg = e instanceof Error ? e.message : "";
   const mapper = /Unsupported mapper: (\d+)/.exec(msg)?.[1];
-  if (mapper) return `Цей картридж (маппер ${mapper}) емулятор поки не вміє запускати.`;
-  return msg.includes("Not a valid NES ROM") ? FAILS.notnes : "Гру не вдалося запустити.";
+  if (mapper) {
+    return {
+      uk: `Цей картридж (маппер ${mapper}) емулятор поки не вміє запускати.`,
+      en: `The emulator cannot run this cartridge (mapper ${mapper}) yet.`,
+    };
+  }
+  return msg.includes("Not a valid NES ROM")
+    ? FAILS.notnes
+    : { uk: "Гру не вдалося запустити.", en: "The game would not start." };
 }
 
-const whoPlays = (g: NesGame) => (g.players === 2 ? "1–2 гравці" : "1 гравець");
+const whoPlays = (g: NesGame, ui: Ui) =>
+  g.players === 2 ? tr(ui, "1–2 гравці", "1–2 players") : tr(ui, "1 гравець", "1 player");
 
 interface Loaded {
   title: string;
@@ -77,7 +92,9 @@ interface Loaded {
 export default function Dendy() {
   const [game, setGame] = useState<Loaded | null>(null);
   const [players, setPlayers] = useState<Players>(1);
-  const [fail, setFail] = useState<string | null>(null);
+  const ui = useUi();
+  const t = useTr();
+  const [fail, setFail] = useState<Two | null>(null);
   const [paused, setPaused] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const screen = useRef<HTMLDivElement>(null);
@@ -186,9 +203,9 @@ export default function Dendy() {
           <ul className="dendy-games">
             {NES_GAMES.map((g) => (
               <li key={g.id}>
-                <button className="btn" onClick={() => pickGame(g)} disabled={busy != null} title={g.about}>
-                  {busy === g.id ? "вантажу…" : g.title}
-                  <small>{whoPlays(g)}</small>
+                <button className="btn" onClick={() => pickGame(g)} disabled={busy != null} title={g.about[ui]}>
+                  {busy === g.id ? t("вантажу…", "loading…") : g.title}
+                  <small>{whoPlays(g, ui)}</small>
                 </button>
               </li>
             ))}
@@ -198,10 +215,10 @@ export default function Dendy() {
         <div className="dendy-row">
           <label className="btn">
             <FolderOpen size={14} />
-            своя гра з диска
+            {t("своя гра з диска", "own game from disk")}
             <input type="file" accept=".nes" hidden onChange={pickFile} />
           </label>
-          <div className="viewseg" role="radiogroup" aria-label="скільки гравців">
+          <div className="viewseg" role="radiogroup" aria-label={t("скільки гравців", "how many players")}>
             {([1, 2] as const).map((n) => (
               <button
                 key={n}
@@ -210,25 +227,35 @@ export default function Dendy() {
                 className={players === n ? "on" : ""}
                 onClick={() => setPlayers(n)}
               >
-                {n === 1 ? "1 гравець" : "2 гравці"}
+                {n === 1 ? t("1 гравець", "1 player") : t("2 гравці", "2 players")}
               </button>
             ))}
           </div>
         </div>
       </div>
       <div className="dendy-main">
-        {fail && <p className="key-paste-bad">{fail}</p>}
+        {fail && <p className="key-paste-bad">{fail[ui]}</p>}
         {game && (
           <div className="dendy-bar">
             <b className="dendy-ttl">{game.title}</b>
-            <button className="btn btn-ic" onClick={pause} title={paused ? "далі" : "пауза"}>
+            <button className="btn btn-ic" onClick={pause} title={paused ? t("далі", "resume") : t("пауза", "pause")}>
               {paused ? <Play size={14} /> : <Pause size={14} />}
             </button>
-            <button className="btn btn-ic" onClick={again} title="спочатку" aria-label="спочатку">
+            <button
+              className="btn btn-ic"
+              onClick={again}
+              title={t("спочатку", "restart")}
+              aria-label={t("спочатку", "restart")}
+            >
               <RotateCcw size={14} />
             </button>
             <FullscreenButton target={tv} />
-            <button className="btn btn-ic" onClick={quit} title="вийти з гри" aria-label="вийти з гри">
+            <button
+              className="btn btn-ic"
+              onClick={quit}
+              title={t("вийти з гри", "quit game")}
+              aria-label={t("вийти з гри", "quit game")}
+            >
               <X size={14} />
             </button>
           </div>
@@ -237,7 +264,7 @@ export default function Dendy() {
           {game ? (
             <div className="dendy-screen" ref={screen} key={game.n} />
           ) : (
-            <div className="dendy-screen dendy-off">встав картридж</div>
+            <div className="dendy-screen dendy-off">{t("встав картридж", "insert a cartridge")}</div>
           )}
         </div>
       </div>

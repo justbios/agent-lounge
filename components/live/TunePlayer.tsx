@@ -2,15 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
+import { Two, useTr, useUi } from "@/lib/i18n";
 import { SpotifyController, YTPlayer, spotifyApi, youTubeApi } from "@/lib/live/embedApi";
 import { Tune, tuneName, tuneSyncs } from "@/lib/live/tune";
 import { CafeSound } from "@/lib/live/useCafeSound";
 
 type Fail = "load" | "embed";
 
-const FAILS: Record<Fail, string> = {
-  load: "Плеєр не завантажився: можливо, його блокує розширення браузера.",
-  embed: "Власник цієї музики не дозволяє грати її на інших сайтах. Відкрий її за посиланням.",
+const FAILS: Record<Fail, Two> = {
+  load: {
+    uk: "Плеєр не завантажився: можливо, його блокує розширення браузера.",
+    en: "The player didn't load: a browser extension may be blocking it.",
+  },
+  embed: {
+    uk: "Власник цієї музики не дозволяє грати її на інших сайтах. Відкрий її за посиланням.",
+    en: "Whoever owns this music doesn't let other sites play it. Open it from the link.",
+  },
 };
 
 /** Where the café is in the song: seconds since it was put on, around again once it has played through. */
@@ -126,6 +133,8 @@ function SpotifyTune({ tune, at, onFail }: { tune: Tune; at: number; onFail: (f:
 
 /** The player for music from a link, docked in the corner while it plays: everyone hears it from the same second. */
 export default function TunePlayer({ sound }: { sound: CafeSound }) {
+  const ui = useUi();
+  const tx = useTr();
   const t = sound.tune;
   const key = `${JSON.stringify(t)}@${sound.tuneAt}`;
   const [fail, setFail] = useState<{ key: string; why: Fail } | null>(null);
@@ -133,28 +142,44 @@ export default function TunePlayer({ sound }: { sound: CafeSound }) {
   if (!sound.on || !t) return null;
   const failed = fail?.key === key ? fail.why : null;
   return (
-    <aside className="tune-dock" aria-label="музика з посилання">
+    <aside className="tune-dock" aria-label={tx("музика з посилання", "music from a link")}>
       <div className="tune-hd">
         <span className="tune-ttl">
-          ♪ {tuneName(t)}
-          {sound.by ? ` · ставить ${sound.by}` : ""}
+          ♪ {tuneName(t, ui)}
+          {sound.by ? tx(` · ставить ${sound.by}`, ` · put on by ${sound.by}`) : ""}
         </span>
-        <a className="btn btn-ic" href={tuneUrl(t)} target="_blank" rel="noreferrer" title="відкрити окремо">
+        <a
+          className="btn btn-ic"
+          href={tuneUrl(t)}
+          target="_blank"
+          rel="noreferrer"
+          title={tx("відкрити окремо", "open in a new tab")}
+        >
           <ExternalLink size={13} />
         </a>
-        <button className="btn btn-ic" onClick={sound.toggle} title="вимкнути музику" aria-label="вимкнути музику">
+        <button
+          className="btn btn-ic"
+          onClick={sound.toggle}
+          title={tx("вимкнути музику", "turn the music off")}
+          aria-label={tx("вимкнути музику", "turn the music off")}
+        >
           <X size={14} />
         </button>
       </div>
       {failed ? (
-        <p className="tune-note">{FAILS[failed]}</p>
+        <p className="tune-note">{FAILS[failed][ui]}</p>
       ) : t.kind === "youtube" ? (
         <YouTubeTune key={key} tune={t} at={sound.tuneAt} vol={sound.vol} onFail={onFail} />
       ) : (
         <SpotifyTune key={key} tune={t} at={sound.tuneAt} onFail={onFail} />
       )}
       {t.kind === "spotify" && !failed && (
-        <p className="tune-note">Повністю грає, якщо ти увійшов у Spotify у цьому браузері, інакше 30 секунд.</p>
+        <p className="tune-note">
+          {tx(
+            "Повністю грає, якщо ти увійшов у Spotify у цьому браузері, інакше 30 секунд.",
+            "Plays in full if you're signed in to Spotify in this browser, otherwise for 30 seconds.",
+          )}
+        </p>
       )}
     </aside>
   );

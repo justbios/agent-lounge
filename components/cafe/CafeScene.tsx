@@ -2,6 +2,7 @@
 
 import { CSSProperties, MouseEvent, PointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { cafeLayout } from "@/lib/cafe/layout";
+import { Two, Ui, tr, useUi } from "@/lib/i18n";
 import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
@@ -31,14 +32,30 @@ import type { Gain } from "@/lib/live/useBeanGains";
 export type { Anchor, FixturePick, Placing, SceneAlert } from "./sceneParts";
 
 const NO_DECOR: DecorSet = new Set();
-const SIGN_TEXT = "інтернет-кафе";
+const SIGN_TEXT: Two = { uk: "інтернет-кафе", en: "internet café" };
+const LATE_TEXT: Two = { uk: "нічна зміна", en: "night shift" };
+const CLOSED_TEXT: Two = { uk: "зачинено до ранку", en: "closed till morning" };
 const MACHINES: ItemId[] = ["jukebox", "arcade"];
-const JUKE_HINT = ["музичний автомат: вибрати мелодію", "клацни, щоб вибрати мелодію, або перетягни"];
-const ARCADE_HINT = ["ігровий автомат: пограти", "клацни, щоб пограти, або перетягни"];
-const DOG_HINT = "погладити песика";
-const sceneLabel = (pet: string) =>
-  "Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу. " +
-  `Клікни агента, ${pet}, дошку, автомат, вікно чи двері.`;
+/** the hint for anyone, then for the owner, who may also drag the machine */
+const JUKE_HINT: Two[] = [
+  { uk: "музичний автомат: вибрати мелодію", en: "jukebox: pick a tune" },
+  { uk: "клацни, щоб вибрати мелодію, або перетягни", en: "click to pick a tune, or drag it" },
+];
+const ARCADE_HINT: Two[] = [
+  { uk: "ігровий автомат: пограти", en: "arcade machine: play" },
+  { uk: "клацни, щоб пограти, або перетягни", en: "click to play, or drag it" },
+];
+const DOG_HINT: Two = { uk: "погладити песика", en: "pet the dog" };
+const PIECE_HINT: Two = {
+  uk: "перетягни або клацни, щоб перемістити чи прибрати",
+  en: "drag or click to move or remove it",
+};
+const sceneLabel = (ui: Ui, dog: boolean) =>
+  ui === "en"
+    ? "Pixel internet café: agents work at their computers and pass work to each other. " +
+      `Click an agent, the ${dog ? "dog" : "cat"}, the board, a machine, the window or the door.`
+    : "Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу. " +
+      `Клікни агента, ${dog ? "песика" : "кота"}, дошку, автомат, вікно чи двері.`;
 
 interface Drag {
   s: Standing;
@@ -119,6 +136,7 @@ export default function CafeScene({
   /** now and then a rare visitor walks in and sits at the last stool for a few minutes */
   visitors?: boolean;
 }) {
+  const ui = useUi();
   const [sel, setSel] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const catRef = useRef<HTMLSpanElement>(null);
@@ -132,7 +150,7 @@ export default function CafeScene({
   const cat2Name = hasCat2 ? interior.cat2Name : undefined;
   const title = name ?? interior.title ?? BRAND;
   const namesRef = useRef({ cat: catName, cat2: cat2Name, sign, title });
-  const seats = useMemo(() => seatGuests(guests ?? []), [guests]);
+  const seats = useMemo(() => seatGuests(guests ?? [], ui), [guests, ui]);
   const seatsRef = useRef<GuestSeat[]>(seats);
   const agents = model.agents;
   const lay = useMemo(() => cafeLayout(agents.length, model.seed), [agents.length, model.seed]);
@@ -151,7 +169,7 @@ export default function CafeScene({
   const working = views.some((v) => v.screen === "work" || v.walker);
   const closed = !!asleep && phase === "night" && alert?.kind !== "ask" && !working;
   const late = phase === "night" && working;
-  const sub = closed ? "зачинено до ранку" : (sign ?? (late ? "нічна зміна" : SIGN_TEXT));
+  const sub = closed ? CLOSED_TEXT[ui] : (sign ?? (late ? LATE_TEXT : SIGN_TEXT)[ui]);
   const closedRef = useRef(closed);
   const stand = useMemo(() => standing(lay, interior.placed, decor ?? NO_DECOR), [lay, interior.placed, decor]);
   const shown = useMemo(() => (placing ? stand.filter((s) => s.pid !== placing.pid) : stand), [stand, placing]);
@@ -295,18 +313,18 @@ export default function CafeScene({
     const m = machineAt(p);
     if (m) {
       el.style.cursor = "pointer";
-      el.title = m.item === "arcade" ? ARCADE_HINT[onPlacing ? 1 : 0] : JUKE_HINT[onPlacing ? 1 : 0];
+      el.title = (m.item === "arcade" ? ARCADE_HINT : JUKE_HINT)[onPlacing ? 1 : 0][ui];
       return;
     }
     if (!h && pieceAt(p)) {
       el.style.cursor = onPlacing ? "grab" : "pointer";
-      el.title = "перетягни або клацни, щоб перемістити чи прибрати";
+      el.title = PIECE_HINT[ui];
       return;
     }
     const c2 = !h && cat2 && onCat(cat2.pos, p);
     el.style.cursor = h || c2 ? "pointer" : "";
-    const hint = !h ? "" : h.kind === "agent" ? `${nameOf(h.agent)}: ${HIT_HINT.agent}` : HIT_HINT[h.kind];
-    el.title = c2 ? HIT_HINT.cat : h?.kind === "cat" && dog ? DOG_HINT : hint;
+    const hint = !h ? "" : h.kind === "agent" ? `${nameOf(h.agent)}: ${HIT_HINT.agent[ui]}` : HIT_HINT[h.kind][ui];
+    el.title = c2 ? HIT_HINT.cat[ui] : h?.kind === "cat" && dog ? DOG_HINT[ui] : hint;
   };
   const up = (e: PointerEvent<HTMLCanvasElement>) => {
     const d = dragRef.current;
@@ -391,7 +409,7 @@ export default function CafeScene({
           onPointerLeave={() => {
             if (!dragRef.current?.on) ghostRef.current = null;
           }}
-          aria-label={sceneLabel(dog ? "песика" : "кота")}
+          aria-label={sceneLabel(ui, dog)}
         />
         <div className="cafe-overlay" aria-hidden>
           <div className={`cafe-neon ${closed ? "off" : ""}`} style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
@@ -402,11 +420,11 @@ export default function CafeScene({
           </div>
           {closed && (
             <span className="cafe-closed" style={pos(door.x + door.w / 2, door.y - 3)}>
-              зачинено
+              {tr(ui, "зачинено", "closed")}
             </span>
           )}
           <span className={`cafe-meter ${rate > 0 ? "on" : ""}`} style={pos(METER.x + METER.w / 2, METER.y + METER.h / 2)}>
-            {rate > 0 ? `${fmtTokens(rate)} ток/хв` : "0 ток/хв"}
+            {`${rate > 0 ? fmtTokens(rate, ui) : "0"} ${tr(ui, "ток/хв", "tok/min")}`}
           </span>
           {agents.map((a, i) => {
             if (talking.has(i)) return null;

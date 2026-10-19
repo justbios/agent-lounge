@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { enPlural, useTr } from "@/lib/i18n";
 import { Ctx, LINE, px } from "../cafe/pixel";
 import { plural } from "../live/format";
 import FullscreenButton from "./FullscreenButton";
@@ -52,6 +53,7 @@ function drawTray(ctx: Ctx, x: number) {
 
 /** «Лови чашки»: thirty seconds of the barista throwing cups; the tray follows the pointer or the arrow keys. */
 export default function CatchCups({ best, onFinish }: { best: number; onFinish: (score: number) => void }) {
+  const t = useTr();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const scoreRef = useRef<HTMLSpanElement>(null);
@@ -140,24 +142,39 @@ export default function CatchCups({ best, onFinish }: { best: number; onFinish: 
     <div className="cups" ref={boxRef}>
       <div className="cups-hud">
         <span>
-          чашок <b ref={scoreRef}>{phase === "over" ? last : 0}</b>
+          {t("чашок", "cups")} <b ref={scoreRef}>{phase === "over" ? last : 0}</b>
         </span>
         <span>
           {phase === "play" ? (
             <>
-              ще <b ref={timeRef}>30</b> с
+              {t("ще ", "")}
+              <b ref={timeRef}>30</b>
+              {t(" с", "s left")}
             </>
           ) : (
-            `рекорд ${Math.max(best, last)}`
+            t(`рекорд ${Math.max(best, last)}`, `best ${Math.max(best, last)}`)
           )}
         </span>
         <FullscreenButton target={boxRef} />
       </div>
       <div className="cups-stage">
-        <canvas ref={canvasRef} width={W} height={H} aria-label="Лови чашки: веди тацю мишкою, пальцем або стрілками" />
+        <canvas
+          ref={canvasRef}
+          width={W}
+          height={H}
+          aria-label={t(
+            "Лови чашки: веди тацю мишкою, пальцем або стрілками",
+            "Catch the Cups: move the tray with the mouse, a finger or the arrows",
+          )}
+        />
         {phase !== "play" && (
           <button className="btn cups-go" onClick={() => setPhase("play")}>
-            {phase === "over" ? `${last} ${plural(last, "чашка", "чашки", "чашок")} · ще раз` : "почати · 30 с"}
+            {phase === "over"
+              ? t(
+                  `${last} ${plural(last, "чашка", "чашки", "чашок")} · ще раз`,
+                  `${last} ${enPlural(last, "cup", "cups")} · again`,
+                )
+              : t("почати · 30 с", "start · 30s")}
           </button>
         )}
       </div>

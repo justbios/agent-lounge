@@ -1,3 +1,5 @@
+import type { Ui } from "@/lib/i18n";
+
 export type DuelKind = "ttt" | "pong" | "cables" | "checkers" | "hockey";
 
 export const DUEL_NAMES: Record<DuelKind, string> = {
@@ -7,6 +9,18 @@ export const DUEL_NAMES: Record<DuelKind, string> = {
   checkers: "шашки",
   hockey: "аерохокей",
 };
+
+export const DUEL_NAMES_EN: Record<DuelKind, string> = {
+  ttt: "tic-tac-toe",
+  pong: "ping-pong",
+  cables: "cables",
+  checkers: "checkers",
+  hockey: "air hockey",
+};
+
+/** A game's name in the viewer's language. */
+export const duelName = (kind: DuelKind, ui: Ui = "uk"): string =>
+  (ui === "en" ? DUEL_NAMES_EN : DUEL_NAMES)[kind];
 
 /** Played turn by turn over the café's own channel, so they survive the games panel closing. */
 export const TURN_BASED: readonly DuelKind[] = ["ttt", "checkers"];

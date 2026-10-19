@@ -1,6 +1,7 @@
 import { KID_MARK, LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK, VERSION_MARK } from "./hookConfig.mjs";
 import { plainTool } from "./plain";
-import { ContextFill, LimitWindow, Limits, LiveEvent, LiveKind, Usage } from "./types";
+import { techLine } from "./tech";
+import { ContextFill, LimitWindow, Limits, LiveEvent, LiveKind, Say, Usage } from "./types";
 
 type Json = Record<string, unknown>;
 
@@ -15,18 +16,23 @@ function clip(s: string, max = MAX_TEXT): string {
   return one.length > max ? `${one.slice(0, max - 1)}…` : one;
 }
 
-function base(p: unknown): string {
+function base(p: unknown): string | undefined {
   const s = str(p);
-  if (!s) return "файл";
-  return s.split("/").filter(Boolean).pop() ?? s;
+  return s && (s.split("/").filter(Boolean).pop() ?? s);
 }
 
-function host(u: unknown): string {
+function host(u: unknown): string | undefined {
   try {
-    return new URL(String(u)).host;
+    return new URL(String(u)).host || undefined;
   } catch {
-    return "сторінку";
+    return undefined;
   }
+}
+
+/** A line the café writes itself: kept as its parts, so each viewer reads it in their language, and in Ukrainian. */
+function tech(a: string, o?: string): { text: string; tech: Say } {
+  const t: Say = o ? { a, o: clip(o) } : { a };
+  return { text: techLine(t, "uk") ?? a, tech: t };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
@@ -37,43 +43,43 @@ function mcp(name: string): { tool: string; text: string } {
   return { tool: label, text: rest.join(" ").replace(/[_-]+/g, " ") || name };
 }
 
-export function describeTool(name: string, input: Json): { tool: string; text: string } {
+export function describeTool(name: string, input: Json): { tool: string; text: string; tech?: Say } {
   switch (name) {
     case "Read":
-      return { tool: "read", text: `читає ${base(input.file_path)}` };
+      return { tool: "read", ...tech("read", base(input.file_path)) };
     case "Write":
-      return { tool: "write", text: `пише ${base(input.file_path)}` };
+      return { tool: "write", ...tech("write", base(input.file_path)) };
     case "Edit":
     case "MultiEdit":
-      return { tool: "edit", text: `редагує ${base(input.file_path)}` };
+      return { tool: "edit", ...tech("edit", base(input.file_path)) };
     case "NotebookEdit":
-      return { tool: "edit", text: `редагує ${base(input.notebook_path)}` };
+      return { tool: "edit", ...tech("edit", base(input.notebook_path)) };
     case "Bash": {
       const d = str(input.description);
       return { tool: "bash", text: clip(d ?? `$ ${str(input.command) ?? ""}`) };
     }
     case "Grep":
-      return { tool: "grep", text: clip(`шукає «${str(input.pattern) ?? ""}»`) };
+      return { tool: "grep", ...tech("grep", str(input.pattern)) };
     case "Glob":
-      return { tool: "glob", text: clip(`шукає файли ${str(input.pattern) ?? ""}`) };
+      return { tool: "glob", ...tech("glob", str(input.pattern)) };
     case "WebFetch":
-      return { tool: "web", text: `читає ${host(input.url)}` };
+      return { tool: "web", ...tech("web_read", host(input.url)) };
     case "WebSearch":
-      return { tool: "web", text: clip(`шукає в мережі «${str(input.query) ?? ""}»`) };
+      return { tool: "web", ...tech("web_search", str(input.query)) };
     case "TodoWrite":
     case "TaskCreate":
     case "TaskUpdate":
-      return { tool: "plan", text: "оновлює план" };
+      return { tool: "plan", ...tech("plan") };
     case "Skill":
-      return { tool: "skill", text: clip(`бере скіл ${str(input.skill) ?? ""}`) };
+      return { tool: "skill", ...tech("skill", str(input.skill)) };
     case "SendMessage":
-      return { tool: "msg", text: clip(`пише ${str(input.to) ?? "агенту"}`) };
+      return { tool: "msg", ...tech("msg", str(input.to)) };
     case "ToolSearch":
-      return { tool: "tools", text: "дістає інструменти" };
+      return { tool: "tools", ...tech("tools") };
     case "AskUserQuestion":
-      return { tool: "ask", text: "питає тебе" };
+      return { tool: "ask", ...tech("ask") };
     case "Workflow":
-      return { tool: "workflow", text: "запускає воркфлоу" };
+      return { tool: "workflow", ...tech("workflow") };
     default:
       if (name.startsWith("mcp__")) return mcp(name);
       return { tool: name.toLowerCase().slice(0, 12), text: name };
@@ -81,15 +87,15 @@ export function describeTool(name: string, input: Json): { tool: string; text: s
 }
 
 /** Claude Code also submits its own wrapped messages (a finished background task, …) as prompts. */
-function promptEvent(prompt: string | undefined): { tool: string; text: string } {
+function promptEvent(prompt: string | undefined): { tool: string; text?: string } {
   const p = prompt ?? "";
   if (/^\s*<task-notification/.test(p)) {
     const summary = /<summary>([\s\S]*?)<\/summary>/.exec(p)?.[1];
-    return { tool: "сповіщення", text: clip(summary ?? "фонова задача завершилась", 56) };
+    return { tool: "сповіщення", text: summary ? clip(summary, 56) : undefined };
   }
   if (/^\s*</.test(p)) {
     const plain = p.replace(/<[^>]+>/g, " ").trim();
-    return { tool: "система", text: clip(plain || "службове повідомлення", 56) };
+    return { tool: "система", text: plain ? clip(plain, 56) : undefined };
   }
   return { tool: "питання", text: clip(`«${p || "…"}»`, 56) };
 }
@@ -100,16 +106,15 @@ function notice(type: string | undefined, message: string | undefined): Partial<
   if (type === "permission_prompt" || /permission/i.test(m)) {
     const what = /permission to use (.+)$/i.exec(m)?.[1]?.trim();
     if (what === "AskUserQuestion") {
-      return { tool: "ask", need: "permission", text: "чекає на твою відповідь", say: { a: "wait_you" } };
+      return { tool: "ask", need: "permission", ...tech("wait_answer"), say: { a: "wait_you" } };
     }
     if (what === "ExitPlanMode") {
-      return { tool: "plan", need: "permission", text: "чекає, щоб ти затвердив план", say: { a: "wait_you" } };
+      return { tool: "plan", need: "permission", ...tech("wait_plan"), say: { a: "wait_you" } };
     }
     const tool = what ? describeTool(what, {}).tool : undefined;
-    const text = tool ? `чекає на дозвіл: ${tool}` : "чекає на дозвіл";
-    return { tool: "дозвіл", need: "permission", text, say: { a: "wait_perm" } };
+    return { tool: "дозвіл", need: "permission", ...tech(tool ? "perm_on" : "perm", tool), say: { a: "wait_perm" } };
   }
-  const waits: Partial<LiveEvent> = { tool: "увага", need: "input", text: "чекає на тебе", say: { a: "wait_you" } };
+  const waits: Partial<LiveEvent> = { tool: "увага", need: "input", ...tech("wait_you"), say: { a: "wait_you" } };
   if (type === "idle_prompt" || !m || /waiting|idle|input/i.test(m)) return waits;
   return { ...waits, message: clip(m) };
 }
@@ -143,15 +148,12 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
     case "PreToolUse":
       if (toolName === "Agent" || toolName === "Task") {
         const target = str(input.subagent_type) ?? "general-purpose";
-        return ev("dispatch", { tool: "agent", target, text: clip(str(input.description) ?? "нове завдання", 40) });
+        const task = str(input.description);
+        return ev("dispatch", { tool: "agent", target, text: task && clip(task, 40) });
       }
       return ev("tool", { ...describeTool(toolName, input), say: plainTool(toolName, input) });
     case "PostToolUseFailure":
-      return ev("fail", {
-        tool: describeTool(toolName, input).tool,
-        text: clip(`помилка: ${toolName}`),
-        say: { a: "fail" },
-      });
+      return ev("fail", { tool: describeTool(toolName, input).tool, ...tech("fail", toolName), say: { a: "fail" } });
     case "SubagentStart":
       return agent ? ev("sub_start") : null;
     case "SubagentStop":

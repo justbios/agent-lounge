@@ -1,15 +1,18 @@
 "use client";
 
 import { CSSProperties, useState } from "react";
-import { THEMES, THEME_IDS, ThemeId, themeOf } from "@/components/cafe/theme";
-import { openThemes, themeKey } from "@/lib/live/achievements";
+import { THEMES, THEME_IDS, ThemeId, themeOf, themeText } from "@/components/cafe/theme";
+import { Ui, useTr, useUi } from "@/lib/i18n";
+import { achText, openThemes, themeKey } from "@/lib/live/achievements";
 import { CafeState } from "@/lib/live/useCafe";
 
-function heading(cafe: CafeState): string {
-  if (cafe.kind === "mine") return "Тема твоєї кімнати";
-  if (cafe.kind === "theirs") return `Тема кімнати: обирає ${cafe.whose}`;
-  const what = cafe.kind === "lobby" ? "Тема спільної зали" : "Тема кафе";
-  return cafe.editable ? what : `${what}: обирає власник кафе`;
+function heading(cafe: CafeState, ui: Ui): string {
+  const en = ui === "en";
+  if (cafe.kind === "mine") return en ? "Your room's theme" : "Тема твоєї кімнати";
+  if (cafe.kind === "theirs") return en ? `Room theme: ${cafe.whose} picks` : `Тема кімнати: обирає ${cafe.whose}`;
+  const what = cafe.kind === "lobby" ? (en ? "Lobby theme" : "Тема спільної зали") : en ? "Café theme" : "Тема кафе";
+  if (cafe.editable) return what;
+  return en ? `${what}: the café owner picks` : `${what}: обирає власник кафе`;
 }
 
 function swatch(id: ThemeId): CSSProperties {
@@ -26,6 +29,8 @@ function swatch(id: ThemeId): CSSProperties {
 }
 
 export default function ThemePicker({ cafe }: { cafe: CafeState }) {
+  const ui = useUi();
+  const t = useTr();
   const current = themeOf(cafe.settings.theme).id;
   const [busy, setBusy] = useState<ThemeId | null>(null);
   const [bad, setBad] = useState(false);
@@ -40,10 +45,11 @@ export default function ThemePicker({ cafe }: { cafe: CafeState }) {
   };
   return (
     <div className="theme-pick">
-      <span className="theme-pick-ttl">{heading(cafe)}</span>
-      <div className="theme-grid" role="radiogroup" aria-label="тема кафе">
+      <span className="theme-pick-ttl">{heading(cafe, ui)}</span>
+      <div className="theme-grid" role="radiogroup" aria-label={t("тема кафе", "café theme")}>
         {THEME_IDS.map((id) => {
           const key = open.has(id) || id === current ? null : themeKey(id);
+          const text = themeText(THEMES[id], ui);
           return (
           <button
             key={id}
@@ -56,15 +62,23 @@ export default function ThemePicker({ cafe }: { cafe: CafeState }) {
             <span className="theme-swatch" style={swatch(id)} aria-hidden>
               <i />
             </span>
-            <b>{THEMES[id].name}</b>
+            <b>{text.name}</b>
             <span className="ach-hint">
-              {busy === id ? "зберігаю…" : key ? `🔒 відкриє «${key.title}»` : THEMES[id].hint}
+              {busy === id
+                ? t("зберігаю…", "saving…")
+                : key
+                  ? t(`🔒 відкриє «${achText(key, ui).title}»`, `🔒 unlocked by “${achText(key, ui).title}”`)
+                  : text.hint}
             </span>
           </button>
           );
         })}
       </div>
-      {bad && <span className="key-paste-bad">Не вдалося змінити тему, спробуй ще раз.</span>}
+      {bad && (
+        <span className="key-paste-bad">
+          {t("Не вдалося змінити тему, спробуй ще раз.", "Couldn't change the theme, try again.")}
+        </span>
+      )}
     </div>
   );
 }

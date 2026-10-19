@@ -1,3 +1,5 @@
+import type { Ui } from "@/lib/i18n";
+
 export type ThemeId = "cafe" | "space" | "forest" | "winter";
 
 /** The real time of day outside the windows. */
@@ -5,8 +7,11 @@ export type Phase = "dawn" | "day" | "dusk" | "night";
 
 export interface Theme {
   id: ThemeId;
+  /** Ukrainian; {@link themeText} gives the name and hint in the viewer's language */
   name: string;
+  nameEn: string;
   hint: string;
+  hintEn: string;
   wall: string;
   wallLine: string;
   pattern: "boards" | "panels" | "logs";
@@ -40,7 +45,9 @@ export const THEMES: Record<ThemeId, Theme> = {
   cafe: {
     id: "cafe",
     name: "Нічне кафе",
+    nameEn: "Night café",
     hint: "дощ за вікном, неон і місто",
+    hintEn: "rain outside, neon and the city",
     wall: "#2b2140",
     wallLine: "#30254a",
     pattern: "boards",
@@ -70,7 +77,9 @@ export const THEMES: Record<ThemeId, Theme> = {
   space: {
     id: "space",
     name: "Космічна станція",
+    nameEn: "Space station",
     hint: "металеві панелі, планета в ілюмінаторах",
+    hintEn: "metal panels, a planet in the portholes",
     wall: "#1a2130",
     wallLine: "#26304a",
     pattern: "panels",
@@ -100,7 +109,9 @@ export const THEMES: Record<ThemeId, Theme> = {
   forest: {
     id: "forest",
     name: "Лісовий табір",
+    nameEn: "Forest camp",
     hint: "зрубна хатинка, ялини й світлячки",
+    hintEn: "a log cabin, fir trees and fireflies",
     wall: "#4a2f1f",
     wallLine: "#3a2416",
     pattern: "logs",
@@ -130,7 +141,9 @@ export const THEMES: Record<ThemeId, Theme> = {
   winter: {
     id: "winter",
     name: "Зимовий вечір",
+    nameEn: "Winter evening",
     hint: "сніг на дахах і за вікном",
+    hintEn: "snow on the roofs and outside",
     wall: "#2b2a44",
     wallLine: "#33314f",
     pattern: "boards",
@@ -163,4 +176,9 @@ export const THEME_IDS = Object.keys(THEMES) as ThemeId[];
 
 export function themeOf(id: string | null | undefined): Theme {
   return THEMES[id as ThemeId] ?? THEMES.cafe;
+}
+
+/** A theme's name and hint in one interface language. */
+export function themeText(th: Theme, ui: Ui = "uk"): { name: string; hint: string } {
+  return ui === "en" ? { name: th.nameEn, hint: th.hintEn } : { name: th.name, hint: th.hint };
 }

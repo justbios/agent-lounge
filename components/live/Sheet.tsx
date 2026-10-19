@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from "react";
 import { X } from "lucide-react";
+import { useTr } from "@/lib/i18n";
 
 /** A centred panel over a dimmed page: closes on Esc, on the cross and on a click outside. */
 export default function Sheet({
@@ -17,6 +18,7 @@ export default function Sheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const t = useTr();
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", esc);
@@ -31,7 +33,7 @@ export default function Sheet({
             <div className="recap-ttl">{title}</div>
             <div className="muted-sm">{sub}</div>
           </div>
-          <button className="btn recap-x" onClick={onClose} aria-label="закрити">
+          <button className="btn recap-x" onClick={onClose} aria-label={t("закрити", "close")}>
             <X size={15} />
           </button>
         </div>

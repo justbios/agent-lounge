@@ -1,4 +1,5 @@
 import { CafeLayout } from "@/lib/cafe/layout";
+import type { Two } from "@/lib/i18n";
 import { AgentView } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
 import { BAR_AREA, doorOf, fixtures } from "./room";
@@ -45,13 +46,13 @@ export function hitTest(lay: CafeLayout, views: AgentView[], cat: Point | null, 
   return null;
 }
 
-export const HIT_HINT: Record<Hit["kind"], string> = {
-  agent: "хто це і що робить",
-  cat: "погладити кота",
-  board: "підсумок дня",
-  vending: "кав'ярня",
-  beans: "кав'ярня: зерна й меблі",
-  window: "змінити вид за вікном",
-  door: "запросити команду",
-  bar: "груповий чат",
+export const HIT_HINT: Record<Hit["kind"], Two> = {
+  agent: { uk: "хто це і що робить", en: "who this is and what they're doing" },
+  cat: { uk: "погладити кота", en: "pet the cat" },
+  board: { uk: "підсумок дня", en: "the day's recap" },
+  vending: { uk: "кав'ярня", en: "coffee shop" },
+  beans: { uk: "кав'ярня: зерна й меблі", en: "coffee shop: beans and furniture" },
+  window: { uk: "змінити вид за вікном", en: "change the view outside" },
+  door: { uk: "запросити команду", en: "invite your team" },
+  bar: { uk: "груповий чат", en: "group chat" },
 };

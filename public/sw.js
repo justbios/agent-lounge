@@ -8,9 +8,12 @@ self.addEventListener("push", (e) => {
   } catch {
     d = { title: "Agent Lounge", body: e.data ? e.data.text() : "" };
   }
+  // the café sends every alert in Ukrainian and English; a browser that doesn't read Ukrainian or Russian gets English
+  const lang = (self.navigator.languages && self.navigator.languages[0]) || self.navigator.language || "";
+  const t = d.en && !/^(uk|ru)\b/i.test(lang) ? d.en : d;
   e.waitUntil(
-    self.registration.showNotification(d.title || "Agent Lounge", {
-      body: d.body || "",
+    self.registration.showNotification(t.title || "Agent Lounge", {
+      body: t.body || "",
       tag: d.tag || "relay",
       renotify: true,
       icon: "/icon-192.png",

@@ -1,3 +1,5 @@
+import type { Ui } from "@/lib/i18n";
+
 export const SPOTIFY_TYPES = ["track", "album", "playlist", "episode", "show", "artist"] as const;
 export type SpotifyType = (typeof SPOTIFY_TYPES)[number];
 
@@ -61,8 +63,8 @@ export function parseTune(input: string): Tune | null {
   return null;
 }
 
-export const tuneSource = (t: Tune) =>
-  t.kind === "spotify" ? "Spotify" : t.video ? "YouTube" : "плейлист YouTube";
+export const tuneSource = (t: Tune, ui: Ui = "uk") =>
+  t.kind === "spotify" ? "Spotify" : t.video ? "YouTube" : ui === "en" ? "YouTube playlist" : "плейлист YouTube";
 
 /** A track or a single video can be heard from the same second by everyone; an album or playlist starts over. */
 export const tuneSyncs = (t: Tune) => (t.kind === "youtube" ? !!t.video : t.type === "track" || t.type === "episode");
@@ -92,7 +94,7 @@ export const LINKED: LinkedRecord[] = [
 export const linkedOf = (t: Tune | null | undefined) => LINKED.find((r) => sameTune(r.tune, t));
 
 /** What a link plays, in a few words: the record's name and author when it is one of the jukebox's, else the source. */
-export const tuneName = (t: Tune) => {
+export const tuneName = (t: Tune, ui: Ui = "uk") => {
   const r = linkedOf(t);
-  return r ? `${r.name} · ${r.by}` : tuneSource(t);
+  return r ? `${r.name} · ${r.by}` : tuneSource(t, ui);
 };

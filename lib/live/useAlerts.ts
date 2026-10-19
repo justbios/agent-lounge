@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useEffectEvent, useRef, useSyncExternalStore } from "react";
-import { Attention, stopText } from "./attention";
+import { Ui, tr, uiNow, useUi } from "@/lib/i18n";
+import { Attention, attentionText, stopText } from "./attention";
 import { chime, unlockChime } from "./chime";
 import { LiveSession } from "./liveModel";
 
 const PREFS_KEY = "relay.alerts";
 const ACK_KEY = "relay.ack";
-const BASE_TITLE = "Agent Lounge — живий конвеєр агентів";
+const baseTitle = (ui: Ui) =>
+  tr(ui, "Agent Lounge — живий конвеєр агентів", "Agent Lounge — your Claude Code agents, live");
 
 export interface AlertPrefs {
   sound: boolean;
@@ -86,6 +88,7 @@ export function useAlerts(
   onOpen: (session: string) => void,
 ): Set<string> {
   const p = useAlertPrefs();
+  const ui = useUi();
   const acked = useSyncExternalStore(subscribe, acksSnap, () => ({}) as Acks);
   const visible = useVisible();
   const cur = sessions.find((s) => s.id === current);
@@ -109,9 +112,9 @@ export function useAlerts(
   const count = waiting.size;
 
   useEffect(() => {
-    document.title = count ? `(${count}) ${BASE_TITLE}` : BASE_TITLE;
-  }, [count]);
-  useEffect(() => () => void (document.title = BASE_TITLE), []);
+    document.title = count ? `(${count}) ${baseTitle(ui)}` : baseTitle(ui);
+  }, [count, ui]);
+  useEffect(() => () => void (document.title = baseTitle(uiNow())), []);
 
   const seen = useRef<Set<number> | null>(null);
   const mountedAt = useRef(0);
@@ -122,9 +125,15 @@ export function useAlerts(
   const fire = useEffectEvent((s: LiveSession, a: Attention, looking: boolean) => {
     if (p.sound) chime(a.kind);
     if (!p.desktop || pushOn || looking || !("Notification" in window) || Notification.permission !== "granted") return;
-    const title = a.kind === "ask" ? "Claude чекає на тебе" : a.err ? `Claude ${stopText(a.err)}` : "Claude відповів";
+    const u = uiNow();
+    const title =
+      a.kind === "ask"
+        ? tr(u, "Claude чекає на тебе", "Claude is waiting for you")
+        : a.err
+          ? `Claude ${stopText(a.err, u)}`
+          : tr(u, "Claude відповів", "Claude answered");
     const n = new Notification(title, {
-      body: `${s.label} · ${a.text}`,
+      body: `${s.label} · ${attentionText(a, u)}`,
       tag: `relay-${s.id}`,
       icon: "/icon-192.png",
     });

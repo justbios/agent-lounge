@@ -1,5 +1,6 @@
 import { CafeModel } from "@/lib/cafe/model";
 import { AgentView } from "@/lib/cafe/timeline";
+import { useTr } from "@/lib/i18n";
 import { line, said, useSpeech } from "@/lib/live/speech";
 import { SceneAlert } from "../cafe/CafeScene";
 import { badge } from "./format";
@@ -10,7 +11,7 @@ export default function AgentList({
   clock,
   alert,
   rosterCount,
-  title = "агенти",
+  title,
   askText,
 }: {
   model: CafeModel;
@@ -22,12 +23,14 @@ export default function AgentList({
   askText?: string;
 }) {
   const sp = useSpeech();
+  const t = useTr();
   return (
     <div className="card">
       <div className="card-hd">
-        <span className="card-ttl">{title}</span>
+        <span className="card-ttl">{title ?? t("агенти", "agents")}</span>
         <span className="muted-sm">
-          {model.agents.length} за столами{rosterCount ? ` · ${rosterCount} з .claude/agents` : ""}
+          {model.agents.length} {t("за столами", "at desks")}
+          {rosterCount ? ` · ${rosterCount} ${t("з .claude/agents", "in .claude/agents")}` : ""}
         </span>
       </div>
       <div className="roster">
@@ -35,7 +38,7 @@ export default function AgentList({
           const v = views[i];
           const b =
             alert?.kind === "ask" && alert.agent === i
-              ? { cls: "rr-ask", text: askText ?? said("b_ask", sp, "чекає на тебе") }
+              ? { cls: "rr-ask", text: askText ?? said("b_ask", sp, t("чекає на тебе", "waiting for you")) }
               : badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0, sp);
           let last = "";
           for (const n of model.notes[i]) {
