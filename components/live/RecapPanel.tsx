@@ -8,6 +8,7 @@ import { agentColor } from "@/lib/live/liveModel";
 import { HourRow, TokenSum, dailyActions, startOfLocalDay, streak, summarize } from "@/lib/live/recap";
 import { MemberLimits } from "@/lib/live/usage";
 import { drawDayCard } from "./dayCard";
+import { PROJECT_URL } from "@/lib/brand";
 import { LimitsFull } from "./Limits";
 import { fmtTokens } from "./tokens";
 
@@ -162,8 +163,8 @@ export default function RecapPanel({
     setMaking(true);
     try {
       const scene = await Promise.race([captureStill(), new Promise<null>((r) => setTimeout(() => r(null), 800))]).catch(() => null);
-      const blob = await drawDayCard({ day, streak: days, date, scene, site: location.host, ui });
-      setCard({ url: URL.createObjectURL(blob), file: new File([blob], `relay-day-${today}.png`, { type: "image/png" }) });
+      const blob = await drawDayCard({ day, streak: days, date, scene, ui });
+      setCard({ url: URL.createObjectURL(blob), file: new File([blob], `agent-lounge-day-${today}.png`, { type: "image/png" }) });
     } finally {
       setMaking(false);
     }
@@ -282,7 +283,7 @@ export default function RecapPanel({
                     <Download size={13} /> {t("завантажити PNG", "download PNG")}
                   </a>
                   {canShare && (
-                    <button className="btn" onClick={() => navigator.share({ files: [card.file] }).catch(() => {})}>
+                    <button className="btn" onClick={() => navigator.share({ files: [card.file], text: `https://${PROJECT_URL}` }).catch(() => {})}>
                       <Share2 size={13} /> {t("поділитися", "share")}
                     </button>
                   )}

@@ -1,10 +1,17 @@
+import { PROJECT_URL } from "@/lib/brand";
 import { Ui, enPlural, tr } from "@/lib/i18n";
 import { agentColor } from "@/lib/live/liveModel";
 import { Summary } from "@/lib/live/recap";
+import { plural } from "./format";
 
 const W = 1080;
-const H = 1350;
 const PAD = 60;
+/** a square café would push everything else off the card */
+const SCENE_MAX_H = 760;
+const HEAD = 240;
+const STATS = 320;
+const AGENT_ROW = 48;
+const FOOT = 190;
 
 function pixelFont(px: number, weight = 400): string {
   const family = getComputedStyle(document.documentElement).getPropertyValue("--font-pixel").trim() || "monospace";
@@ -16,7 +23,6 @@ export interface CardInput {
   streak: number;
   date: string;
   scene: HTMLCanvasElement | null;
-  site: string;
   /** the language the card's own words are drawn in */
   ui: Ui;
 }
@@ -25,6 +31,20 @@ export interface CardInput {
 export async function drawDayCard(c: CardInput): Promise<Blob> {
   const t = (uk: string, en: string) => tr(c.ui, uk, en);
   await document.fonts?.ready;
+  let sw = W - PAD * 2;
+  let sh = c.scene ? Math.round((c.scene.height / c.scene.width) * sw) : 0;
+  if (sh > SCENE_MAX_H) {
+    sw = Math.round((sw * SCENE_MAX_H) / sh);
+    sh = SCENE_MAX_H;
+  }
+  const agents = c.day.agents.slice(0, 3);
+  const H =
+    HEAD +
+    (c.scene ? sh + 50 : 0) +
+    STATS +
+    (agents.length ? 50 + agents.length * AGENT_ROW : 0) +
+    (c.day.tools_by.length ? 22 + 50 + 42 : 0) +
+    FOOT;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -53,25 +73,30 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
   ctx.fillStyle = "#99a2b4";
   ctx.fillText(c.date, PAD, 176);
 
-  let y = 240;
+  let y = HEAD;
   if (c.scene) {
-    const w = W - PAD * 2;
-    const h = Math.round((c.scene.height / c.scene.width) * w);
+    const x = Math.round((W - sw) / 2);
     ctx.fillStyle = "#1c1f2b";
-    ctx.fillRect(PAD - 3, y - 3, w + 6, h + 6);
+    ctx.fillRect(x - 3, y - 3, sw + 6, sh + 6);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(c.scene, PAD, y, w, h);
-    y += h + 50;
+    ctx.drawImage(c.scene, x, y, sw, sh);
+    y += sh + 50;
   }
 
   const { prompts, tools, dispatches, minutes, chats } = c.day;
   const stats: [string, number | string][] = [
-    [t("питань", enPlural(prompts, "question", "questions")), prompts],
-    [t("дій інструментами", enPlural(tools, "tool action", "tool actions")), tools],
-    [t("доручень агентам", enPlural(dispatches, "handoff to agents", "handoffs to agents")), dispatches],
-    [t("хвилин роботи", enPlural(minutes, "minute of work", "minutes of work")), minutes],
-    [t("чатів", enPlural(chats, "chat", "chats")), chats],
-    [t("днів поспіль", enPlural(c.streak, "day in a row", "days in a row")), c.streak],
+    [t(plural(prompts, "питання", "питання", "питань"), enPlural(prompts, "question", "questions")), prompts],
+    [
+      t(plural(tools, "дія інструментом", "дії інструментами", "дій інструментами"), enPlural(tools, "tool action", "tool actions")),
+      tools,
+    ],
+    [
+      t(plural(dispatches, "доручення агентам", "доручення агентам", "доручень агентам"), enPlural(dispatches, "handoff to agents", "handoffs to agents")),
+      dispatches,
+    ],
+    [t(plural(minutes, "хвилина роботи", "хвилини роботи", "хвилин роботи"), enPlural(minutes, "minute of work", "minutes of work")), minutes],
+    [t(plural(chats, "чат", "чати", "чатів"), enPlural(chats, "chat", "chats")), chats],
+    [t(plural(c.streak, "день поспіль", "дні поспіль", "днів поспіль"), enPlural(c.streak, "day in a row", "days in a row")), c.streak],
   ];
   const colW = (W - PAD * 2) / 3;
   stats.forEach(([label, value], i) => {
@@ -84,15 +109,15 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
     ctx.fillStyle = "#99a2b4";
     ctx.fillText(label, x, sy + 84);
   });
-  y += 320;
+  y += STATS;
 
-  if (c.day.agents.length) {
+  if (agents.length) {
     ctx.font = pixelFont(28, 700);
     ctx.fillStyle = "#e9ebf2";
     ctx.fillText(t("Найзайнятіші агенти", "Busiest agents"), PAD, y);
     y += 50;
     const max = c.day.agents[0][1];
-    for (const [name, n] of c.day.agents.slice(0, 3)) {
+    for (const [name, n] of agents) {
       const color = agentColor(name);
       ctx.fillStyle = color;
       ctx.fillRect(PAD, y + 6, 22, 22);
@@ -109,7 +134,7 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
       ctx.fillStyle = "#99a2b4";
       ctx.fillText(String(n), W - PAD, y);
       ctx.textAlign = "left";
-      y += 48;
+      y += AGENT_ROW;
     }
   }
 
@@ -133,17 +158,17 @@ export async function drawDayCard(c: CardInput): Promise<Blob> {
     }
   }
 
+  ctx.textAlign = "left";
+  ctx.font = pixelFont(30);
+  ctx.fillStyle = "#e9ebf2";
+  ctx.fillText(PROJECT_URL, PAD, H - 116);
   ctx.font = pixelFont(24);
   ctx.fillStyle = "#5d6577";
-  ctx.textAlign = "left";
   ctx.fillText(
     t("зібрано з хуків Claude Code, без жодного токена", "built from Claude Code hooks, not a single token spent"),
     PAD,
     H - 70,
   );
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#99a2b4";
-  ctx.fillText(c.site, W - PAD, H - 70);
 
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("png"))), "image/png"));
 }

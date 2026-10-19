@@ -1,10 +1,16 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { OverlayInput, drawOverlay } from "./overlay2d";
+import { OverlayInput, drawOverlay, drawTall } from "./overlay2d";
 
 const SCALE = 3;
 const FPS = 30;
+/** 9:16, for TikTok, Reels and Shorts */
+const TALL_W = 1080;
+const TALL_H = 1920;
+
+/** "wide" is the scene itself at 3×; "tall" puts it in a 9:16 frame with a line above and the address below. */
+export type ClipShape = "wide" | "tall";
 
 export interface Clip {
   blob: Blob;
@@ -14,6 +20,7 @@ export interface Clip {
 
 interface Pending {
   seconds: number;
+  shape: ClipShape;
   resolve: (c: Clip) => void;
   reject: (e: Error) => void;
 }
@@ -22,6 +29,7 @@ interface Job {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   recorder: MediaRecorder;
+  shape: ClipShape;
 }
 
 let scenes = 0;
@@ -60,11 +68,11 @@ export function useSceneOnScreen(): boolean {
   return useSyncExternalStore(subscribe, () => scenes > 0, () => false);
 }
 
-export function recordClip(seconds: number): Promise<Clip> {
+export function recordClip(seconds: number, shape: ClipShape = "wide"): Promise<Clip> {
   if (pending || job) return Promise.reject(new Error("already recording"));
   if (!clipSupported()) return Promise.reject(new Error("unsupported"));
   return new Promise((resolve, reject) => {
-    pending = { seconds, resolve, reject };
+    pending = { seconds, shape, resolve, reject };
   });
 }
 
@@ -78,7 +86,14 @@ export function clipWanted(): boolean {
   return pending != null || job != null || stills.length > 0;
 }
 
-function compose(source: HTMLCanvasElement, overlay: OverlayInput, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D) {
+function compose(
+  source: HTMLCanvasElement,
+  overlay: OverlayInput,
+  canvas: HTMLCanvasElement,
+  ctx: CanvasRenderingContext2D,
+  shape: ClipShape = "wide",
+) {
+  if (shape === "tall") return drawTall(ctx, source, overlay, canvas.width, canvas.height);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
   drawOverlay(ctx, overlay, SCALE);
@@ -87,8 +102,8 @@ function compose(source: HTMLCanvasElement, overlay: OverlayInput, canvas: HTMLC
 function start(source: HTMLCanvasElement, p: Pending): Job | null {
   const mime = pickMime()!;
   const canvas = document.createElement("canvas");
-  canvas.width = source.width * SCALE;
-  canvas.height = source.height * SCALE;
+  canvas.width = p.shape === "tall" ? TALL_W : source.width * SCALE;
+  canvas.height = p.shape === "tall" ? TALL_H : source.height * SCALE;
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     p.reject(new Error("no canvas"));
@@ -109,7 +124,7 @@ function start(source: HTMLCanvasElement, p: Pending): Job | null {
   };
   recorder.start(500);
   setTimeout(() => recorder.state !== "inactive" && recorder.stop(), p.seconds * 1000);
-  return { canvas, ctx, recorder };
+  return { canvas, ctx, recorder, shape: p.shape };
 }
 
 /** Called from the scene's frame loop while a clip is wanted: scales the pixel scene up and paints the overlay on top. */
@@ -129,5 +144,5 @@ export function clipFrame(source: HTMLCanvasElement, overlay: OverlayInput) {
     stills = [];
     waiting.forEach((r) => r(canvas));
   }
-  if (job) compose(source, overlay, job.canvas, job.ctx);
+  if (job) compose(source, overlay, job.canvas, job.ctx, job.shape);
 }

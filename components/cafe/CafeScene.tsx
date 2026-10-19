@@ -1,6 +1,7 @@
 "use client";
 
 import { CSSProperties, MouseEvent, PointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { PROJECT_URL } from "@/lib/brand";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { Two, Ui, tr, useUi } from "@/lib/i18n";
 import { CafeModel } from "@/lib/cafe/model";
@@ -255,7 +256,7 @@ export default function CafeScene({
           ...(n.cat ? [{ ...cat.pos, name: n.cat }] : []),
           ...(cat2 && n.cat2 ? [{ ...cat2.pos, name: n.cat2 }] : []),
         ];
-        const watermark = `agent lounge · ${location.host}`;
+        const watermark = `agent lounge · ${PROJECT_URL}`;
         const alert = alertRef.current;
         clipFrame(canvas, { lay, agents: named, bubbles, alert, cats, sign: n.sign, title: n.title, watermark });
       }

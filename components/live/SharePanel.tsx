@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Check, Copy, Download, Film, Share2, Eye } from "lucide-react";
-import { Clip, clipSupported, recordClip, useSceneOnScreen } from "@/components/cafe/clip";
+import { Clip, ClipShape, clipSupported, recordClip, useSceneOnScreen } from "@/components/cafe/clip";
+import { PROJECT_URL } from "@/lib/brand";
 import { useTr } from "@/lib/i18n";
 import { useAccess } from "@/lib/live/access";
 import { useHosted, useRelayKey, useViewRoom } from "@/lib/live/relayKey";
@@ -24,15 +25,16 @@ function ClipSection() {
 
   useEffect(() => () => void (clip && URL.revokeObjectURL(clip.url)), [clip]);
 
-  const record = async () => {
+  const record = async (shape: ClipShape) => {
     setFailed(false);
     setClip(null);
     const t0 = Date.now();
     setLeft(CLIP_SECONDS);
     const tick = setInterval(() => setLeft(Math.max(0, CLIP_SECONDS - Math.floor((Date.now() - t0) / 1000))), 250);
     try {
-      const c = await recordClip(CLIP_SECONDS);
-      const file = new File([c.blob], `relay-${Date.now()}.${c.ext}`, { type: c.mime });
+      const c = await recordClip(CLIP_SECONDS, shape);
+      const name = `agent-lounge-${Date.now()}${shape === "tall" ? "-9x16" : ""}.${c.ext}`;
+      const file = new File([c.blob], name, { type: c.mime });
       setClip({ clip: c, url: URL.createObjectURL(c.blob), file });
     } catch {
       setFailed(true);
@@ -65,9 +67,18 @@ function ClipSection() {
           <span className="rec-dot" /> {t(`запис… ${left} с`, `recording… ${left} s`)}
         </p>
       ) : (
-        <button className="btn" onClick={record}>
-          <span className="rec-dot" /> {clip ? t("записати ще", "record again") : t("записати", "record")}
-        </button>
+        <div className="share-actions">
+          <button className="btn" onClick={() => record("wide")}>
+            <span className="rec-dot" /> {clip ? t("записати ще", "record again") : t("записати", "record")}
+          </button>
+          <button
+            className="btn"
+            onClick={() => record("tall")}
+            title={t("вертикально, для TikTok, Reels і Shorts", "vertical, for TikTok, Reels and Shorts")}
+          >
+            <span className="rec-dot" /> {t("вертикально 9:16", "vertical 9:16")}
+          </button>
+        </div>
       )}
       {clip && (
         <>
@@ -81,7 +92,11 @@ function ClipSection() {
                 className="btn"
                 onClick={() =>
                   navigator
-                    .share({ files: [file!], title: t("Мої агенти в Agent Lounge", "My agents in Agent Lounge") })
+                    .share({
+                      files: [file!],
+                      title: t("Мої агенти в Agent Lounge", "My agents in Agent Lounge"),
+                      text: `https://${PROJECT_URL}`,
+                    })
                     .catch(() => {})
                 }
               >

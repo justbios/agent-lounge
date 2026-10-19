@@ -1554,6 +1554,8 @@ body {
 }
 .share-video {
   width: 100%;
+  max-height: 360px;
+  object-fit: contain;
   border-radius: 8px;
   border: 1px solid var(--border-2);
   background: #000;

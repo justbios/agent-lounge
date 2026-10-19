@@ -1,3 +1,4 @@
+import { PROJECT_URL } from "@/lib/brand";
 import { CafeLayout } from "@/lib/cafe/layout";
 import { Bubble } from "@/lib/cafe/timeline";
 import { tr, uiNow } from "@/lib/i18n";
@@ -220,4 +221,69 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, o: OverlayInput, s: n
   for (const c of o.cats) catName(ctx, c, s, W);
   for (const b of o.bubbles) bubble(ctx, b, o.agents[b.agent], s, W);
   if (o.watermark) watermark(ctx, o.watermark, W, H);
+}
+
+/** The largest whole-number scale that fits the scene across width W, losing at most 4% of it at each side. */
+function tallScale(sw: number, sh: number, W: number, maxH: number): number {
+  return Math.max(1, Math.min(Math.floor((W * 1.08) / sw), Math.floor(maxH / sh)));
+}
+
+/**
+ * A 9:16 frame for TikTok, Reels and Shorts: the pixel scene at a whole-number scale, a line about it above and
+ * the project's address below, on the café's own night colours.
+ */
+export function drawTall(ctx: CanvasRenderingContext2D, source: HTMLCanvasElement, o: OverlayInput, W: number, H: number) {
+  const ui = uiNow();
+  const s = tallScale(source.width, source.height, W, H * 0.52);
+  const sw = source.width * s;
+  const sh = source.height * s;
+  const x = Math.round((W - sw) / 2);
+  // the title, scene and address sit a little above the middle, clear of the captions apps lay over the bottom
+  const y = Math.round(H * 0.45 - sh / 2);
+
+  ctx.fillStyle = "#06070c";
+  ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W / 2, y - 120, 40, W / 2, y - 120, W * 0.9);
+  glow.addColorStop(0, "rgba(124,92,255,0.30)");
+  glow.addColorStop(1, "rgba(124,92,255,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = font(Math.round(W * 0.032), 700);
+  spacing(ctx, 0.14, W * 0.032);
+  ctx.fillStyle = "#5ce1ff";
+  ctx.shadowColor = "#5ce1ff";
+  ctx.shadowBlur = 14;
+  ctx.fillText("AGENT LOUNGE", W / 2, y - W * 0.17);
+  ctx.shadowBlur = 0;
+  spacing(ctx, 0, 1);
+  const title = tr(ui, "Мої агенти Claude Code наживо", "My Claude Code agents, live");
+  const size = Math.round(W * 0.058);
+  ctx.font = font(size, 700);
+  const wide = ctx.measureText(title).width;
+  if (wide > W * 0.9) ctx.font = font(Math.floor((size * W * 0.9) / wide), 700);
+  ctx.fillStyle = "#f3f0ff";
+  ctx.fillText(title, W / 2, y - W * 0.075);
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, y, W, sh);
+  ctx.clip();
+  ctx.translate(x, y);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(source, 0, 0, sw, sh);
+  drawOverlay(ctx, { ...o, watermark: "" }, s);
+  ctx.restore();
+
+  const foot = y + sh + W * 0.1;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = font(Math.round(W * 0.034));
+  ctx.fillStyle = "#e9ebf2";
+  ctx.fillText(PROJECT_URL, W / 2, foot);
+  ctx.font = font(Math.round(W * 0.026));
+  ctx.fillStyle = "#99a2b4";
+  ctx.fillText(tr(ui, "безкоштовно, з відкритим кодом", "free and open source"), W / 2, foot + W * 0.05);
 }
