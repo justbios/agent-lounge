@@ -3295,12 +3295,6 @@ body {
   transform: translate(-50%, -50%);
 }
 
-.ttt {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-}
 .ttt-hd {
   display: flex;
   flex-wrap: wrap;
@@ -3311,40 +3305,70 @@ body {
 .ttt-hd b {
   color: var(--text);
 }
+.bgame.ttt-game {
+  width: min(280px, 82vw);
+}
 .ttt-grid {
   display: grid;
-  grid-template-columns: repeat(3, 56px);
-  gap: 4px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 6px;
+  border: 2px solid #07050d;
+  background: #0a0c12;
+  box-shadow: 3px 3px 0 var(--px-drop);
 }
 .ttt-grid button {
-  height: 56px;
-  border: 1px solid var(--border-2);
-  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 2px solid var(--border-2);
   background: var(--panel-2);
-  color: var(--text);
-  font-size: 24px;
+  box-shadow:
+    inset 2px 2px 0 var(--px-hi),
+    inset -2px -2px 0 var(--px-lo);
+}
+.ttt-grid button:enabled {
   cursor: pointer;
 }
-.ttt-grid button:disabled {
-  cursor: default;
+.ttt-grid button:enabled:hover {
+  border-color: rgba(255, 255, 255, 0.32);
 }
-.ttt-grid button.x {
-  color: #ff9a62;
+.ttt-grid .mark {
+  width: 60%;
+  height: 60%;
+  filter: drop-shadow(2px 2px 0 #07050d);
 }
-.ttt-grid button.o {
-  color: #5aa9e6;
+.ttt-grid .ghost {
+  opacity: 0;
 }
-.ttt-grid button.win {
+.ttt-grid button:enabled:hover .ghost {
+  opacity: 0.3;
+}
+.ttt-grid .last {
+  border-color: #ffd25a;
+}
+.ttt-grid .last .mark {
+  animation: mark-pop 240ms steps(4, end) both;
+}
+.ttt-grid .win {
   border-color: #4ade80;
-  background: rgba(74, 222, 128, 0.14);
+  background: #15281b;
+}
+.ttt-grid .dim .mark {
+  opacity: 0.35;
+}
+@keyframes mark-pop {
+  from {
+    transform: scale(0.3);
+  }
 }
 .chk-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  width: min(400px, 82vw);
+  width: 100%;
   aspect-ratio: 1;
   border: 2px solid #07050d;
-  box-shadow: 2px 2px 0 #07050d;
 }
 .chk-grid button {
   position: relative;
@@ -3352,38 +3376,346 @@ body {
   place-items: center;
   padding: 0;
   border: 0;
-  border-radius: 0;
   aspect-ratio: 1;
+  text-shadow: none;
 }
-.chk-grid button.lt {
-  background: #d8bf8f;
+.chk-grid .lt {
+  background: #ead4a7;
 }
-.chk-grid button.dk {
-  background: #6b4a2f;
+.chk-grid .dk {
+  background: #a9774d;
 }
-.chk-grid button.dk.last {
-  background: #7d5a39;
+.chk-grid .was {
+  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.36);
+}
+.chk-grid .via {
+  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.24);
+}
+.chk-grid .now {
+  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.52);
+}
+.chk-grid .gone {
+  box-shadow: inset 0 0 0 100vmax rgba(255, 70, 70, 0.26);
+}
+.chk-grid .pick {
+  box-shadow: inset 0 0 0 100vmax rgba(24, 120, 60, 0.55);
 }
 .chk-grid button:enabled {
   cursor: pointer;
 }
-.chk-grid button.can .man {
-  outline: 2px solid #ffd25a;
-  outline-offset: 1px;
+.chk-grid button.dk:enabled:hover {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: -2px;
 }
-.chk-grid button.pick {
-  background: #8a6a2a;
+.chk-grid .can .man {
+  filter: drop-shadow(2px 0 0 #ffd25a) drop-shadow(-2px 0 0 #ffd25a) drop-shadow(0 2px 0 #ffd25a)
+    drop-shadow(0 -2px 0 #ffd25a);
 }
-.chk-grid button.to::after {
+.chk-grid .to::after {
   content: "";
-  width: 30%;
-  height: 30%;
-  border-radius: 50%;
-  background: rgba(255, 210, 90, 0.85);
+  width: 26%;
+  height: 26%;
+  background: rgba(22, 70, 26, 0.6);
 }
 .chk-grid .man {
+  position: relative;
   width: 78%;
   height: 78%;
+  filter: drop-shadow(0 2px 0 rgba(7, 5, 13, 0.3));
+}
+.chk-grid .ghost {
+  width: 78%;
+  height: 78%;
+  opacity: 0.38;
+}
+.chk-grid .lt i {
+  color: #9a6a42;
+}
+.chk-grid .dk i {
+  color: #f1dfba;
+}
+.seat-man {
+  width: 20px;
+  height: 20px;
+}
+
+/* Board games: the other player above the board and you below, whoever is to move lit up, a line saying what's on. */
+.bgame {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(400px, 82vw);
+}
+.seat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 8px;
+  border: 2px solid var(--border-2);
+  background: var(--panel-2);
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset 2px 2px 0 var(--px-hi);
+  font-size: 12.5px;
+}
+.seat.on {
+  border-color: #ffd25a;
+  background: #1d1a14;
+}
+.seat.won {
+  border-color: #4ade80;
+  background: #132017;
+}
+.seat-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+}
+.seat-mark svg {
+  width: 22px;
+  height: 22px;
+}
+.seat-name {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.seat-name em {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 400;
+}
+.seat-took {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  padding-left: 4px;
+}
+.seat-took svg {
+  width: 20px;
+  height: 20px;
+  margin-left: -6px;
+}
+.seat-took em {
+  margin-left: 5px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-style: normal;
+}
+.seat-turn {
+  flex: none;
+  padding: 1px 6px;
+  background: #ffd25a;
+  color: #1b1626;
+  font-size: 11px;
+  font-weight: 700;
+  text-shadow: none;
+  animation: seat-pulse 1.4s ease-in-out infinite;
+}
+.seat.won .seat-turn {
+  background: #4ade80;
+  animation: none;
+}
+@keyframes seat-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+.board-say {
+  min-height: 1.4em;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.board-say.go {
+  color: #ffd25a;
+}
+.board-say.win {
+  color: #4ade80;
+  animation: say-pop 320ms steps(4, end) both;
+}
+.board-say.lose {
+  color: #ff8f8f;
+}
+.board-say.draw {
+  color: #a9b8ff;
+}
+@keyframes say-pop {
+  from {
+    transform: scale(0.6);
+  }
+}
+.board-wrap {
+  position: relative;
+  padding: 6px;
+  border: 2px solid #07050d;
+  background: linear-gradient(#5b3d26, #3e2818);
+  box-shadow:
+    3px 3px 0 var(--px-drop),
+    inset 2px 2px 0 rgba(255, 220, 170, 0.14),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.3);
+}
+.chess-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  width: 100%;
+  aspect-ratio: 1;
+  border: 2px solid #07050d;
+}
+.chess-grid button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  aspect-ratio: 1;
+  text-shadow: none;
+}
+.chess-grid .lt {
+  background: #ead4a7;
+}
+.chess-grid .dk {
+  background: #a9774d;
+}
+.chess-grid .was {
+  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.36);
+}
+.chess-grid .now {
+  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.52);
+}
+.chess-grid .sel {
+  box-shadow: inset 0 0 0 100vmax rgba(24, 120, 60, 0.55);
+}
+.chess-grid .chk {
+  background-image: radial-gradient(circle, #ff2a2a 0, #ff2a2a 28%, rgba(230, 20, 20, 0.7) 48%, transparent 80%);
+}
+.chess-grid button:enabled {
+  cursor: pointer;
+}
+.chess-grid button:enabled:hover {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: -2px;
+}
+.chess-grid .to::after {
+  content: "";
+  width: 26%;
+  height: 26%;
+  background: rgba(22, 70, 26, 0.5);
+}
+.chess-grid .hit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 4px solid rgba(22, 70, 26, 0.55);
+}
+.chess-grid .piece {
+  position: relative;
+  width: 88%;
+  height: 88%;
+  filter: drop-shadow(0 2px 0 rgba(7, 5, 13, 0.3));
+}
+.chess-grid i,
+.chk-grid i {
+  position: absolute;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+.chess-grid .rk,
+.chk-grid .rk {
+  top: 2px;
+  left: 3px;
+}
+.chess-grid .fl,
+.chk-grid .fl {
+  right: 3px;
+  bottom: 2px;
+}
+.chess-grid .lt i {
+  color: #9a6a42;
+}
+.chess-grid .dk i {
+  color: #f1dfba;
+}
+.promo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(6, 7, 12, 0.76);
+  font-size: 13px;
+  font-weight: 600;
+}
+.promo div {
+  display: flex;
+  gap: 8px;
+}
+.promo div .btn {
+  width: 58px;
+  height: 58px;
+  padding: 4px;
+  justify-content: center;
+}
+.promo div .btn svg {
+  width: 100%;
+  height: 100%;
+}
+.chess-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  max-height: 68px;
+  margin: 0;
+  padding: 6px 8px;
+  overflow-y: auto;
+  border: 2px solid var(--border);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  list-style: none;
+}
+.chess-moves li {
+  display: flex;
+  gap: 6px;
+}
+.chess-moves .n {
+  color: var(--dim);
+}
+.chess-moves .now {
+  color: #ffd25a;
+}
+.chess-moves .fig {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 1px;
+  vertical-align: -2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .seat-turn,
+  .board-say.win,
+  .ttt-grid .last .mark {
+    animation: none;
+  }
 }
 .duel {
   display: flex;
@@ -4357,8 +4689,8 @@ body {
 .duel-board:fullscreen .pong.hockey canvas {
   height: calc(100dvh - 110px);
 }
-.duel-board:fullscreen .chk-grid {
-  width: min(calc(100vw - 48px), calc(100dvh - 110px));
+.duel-board:fullscreen .bgame {
+  width: min(calc(100vw - 48px), calc(100dvh - 250px));
 }
 .duel-tools {
   display: flex;

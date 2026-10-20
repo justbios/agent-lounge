@@ -3,6 +3,7 @@
 import { LiveEvent } from "./types";
 import { useBets } from "./useBets";
 import { useCheckers } from "./useCheckers";
+import { useChess } from "./useChess";
 import { useDuels } from "./useDuels";
 import { useScores } from "./useScores";
 import { Social } from "./useSocial";
@@ -36,5 +37,6 @@ export function useGames({
   const duels = useDuels(social);
   const ttt = useTicTacToe(duels, social, scores);
   const chk = useCheckers(duels, social, scores);
-  return { scores, bets, duels, ttt, chk };
+  const chess = useChess(duels, social, scores);
+  return { scores, bets, duels, ttt, chk, chess };
 }

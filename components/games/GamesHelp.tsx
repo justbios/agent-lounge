@@ -29,11 +29,24 @@ const LINES: Two[] = [
   },
   {
     uk:
-      "Удвох: аерохокей, шашки, хрестики-нулики, пінг-понг або кабелі з кимось, хто зараз теж у кафе. " +
-      "Біля імені натисни гру, і людина отримає запрошення.",
+      "Удвох: шахи, шашки, аерохокей, хрестики-нулики, пінг-понг або кабелі з кимось, хто зараз теж у кафе. " +
+      "Біля імені натисни гру, і людина отримає запрошення. На дошках підсвічено останній хід суперника; " +
+      "коли ігри закрито, а партія чекає на твій хід, зверху з'являється плашка.",
     en:
-      "For two: air hockey, checkers, tic-tac-toe, ping-pong or cables with someone else in the café right now. " +
-      "Press a game next to their name and they get an invite.",
+      "For two: chess, checkers, air hockey, tic-tac-toe, ping-pong or cables with someone else in the café right " +
+      "now. Press a game next to their name and they get an invite. The boards light up the other side's last move, " +
+      "and while the games are closed and a game waits on your move, a note shows at the top.",
+  },
+  {
+    uk:
+      "Шахи: хто запросив, грає білими й ходить першим. Натисни фігуру, потім клітинку, куди їй можна; пішак на " +
+      "останньому ряду стає фігурою на вибір. Є рокіровка й взяття на проході. Мат — перемога; пат, 50 ходів без " +
+      "взяття й ходу пішака, та сама позиція втретє або замало фігур для мату — нічия.",
+    en:
+      "Chess: whoever sent the invite plays white and moves first. Press a piece, then a square it may go to; a pawn " +
+      "reaching the last row becomes a piece of your choice. Castling and en passant work. Checkmate wins; " +
+      "stalemate, 50 moves with no capture or pawn move, the same position a third time, or too little left to mate " +
+      "is a draw.",
   },
   {
     uk:
@@ -48,13 +61,13 @@ const LINES: Two[] = [
     uk:
       "Шашки: хто запросив, грає білими й ходить першим. Бити обов'язково, і назад теж, кількома стрибками за хід; " +
       "шашка на останньому ряду стає дамкою й ходить на будь-яку відстань. Натисни шашку, потім клітинку, " +
-      "а під час биття кожну клітинку по черзі. Хто не може ходити, програв; " +
-      "15 ходів самими дамками без биття — нічия.",
+      "а під час биття кожну клітинку по черзі. Щойно побиті шашки видно блідими до наступного ходу. " +
+      "Хто не може ходити, програв; 15 ходів самими дамками без биття — нічия.",
     en:
       "Checkers: whoever sent the invite plays white and moves first. Captures are a must, backwards too, " +
       "several jumps in one move; a man reaching the last row becomes a king and moves any distance. Press a piece, " +
-      "then a square, and when capturing each square in turn. Whoever cannot move loses; 15 moves with only kings " +
-      "and no captures is a draw.",
+      "then a square, and when capturing each square in turn. Pieces just taken stay faded until the next move. " +
+      "Whoever cannot move loses; 15 moves with only kings and no captures is a draw.",
   },
   {
     uk: `Пінг-понг до ${WIN_AT} очок: ракетку веди мишкою, пальцем або стрілками.`,

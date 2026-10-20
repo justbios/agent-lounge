@@ -5,22 +5,25 @@ import { useTr, useUi } from "@/lib/i18n";
 import { DuelKind, LiveDuel, duelName } from "@/lib/live/duel";
 import { Guest } from "@/lib/live/social";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
+import { Chess as ChessState } from "@/lib/live/useChess";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import Cables from "./Cables";
 import Checkers from "./Checkers";
+import Chess from "./Chess";
 import FullscreenButton from "./FullscreenButton";
 import Hockey from "./Hockey";
 import Pong from "./Pong";
 import TicTacToe from "./TicTacToe";
 
-const KINDS: DuelKind[] = ["hockey", "checkers", "ttt", "pong", "cables"];
+const KINDS: DuelKind[] = ["chess", "checkers", "hockey", "ttt", "pong", "cables"];
 
 /** The match being played, or who in the café can be called to one and the invite in flight. */
 export default function Duels({
   duels,
   ttt,
   chk,
+  chess,
   guests,
   room,
   online,
@@ -29,6 +32,7 @@ export default function Duels({
   duels: DuelsState;
   ttt: Ttt;
   chk: CheckersState;
+  chess: ChessState;
   guests: Guest[];
   room: string | null;
   online: boolean;
@@ -55,6 +59,8 @@ export default function Duels({
             <TicTacToe ttt={ttt} self={duels.self} note={note} />
           ) : m.kind === "checkers" ? (
             <Checkers chk={chk} self={duels.self} note={note} />
+          ) : m.kind === "chess" ? (
+            <Chess chess={chess} self={duels.self} note={note} />
           ) : m.kind === "cables" ? (
             <Cables key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("cables", w)} />
           ) : m.kind === "hockey" ? (

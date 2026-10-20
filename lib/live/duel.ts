@@ -1,6 +1,6 @@
 import type { Ui } from "@/lib/i18n";
 
-export type DuelKind = "ttt" | "pong" | "cables" | "checkers" | "hockey";
+export type DuelKind = "ttt" | "pong" | "cables" | "checkers" | "hockey" | "chess";
 
 export const DUEL_NAMES: Record<DuelKind, string> = {
   ttt: "хрестики-нулики",
@@ -8,6 +8,7 @@ export const DUEL_NAMES: Record<DuelKind, string> = {
   cables: "кабелі",
   checkers: "шашки",
   hockey: "аерохокей",
+  chess: "шахи",
 };
 
 export const DUEL_NAMES_EN: Record<DuelKind, string> = {
@@ -16,6 +17,7 @@ export const DUEL_NAMES_EN: Record<DuelKind, string> = {
   cables: "cables",
   checkers: "checkers",
   hockey: "air hockey",
+  chess: "chess",
 };
 
 /** A game's name in the viewer's language. */
@@ -23,8 +25,8 @@ export const duelName = (kind: DuelKind, ui: Ui = "uk"): string =>
   (ui === "en" ? DUEL_NAMES_EN : DUEL_NAMES)[kind];
 
 /** Played turn by turn over the café's own channel, so they survive the games panel closing. */
-export const TURN_BASED: readonly DuelKind[] = ["ttt", "checkers"];
-export type LiveDuel = Exclude<DuelKind, "ttt" | "checkers">;
+export const TURN_BASED: readonly DuelKind[] = ["ttt", "checkers", "chess"];
+export type LiveDuel = Exclude<DuelKind, "ttt" | "checkers" | "chess">;
 
 export interface Player {
   id: string;

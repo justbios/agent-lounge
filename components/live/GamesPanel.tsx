@@ -6,6 +6,7 @@ import { useTr, useUi } from "@/lib/i18n";
 import { DuelKind, TURN_BASED, duelName } from "@/lib/live/duel";
 import { Guest } from "@/lib/live/social";
 import { Checkers } from "@/lib/live/useCheckers";
+import { Chess } from "@/lib/live/useChess";
 import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Ttt } from "@/lib/live/useTicTacToe";
@@ -15,7 +16,7 @@ import Duels from "../games/Duels";
 import GamesHelp from "../games/GamesHelp";
 
 const TOP = 5;
-const BOARDS: DuelKind[] = ["hockey", "checkers", "ttt", "pong", "cables"];
+const BOARDS: DuelKind[] = ["chess", "checkers", "hockey", "ttt", "pong", "cables"];
 
 const played = (rows: ScoreRow[], game: Game, by: "wins" | "best") =>
   rows.filter((r) => r.game === game && (by === "best" ? r.best > 0 : r.played > 0));
@@ -53,6 +54,7 @@ export default function GamesPanel({
   duels,
   ttt,
   chk,
+  chess,
   guests,
   room,
   online,
@@ -63,6 +65,7 @@ export default function GamesPanel({
   duels: DuelsState;
   ttt: Ttt;
   chk: Checkers;
+  chess: Chess;
   guests: Guest[];
   room: string | null;
   online: boolean;
@@ -103,6 +106,7 @@ export default function GamesPanel({
               duels={duels}
               ttt={ttt}
               chk={chk}
+              chess={chess}
               guests={guests}
               room={room}
               online={online}

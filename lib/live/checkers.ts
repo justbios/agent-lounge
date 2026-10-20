@@ -12,6 +12,8 @@ export interface ChkBoard {
   winner: Side | "draw" | null;
   /** every move so far, each the squares the piece stood on */
   moves: number[][];
+  /** what the latest move took and where, so the board can show it a moment longer */
+  took: { sq: number; p: Piece }[];
 }
 
 export const N = 8;
@@ -35,7 +37,7 @@ export function newChk(id: string): ChkBoard {
     const r = Math.floor(sq / N);
     return !dark(sq) ? "" : r < 3 ? "o" : r > 4 ? "x" : "";
   });
-  return { id, cells, turn: "x", quiet: 0, winner: null, moves: [] };
+  return { id, cells, turn: "x", quiet: 0, winner: null, moves: [], took: [] };
 }
 
 /** Every way to go on taking from `sq`, as the squares landed on; the pieces taken stay on the board until the end. */
@@ -109,20 +111,20 @@ export function apply(b: ChkBoard, path: number[]): ChkBoard | null {
   if (b.winner || !legal(b).some((m) => same(m, path))) return null;
   const cells = [...b.cells];
   const piece = cells[path[0]];
-  let took = false;
+  const took: ChkBoard["took"] = [];
   let crowned = isKing(piece);
   for (let i = 1; i < path.length; i++) {
     for (const s of between(path[i - 1], path[i])) {
-      if (cells[s]) took = true;
+      if (cells[s]) took.push({ sq: s, p: cells[s] });
       cells[s] = "";
     }
     if (Math.floor(path[i] / N) === lastRow(b.turn)) crowned = true;
   }
   cells[path[0]] = "";
   cells[path.at(-1)!] = (crowned ? b.turn.toUpperCase() : b.turn) as Piece;
-  const quiet = !took && isKing(piece) ? b.quiet + 1 : 0;
+  const quiet = !took.length && isKing(piece) ? b.quiet + 1 : 0;
   const turn: Side = b.turn === "x" ? "o" : "x";
-  const next: ChkBoard = { ...b, cells, turn, quiet, moves: [...b.moves, path] };
+  const next: ChkBoard = { ...b, cells, turn, quiet, moves: [...b.moves, path], took };
   const winner = !legal(next).length ? b.turn : quiet >= QUIET_DRAW ? "draw" : null;
   return { ...next, winner };
 }

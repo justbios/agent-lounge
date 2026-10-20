@@ -56,6 +56,7 @@ import AwayCard from "./live/AwayCard";
 import GamesPanel from "./live/GamesPanel";
 import House, { ACTIVE_MS } from "./live/House";
 import InviteToast from "./live/InviteToast";
+import TurnToast from "./live/TurnToast";
 import { LimitsMini } from "./live/Limits";
 import Presence from "./live/Presence";
 import SceneMenu from "./live/SceneMenu";
@@ -493,6 +494,7 @@ export default function LiveDashboard({
           duels={games.duels}
           ttt={games.ttt}
           chk={games.chk}
+          chess={games.chess}
           guests={social.guests}
           room={social.room}
           online={cloud}
@@ -511,6 +513,7 @@ export default function LiveDashboard({
         />
       )}
       <InviteToast duels={games.duels} onPlay={() => setGamesOpen(true)} />
+      {!gamesOpen && <TurnToast games={games} onOpen={() => setGamesOpen(true)} />}
       {rooms.fresh.length > 0 && sheet !== "ach" && sheet !== "myAch" && (
         <AchToast
           fresh={rooms.fresh}

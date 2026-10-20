@@ -6,6 +6,8 @@ export interface TttBoard {
   turn: Side;
   winner: Side | "draw" | null;
   line: number[] | null;
+  /** the square of the latest mark */
+  last: number | null;
 }
 
 const LINES = [
@@ -19,7 +21,14 @@ const LINES = [
   [2, 4, 6],
 ];
 
-export const newBoard = (id: string): TttBoard => ({ id, cells: Array(9).fill(null), turn: "x", winner: null, line: null });
+export const newBoard = (id: string): TttBoard => ({
+  id,
+  cells: Array(9).fill(null),
+  turn: "x",
+  winner: null,
+  line: null,
+  last: null,
+});
 
 /** The board after `by` puts their mark in `cell`, or null when that move is not theirs to make. */
 export function play(m: Match, b: TttBoard, cell: number, by: string): TttBoard | null {
@@ -29,7 +38,7 @@ export function play(m: Match, b: TttBoard, cell: number, by: string): TttBoard 
   const cells = b.cells.map((c, i) => (i === cell ? mark : c));
   const line = LINES.find(([p, q, r]) => cells[p] && cells[p] === cells[q] && cells[p] === cells[r]) ?? null;
   const winner = line ? mark : cells.every(Boolean) ? "draw" : null;
-  return { ...b, cells, turn: mark === "x" ? "o" : "x", winner, line };
+  return { ...b, cells, turn: mark === "x" ? "o" : "x", winner, line, last: cell };
 }
 
 export function cleanMove(p: unknown): { game: string; cell: number; by: string } | null {
