@@ -15,6 +15,7 @@ import {
 import { CafeModel } from "@/lib/cafe/model";
 import { useTr, useUi } from "@/lib/i18n";
 import { openTracks } from "@/lib/live/achievements";
+import type { Eta } from "@/lib/live/eta";
 import { ItemId, Placed, itemName, itemOf } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { Gain } from "@/lib/live/useBeanGains";
@@ -130,6 +131,7 @@ export default function Stage({
   model,
   clock,
   alert,
+  etas,
   rate,
   guests,
   bar,
@@ -161,6 +163,8 @@ export default function Stage({
   model: CafeModel;
   clock: number;
   alert?: SceneAlert;
+  /** per desk: the guess of the time its job has left, for the agent card */
+  etas?: (Eta | null)[];
   /** tokens a minute over the last quarter hour, for the meter on the wall */
   rate: number;
   guests: Guest[];
@@ -368,6 +372,7 @@ export default function Stage({
           model={model}
           clock={clock}
           alert={alert}
+          etas={etas}
           asleep={asleep}
           rate={rate}
           guests={bar}

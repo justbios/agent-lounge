@@ -37,6 +37,7 @@ permission prompts, questions and plans. The parts and their trust:
 - Room keys are never stored by the server, only `sha256(key)`. The hook script sends the key in the `x-relay-key`
   header, not in the URL.
 - Café events carry short descriptions only (`lib/live/normalize.ts`) and live for 24 hours, at most 12000 per room.
+  An agent's task list arrives as two counts, steps done and steps in all, never the steps' words.
 - While «я не за комп'ютером» is on, a permission request, question or plan is stored whole in `relay_asks`
   (the command, a written file's content, the plan): the text is erased after 24 hours, the row after 30 days.
 - Writes are capped at 600 events per room per minute and 200 new rooms per hour site-wide.

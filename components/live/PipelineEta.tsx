@@ -1,0 +1,208 @@
+"use client";
+
+import { CSSProperties } from "react";
+import { Timer } from "lucide-react";
+import { CafeModel } from "@/lib/cafe/model";
+import { Ui, tr, useTr, useUi } from "@/lib/i18n";
+import { Eta, etaText, fmtSpan } from "@/lib/live/eta";
+import type { LiveScene } from "@/lib/live/liveModel";
+import Sheet from "./Sheet";
+
+const ICON = { display: "inline", verticalAlign: "-1px", marginRight: 4 } as const;
+const HOUR = 3_600_000;
+const FIVE = 300_000;
+
+/** The clock time a guess lands on, over an hour away in fives of minutes, and its day when that is not today. */
+function clockAt(at: number, now: number, ui: Ui): { day: string; time: string } {
+  const loc = ui === "en" ? "en-GB" : "uk-UA";
+  const d = new Date(at - now > HOUR ? Math.round(at / FIVE) * FIVE : at);
+  const time = d.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" });
+  const today = new Date(now);
+  if (d.toDateString() === today.toDateString()) return { day: "", time };
+  today.setDate(today.getDate() + 1);
+  if (d.toDateString() === today.toDateString()) return { day: tr(ui, "завтра", "tomorrow"), time };
+  const wd = d.toLocaleDateString(loc, { weekday: "short" });
+  return { day: tr(ui, `у ${wd}`, wd), time };
+}
+
+/** When the guess lands: "at 18:40", "tomorrow at 06:00", "tomorrow, not before 06:00" when some agent has no guess. */
+function landsAt(e: Eta, now: number, ui: Ui): string | null {
+  if (e.left == null || e.wrap) return null;
+  const { day, time } = clockAt(now + e.left, now, ui);
+  const at = e.more ? tr(ui, `не раніше ${time}`, `not before ${time}`) : tr(ui, `о ${time}`, `at ${time}`);
+  return day ? `${day}${e.more ? "," : ""} ${at}` : at;
+}
+
+/** The stat bar's "pipeline ≈ 2 h 20 min, at 18:40": Claude's guess, the longest of the agents it waits on. */
+export function PipelineStat({ eta, now, onOpen }: { eta: Eta | null | undefined; now: number; onOpen: () => void }) {
+  const t = useTr();
+  const ui = useUi();
+  if (!eta) return null;
+  const at = landsAt(eta, now, ui);
+  return (
+    <button
+      className="stat stat-btn"
+      onClick={onOpen}
+      title={t("коли закінчить пайплайн; натисни, щоб побачити агентів", "when the pipeline ends; click for agents")}
+    >
+      <span className="stat-k">
+        <Timer size={11} style={ICON} />
+        {t("пайплайн", "pipeline")}
+      </span>
+      <span className="stat-v">{eta.left == null ? t("невідомо", "unknown") : etaText(eta, ui)}</span>
+      {at && <span className="stat-at">{at}</span>}
+    </button>
+  );
+}
+
+interface Row {
+  seat: number;
+  eta: Eta;
+  elapsed: number;
+}
+
+/** What each agent of the pipeline still needs and when it lands, and what the ones already back took. */
+export function PipelineSheet({
+  scene,
+  model,
+  etas,
+  now,
+  onClose,
+}: {
+  scene: LiveScene;
+  model: CafeModel;
+  etas: (Eta | null)[];
+  now: number;
+  onClose: () => void;
+}) {
+  const t = useTr();
+  const ui = useUi();
+  const clock = now - scene.origin;
+  const all = etas[0];
+  const busy: Row[] = etas
+    .map((eta, seat) => (seat > 0 && eta ? { seat, eta, elapsed: clock - (scene.runs?.[seat]?.start ?? clock) } : null))
+    .filter((r): r is Row => r !== null)
+    .sort((a, b) => (b.eta.left ?? -1) - (a.eta.left ?? -1));
+  const back = (scene.finished ?? []).filter((f) => f.end >= (scene.turn ?? 0)).reverse();
+  const own = all?.todo;
+  const at = all && landsAt(all, now, ui);
+  const lead = all?.more ? t("Щонайменше", "At least") : t("Ще", "Still");
+  const span = all?.left != null && `${lead} ${fmtSpan(all.left, ui)}`;
+
+  const head = !all
+    ? t("Зараз пайплайн не працює", "No pipeline is running now")
+    : all.wrap
+      ? t("Майже готово", "Wrapping up")
+      : !span
+        ? t("Поки невідомо, коли закінчить", "No guess yet of when it finishes")
+        : `${span}${at ? ` — ${at}` : ""}`;
+  const longest = all?.waitsOn != null ? model.agents[all.waitsOn].name : null;
+  const why = longest && t(`чекає на ${longest}`, `waiting on ${longest}`);
+  const unknown = busy.filter((r) => r.eta.left == null).length;
+
+  return (
+    <Sheet
+      label={t("пайплайн", "pipeline")}
+      title={t("Пайплайн", "Pipeline")}
+      sub={t("приблизний час", "a rough guess")}
+      onClose={onClose}
+    >
+      <div className="pipe-sum">
+        <b>{head}</b>
+        <span>
+          {[
+            why,
+            own && t(`у Claude кроки ${own.done}/${own.total}`, `Claude's steps ${own.done}/${own.total}`),
+            unknown ? t(`без оцінки: ${unknown}`, `no guess: ${unknown}`) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </div>
+
+      {busy.length > 0 && (
+        <section className="recap-sec">
+          <div className="share-ttl">{t("Працюють", "Working")}</div>
+          <ul className="pipe-list">
+            {busy.map(({ seat, eta, elapsed }) => {
+              const a = model.agents[seat];
+              const steps = eta.todo;
+              const pct = steps ? Math.round((100 * steps.done) / steps.total) : null;
+              const pace = eta.stepMs != null && !eta.wrap ? fmtSpan(eta.stepMs, ui) : null;
+              const lands = landsAt(eta, now, ui);
+              return (
+                <li key={seat} style={{ "--c": a.color } as CSSProperties}>
+                  <span className="pipe-dot" />
+                  <span className="pipe-who">
+                    <b>{a.name}</b>
+                    <small>
+                      {[
+                        t(`працює ${fmtSpan(elapsed, ui)}`, `working ${fmtSpan(elapsed, ui)}`),
+                        steps ? t(`кроки ${steps.done}/${steps.total}`, `steps ${steps.done}/${steps.total}`) : null,
+                        pace ? t(`~${pace} на крок`, `~${pace} a step`) : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </small>
+                    {pct != null && (
+                      <span className="pipe-bar" aria-hidden>
+                        <span style={{ width: `${pct}%` }} />
+                      </span>
+                    )}
+                  </span>
+                  <span className="pipe-left">
+                    <b>{eta.left == null ? "?" : etaText(eta, ui)}</b>
+                    <small>
+                      {eta.left != null
+                        ? (lands ?? "")
+                        : steps
+                          ? t("час буде з першим кроком", "a time with the first step")
+                          : t("не веде список кроків", "keeps no step list")}
+                    </small>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {back.length > 0 && (
+        <section className="recap-sec">
+          <div className="share-ttl">{t("Уже повернулись", "Already back")}</div>
+          <ul className="pipe-list done">
+            {back.map((f) => {
+              const a = model.agents[f.seat];
+              return (
+                <li key={`${f.seat}-${f.end}`} style={{ "--c": a.color } as CSSProperties}>
+                  <span className="pipe-dot" />
+                  <span className="pipe-who">
+                    <b>{a.name}</b>
+                  </span>
+                  <span className="pipe-left">
+                    <b>{t(`за ${fmtSpan(f.end - f.start, ui)}`, `took ${fmtSpan(f.end - f.start, ui)}`)}</b>
+                    <small>{clockAt(scene.origin + f.end, now, ui).time}</small>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      <p className="alerts-hint">
+        {t(
+          "Час рахується зі списку задач агента: скільки пунктів лишилось, помножене на час одного пункту, " +
+            "виміряний у цій роботі, а до першого зробленого пункту взятий з попередніх робіт цього агента. Агент " +
+            "без списку оцінки не має; щоб мав, допиши йому в .claude/agents: «Спочатку запиши всі пункти роботи в " +
+            "TodoWrite і відмічай кожен, щойно він готовий». Пайплайн закінчить, коли повернеться найдовший агент.",
+          "Times come from each agent's task list: the steps left times the time one step takes, measured on " +
+            "this job, and before the first step is done taken from this agent's earlier jobs. An agent with no list " +
+            "gets no guess; to give it one, add to its file in .claude/agents: “First write every part of the work " +
+            "into TodoWrite and tick each off as soon as it is done.” The pipeline finishes when the longest agent " +
+            "is back.",
+        )}
+      </p>
+    </Sheet>
+  );
+}

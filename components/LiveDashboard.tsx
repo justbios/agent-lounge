@@ -10,6 +10,7 @@ import { Two, Ui, useTr, useUi } from "@/lib/i18n";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
 import { attentionText } from "@/lib/live/attention";
 import { openTracks } from "@/lib/live/achievements";
+import { guessAll, useStepPaces } from "@/lib/live/eta";
 import { hideStale, staleVersion, useStaleHidden } from "@/lib/live/hookHealth";
 import { LOBBY, houseFloors, useHouseScenes } from "@/lib/live/house";
 import { CLAUDE_COLOR, LiveSession, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
@@ -42,6 +43,7 @@ import AlertsMenu from "./live/AlertsMenu";
 import AchPanel from "./live/AchPanel";
 import ChatPanel from "./live/ChatPanel";
 import JukeboxMenu from "./live/Jukebox";
+import { PipelineSheet, PipelineStat } from "./live/PipelineEta";
 import TunePlayer from "./live/TunePlayer";
 import ShopPanel from "./live/ShopPanel";
 import PlanPanel from "./live/PlanPanel";
@@ -236,7 +238,7 @@ export default function LiveDashboard({
   const viewRoom = useViewRoom();
   const [recapOpen, setRecapOpen] = useState(false);
   const recap = useRecap({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events }, recapOpen);
-  const [sheet, setSheet] = useState<"ach" | "myAch" | "shop" | "plan" | null>(null);
+  const [sheet, setSheet] = useState<"ach" | "myAch" | "shop" | "plan" | "eta" | null>(null);
   const [placing, setPlacing] = useState<Placing | null>(null);
   const rooms = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
   const [replay, setReplay] = useState<Replay | null>(null);
@@ -304,6 +306,8 @@ export default function LiveDashboard({
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model]);
   const tl = useMemo(() => buildTimeline(model), [model]);
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
+  const paces = useStepPaces(feed.events);
+  const etas = !playing && scene?.runs ? guessAll(scene.runs, model.stints, paces, clock) : undefined;
   const working = views.filter((v) => v.screen === "work").length;
   const spent = model.agents.reduce((sum, a) => sum + (a.tokens ?? 0), 0);
   const viewEvents = useMemo(
@@ -372,6 +376,7 @@ export default function LiveDashboard({
         seatsLabel={whole ? t("учасників", "teammates") : t("агентів", "agents")}
         working={working}
         tokens={spent}
+        eta={<PipelineStat eta={etas?.[0]} now={now} onOpen={() => setSheet("eta")} />}
         limits={<LimitsMini limits={myLimits} now={now} onOpen={() => setRecapOpen(true)} />}
       >
         <button className="btn" onClick={() => setRecapOpen(true)}>
@@ -478,6 +483,9 @@ export default function LiveDashboard({
             setSheet(null);
           }}
         />
+      )}
+      {sheet === "eta" && scene && etas && (
+        <PipelineSheet scene={scene} model={model} etas={etas} now={now} onClose={() => setSheet(null)} />
       )}
       {gamesOpen && (
         <GamesPanel
@@ -610,6 +618,7 @@ export default function LiveDashboard({
           model={model}
           clock={clock}
           alert={alert}
+          etas={etas}
           rate={rate}
           guests={social.guests}
           bar={social.bar}
@@ -646,6 +655,7 @@ export default function LiveDashboard({
               views={views}
               clock={clock}
               alert={alert}
+              etas={etas}
               rosterCount={whole ? 0 : roster.length}
               title={whole ? t("команда", "team") : t("агенти", "agents")}
               askText={whole && teamAttn && team.members[teamAttn.seat] !== team.me ? t("чекає", "waiting") : undefined}

@@ -162,6 +162,24 @@ body {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.stat-btn {
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.stat-btn:hover {
+  border-color: var(--border-2);
+}
+.stat-at {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
 .stat-sep {
   width: 1px;
   height: 30px;
@@ -645,6 +663,13 @@ body {
 .rr-rl {
   font-size: 12px;
   color: var(--muted);
+}
+.rr-eta {
+  margin-left: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
 }
 .rr-badge {
   font-size: 11px;
@@ -2798,6 +2823,82 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+/* the pipeline sheet: when it finishes, and each agent's time */
+.pipe-sum {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.pipe-sum b {
+  font-size: 18px;
+}
+.pipe-sum span {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.pipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pipe-list li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.pipe-dot {
+  width: 10px;
+  height: 10px;
+  background: var(--c);
+  box-shadow: 0 0 0 1px #07050d;
+}
+.pipe-who,
+.pipe-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.pipe-left {
+  align-items: flex-end;
+  text-align: right;
+}
+.pipe-who b,
+.pipe-left b {
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.pipe-who small,
+.pipe-left small {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+.pipe-bar {
+  height: 4px;
+  margin-top: 3px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.pipe-bar span {
+  display: block;
+  height: 100%;
+  background: var(--c);
+}
+.pipe-list.done li {
+  opacity: 0.8;
 }
 .tok-sum {
   display: flex;

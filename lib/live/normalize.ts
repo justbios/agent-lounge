@@ -86,6 +86,21 @@ export function describeTool(name: string, input: Json): { tool: string; text: s
   }
 }
 
+const MAX_STEPS = 500;
+
+/** How far an agent's task list has got, for the café's time-left guess: counts only, never a step's words. */
+export function planStep(name: string, input: Json): Pick<LiveEvent, "todo" | "todoStep"> {
+  if (name === "TodoWrite" && Array.isArray(input.todos)) {
+    const todos = input.todos.slice(0, MAX_STEPS) as unknown[];
+    const done = todos.filter((t) => (t as Json | null)?.status === "completed").length;
+    return { todo: { done, total: todos.length } };
+  }
+  if (name === "TaskCreate") return { todoStep: "add" };
+  if (name === "TaskUpdate" && input.status === "completed") return { todoStep: "done" };
+  if (name === "TaskUpdate" && input.status === "deleted") return { todoStep: "drop" };
+  return {};
+}
+
 /** Claude Code also submits its own wrapped messages (a finished background task, …) as prompts. */
 function promptEvent(prompt: string | undefined): { tool: string; text?: string } {
   const p = prompt ?? "";
@@ -151,7 +166,11 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
         const task = str(input.description);
         return ev("dispatch", { tool: "agent", target, text: task && clip(task, 40) });
       }
-      return ev("tool", { ...describeTool(toolName, input), say: plainTool(toolName, input) });
+      return ev("tool", {
+        ...describeTool(toolName, input),
+        say: plainTool(toolName, input),
+        ...planStep(toolName, input),
+      });
     case "PostToolUseFailure":
       return ev("fail", { tool: describeTool(toolName, input).tool, ...tech("fail", toolName), say: { a: "fail" } });
     case "SubagentStart":

@@ -67,6 +67,10 @@ export interface LiveEvent {
   tech?: Say;
   /** dispatch only: the subagent type being launched */
   target?: string;
+  /** TodoWrite: how much of the agent's whole task list is done; counts only, the steps' words never leave the hook */
+  todo?: { done: number; total: number };
+  /** TaskCreate and TaskUpdate change the list one step at a time: a step added, finished or dropped */
+  todoStep?: "add" | "done" | "drop";
   /** roster only: agent names from the project's .claude/agents */
   agents?: string[];
   /** notify only: a permission prompt, or Claude idling until you write */

@@ -10,6 +10,7 @@ import { Point } from "@/lib/layout";
 import { BRAND, EMPTY_INTERIOR, Interior, ItemId, LookPick, Placed, itemOf, owns, titleFit } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { visitAt } from "@/lib/live/visitors";
+import type { Eta } from "@/lib/live/eta";
 import { AgentCard, ScenePop } from "./AgentCard";
 import { Cat, DOG } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
@@ -69,6 +70,7 @@ export default function CafeScene({
   model,
   clock,
   alert,
+  etas,
   decor,
   catName,
   theme = THEMES.cafe,
@@ -96,6 +98,8 @@ export default function CafeScene({
   model: CafeModel;
   clock: number;
   alert?: SceneAlert;
+  /** per desk: the guess of the time its job has left, for the agent card */
+  etas?: (Eta | null)[];
   decor?: DecorSet;
   catName?: string | null;
   theme?: Theme;
@@ -477,6 +481,8 @@ export default function CafeScene({
               view={agentView(model, tl, lay, selIdx, clock)}
               agent={selIdx}
               clock={clock}
+              eta={etas?.[selIdx] ?? null}
+              nameOf={nameOf}
               asking={alert?.kind === "ask" && alert.agent === selIdx ? alert.text : undefined}
               onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
               look={looks[agents[selIdx].id]}

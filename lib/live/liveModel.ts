@@ -131,11 +131,55 @@ interface Pending {
   used: boolean;
 }
 
+/** The job a desk is on right now, for the time-left guess; scene ms like the stints. */
+export interface Run {
+  start: number;
+  /** the subagent type; "main" for Claude's own desk */
+  type: string;
+  /** how far its task list has got, when it keeps one */
+  todo?: { done: number; total: number };
+  /** steps already done when this job first showed its list: the pace counts only the ones done since */
+  base?: number;
+  /** when the latest of those steps was done */
+  stepAt?: number;
+}
+
 export interface LiveScene {
   model: CafeModel;
   origin: number;
   /** subagent instance id → desk index */
   seatOf: Record<string, number>;
+  /** per desk: the job still open, null when it has none */
+  runs?: (Run | null)[];
+  /** subagent jobs that came back, oldest first; scene ms */
+  finished?: { seat: number; start: number; end: number }[];
+  /** when Claude's latest turn began, scene ms: the pipeline runs from there */
+  turn?: number;
+}
+
+/** One task-list change applied to a run's counts: TodoWrite sends the whole list, the Task tools one step. */
+export function stepTodo(run: Run, e: LiveEvent, at: number) {
+  const before = run.todo?.done ?? 0;
+  if (e.todo) {
+    run.base ??= e.todo.done;
+    run.todo = { ...e.todo };
+  } else {
+    const t = run.todo ?? { done: 0, total: 0 };
+    run.base ??= t.done;
+    if (e.todoStep === "add") t.total += 1;
+    else if (e.todoStep === "done") t.done += 1;
+    else if (e.todoStep === "drop") t.total -= 1;
+    t.total = Math.max(t.total, t.done);
+    run.todo = t;
+  }
+  if (run.todo.done > before && run.todo.done > run.base) run.stepAt = at;
+}
+
+/** Claude's next turn: a task list it left unfinished carries over, the Task tools keep their steps between turns. */
+function mainRun(start: number, left: Run | null): Run {
+  const todo = left?.todo;
+  if (!todo || todo.done >= todo.total) return { start, type: "main" };
+  return { start, type: "main", todo: { ...todo }, base: todo.done };
 }
 
 /** Turns one session's hook events into the café: desk 0 is the main Claude, every subagent type gets its own desk. */
@@ -151,6 +195,10 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   const notes: Note[][] = [[]];
   const spent: number[] = [0];
   const pots: PotLevel[][] = [[]];
+  const runs: (Run | null)[] = [null];
+  let lastRun: Run | null = null;
+  let mainLast = -Infinity;
+  const finished: { seat: number; start: number; end: number }[] = [];
   const bySubagent = new Map<string, number>();
   const pending: Pending[] = [];
   const dispatchReqs: TripRequest[] = [];
@@ -199,6 +247,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     notes.push([]);
     spent.push(0);
     pots.push([]);
+    runs.push(null);
     return i;
   };
 
@@ -209,6 +258,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     if (i < 0) i = addSeat(type);
     seats[i].busy = true;
     bySubagent.set(id, i);
+    runs[i] = { start: t, type };
     open(i, t);
     claim(i, t, key);
     return i;
@@ -222,9 +272,14 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     const actor = e.agent ? seatFor(e.agent, e.agentType ?? "agent", t, key) : 0;
     spent[actor] += tokensOf(e.usage);
     if (e.ctx) pots[actor].push({ ts: t, fill: fillOf(e.ctx) });
+    const working = e.kind === "tool" || e.kind === "fail" || e.kind === "dispatch";
+    if (actor === 0 && working && !runs[0]) runs[0] = mainRun(t, lastRun);
+    const run = runs[actor];
+    if (run && (e.todo || e.todoStep)) stepTodo(run, e, t);
 
     switch (e.kind) {
       case "prompt":
+        if (!runs[0] || t - mainLast > QUIET_MS) runs[0] = mainRun(t, runs[0] ?? lastRun);
         open(0, t);
         note(0, { key, ts: t, text: e.text ?? (en ? "new prompt" : "нове питання"), tool: e.tool, tone: "alert" });
         break;
@@ -275,19 +330,26 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
         open(actor, t);
         close(actor, t);
         seats[actor].busy = false;
+        if (runs[actor]) finished.push({ seat: actor, start: runs[actor].start, end: t });
+        runs[actor] = null;
         note(actor, { key, ts: t, text: en ? "done ✓" : "готово ✓", say: { a: "done" }, tone: "done" });
         const own = stints[actor];
         returns.push({ seat: actor, ts: t, key: `${key}-back`, stint: own[own.length - 1] });
         break;
       }
       case "stop":
+        lastRun = runs[0];
+        runs[0] = null;
         close(0, t);
         note(0, stopNote(e, key, t, ui));
         break;
       case "session_end":
         stints.forEach((_, i) => close(i, t));
+        runs.fill(null);
+        lastRun = null;
         break;
     }
+    if (actor === 0) mainLast = t;
   }
 
   const hush = (evs[evs.length - 1]?.at ?? origin) - origin + QUIET_MS;
@@ -322,6 +384,9 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   return {
     origin,
     seatOf: Object.fromEntries(bySubagent),
+    runs,
+    finished,
+    turn: (runs[0] ?? lastRun)?.start,
     model: {
       agents,
       stints,

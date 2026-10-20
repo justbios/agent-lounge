@@ -6,6 +6,7 @@ import { CafeModel } from "@/lib/cafe/model";
 import { AgentView } from "@/lib/cafe/timeline";
 import { Two, Ui, enPlural, tr, useTr, useUi } from "@/lib/i18n";
 import { LookPick, NAME_MAX } from "@/lib/live/interior";
+import { Eta, etaDetail } from "@/lib/live/eta";
 import { REACTIONS } from "@/lib/live/social";
 import { chip, line, said, useSpeech } from "@/lib/live/speech";
 import { badge, plural } from "../live/format";
@@ -159,6 +160,8 @@ export function AgentCard({
   view,
   agent,
   clock,
+  eta,
+  nameOf,
   asking,
   onReact,
   look,
@@ -168,6 +171,10 @@ export function AgentCard({
   view: AgentView;
   agent: number;
   clock: number;
+  /** the guess of the time this agent's job has left */
+  eta?: Eta | null;
+  /** an agent's name as the scene shows it, for "waiting on …" */
+  nameOf?: (i: number) => string;
   asking?: string;
   onReact?: (emoji: string) => void;
   look?: LookPick;
@@ -201,6 +208,18 @@ export function AgentCard({
         <span className="ac-k">{t("зараз", "now")}</span>
         <span>{now || said("idle_now", sp, t("нічого не робить, чекає задачу", "idle, waiting for a task"))}</span>
       </div>
+      {eta && (
+        <div
+          className="ac-now"
+          title={t(
+            "приблизно: за темпом списку задач агента, а без нього за тим, скільки цей агент працював раніше",
+            "a rough guess: from the pace of the agent's task list, or else from how long this agent took before",
+          )}
+        >
+          <span className="ac-k">{t("лишилось", "time left")}</span>
+          <span>{etaDetail(eta, ui, nameOf ?? ((i) => model.agents[i].name))}</span>
+        </div>
+      )}
       {fill != null && (
         <div
           className="ac-now"

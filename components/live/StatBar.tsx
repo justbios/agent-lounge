@@ -14,6 +14,7 @@ export default function StatBar({
   seatsLabel,
   working,
   tokens,
+  eta,
   limits,
   children,
 }: {
@@ -23,6 +24,8 @@ export default function StatBar({
   seatsLabel: string;
   working: number;
   tokens: number;
+  /** when the pipeline finishes, a button to each agent's time */
+  eta?: ReactNode;
   limits?: ReactNode;
   children: ReactNode;
 }) {
@@ -66,6 +69,7 @@ export default function StatBar({
         </span>
         <span className="stat-v">{tokens > 0 ? fmtTokens(tokens, ui) : "—"}</span>
       </div>
+      {eta}
       {limits}
       <div className="bar-r">{children}</div>
     </div>
