@@ -4,7 +4,7 @@ import { CSSProperties } from "react";
 import { Timer } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { Ui, tr, useTr, useUi } from "@/lib/i18n";
-import { Eta, etaText, fmtSpan } from "@/lib/live/eta";
+import { Eta, etaText, fmtSpan, usualText } from "@/lib/live/eta";
 import type { LiveScene } from "@/lib/live/liveModel";
 import Sheet from "./Sheet";
 
@@ -140,6 +140,7 @@ export function PipelineSheet({
                         t(`працює ${fmtSpan(elapsed, ui)}`, `working ${fmtSpan(elapsed, ui)}`),
                         steps ? t(`кроки ${steps.done}/${steps.total}`, `steps ${steps.done}/${steps.total}`) : null,
                         pace ? t(`~${pace} на крок`, `~${pace} a step`) : null,
+                        usualText(eta, ui),
                       ]
                         .filter(Boolean)
                         .join(" · ")}
@@ -157,7 +158,7 @@ export function PipelineSheet({
                         ? (lands ?? "")
                         : steps
                           ? t("час буде з першим кроком", "a time with the first step")
-                          : t("не веде список кроків", "keeps no step list")}
+                          : t("ще не з чим порівняти", "nothing to compare with yet")}
                     </small>
                   </span>
                 </li>
@@ -192,15 +193,14 @@ export function PipelineSheet({
 
       <p className="alerts-hint">
         {t(
-          "Час рахується зі списку задач агента: скільки пунктів лишилось, помножене на час одного пункту, " +
-            "виміряний у цій роботі, а до першого зробленого пункту взятий з попередніх робіт цього агента. Агент " +
-            "без списку оцінки не має; щоб мав, допиши йому в .claude/agents: «Спочатку запиши всі пункти роботи в " +
-            "TodoWrite і відмічай кожен, щойно він готовий». Пайплайн закінчить, коли повернеться найдовший агент.",
-          "Times come from each agent's task list: the steps left times the time one step takes, measured on " +
-            "this job, and before the first step is done taken from this agent's earlier jobs. An agent with no list " +
-            "gets no guess; to give it one, add to its file in .claude/agents: “First write every part of the work " +
-            "into TodoWrite and tick each off as soon as it is done.” The pipeline finishes when the longest agent " +
-            "is back.",
+          "Час приблизний. Агент зі списком задач: скільки пунктів лишилось, помножене на час одного пункту. " +
+            "Агент без списку: скільки зазвичай тривають його роботи, мінус те, що він уже працює; поки жодна " +
+            "його робота не закінчилась, береться звичайна робота будь-якого агента. Пайплайн закінчить, коли " +
+            "повернеться найдовший з тих, хто працює зараз; агентів, яких Claude покличе потім, тут ще не видно.",
+          "A rough guess. An agent with a task list: the steps left times the time one step takes. An agent " +
+            "without one: how long its jobs usually take, less the time it has already worked; until one of its " +
+            "jobs has finished, any agent's usual job stands in. The pipeline finishes when the longest of the " +
+            "agents working now is back; agents Claude calls later aren't counted yet.",
         )}
       </p>
     </Sheet>

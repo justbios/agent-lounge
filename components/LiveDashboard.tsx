@@ -10,7 +10,7 @@ import { Two, Ui, useTr, useUi } from "@/lib/i18n";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
 import { attentionText } from "@/lib/live/attention";
 import { openTracks } from "@/lib/live/achievements";
-import { guessAll, useStepPaces } from "@/lib/live/eta";
+import { guessAll, usePaces } from "@/lib/live/eta";
 import { hideStale, staleVersion, useStaleHidden } from "@/lib/live/hookHealth";
 import { LOBBY, houseFloors, useHouseScenes } from "@/lib/live/house";
 import { CLAUDE_COLOR, LiveSession, buildLiveModel, listSessions, sessionRoster } from "@/lib/live/liveModel";
@@ -306,7 +306,7 @@ export default function LiveDashboard({
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model]);
   const tl = useMemo(() => buildTimeline(model), [model]);
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
-  const paces = useStepPaces(feed.events);
+  const paces = usePaces(feed.events);
   const etas = !playing && scene?.runs ? guessAll(scene.runs, model.stints, paces, clock) : undefined;
   const working = views.filter((v) => v.screen === "work").length;
   const spent = model.agents.reduce((sum, a) => sum + (a.tokens ?? 0), 0);

@@ -11,8 +11,8 @@ and hands it the task; the subagent works with a bubble saying what it's doing, 
 whole team from `.claude/agents` has a desk, even before it's called.
 
 - **Live:** who is busy and what they're doing right now, in plain words.
-- **Time left:** when the whole pipeline finishes, in the top bar; click it for each agent's time left and clock time,
-  all from the steps left on their task lists.
+- **Time left:** a rough guess of when the whole pipeline finishes, in the top bar; click it for each agent's time left
+  and clock time, from the steps left on its task list or how long its jobs usually take.
 - **Pings:** a sound and a phone push when Claude asks for permission or finishes its answer.
 - **Tokens and limits:** tokens per agent and chat, and your 5-hour and weekly subscription limits.
 - **Teams:** several people connect their Claude to one café, each on their own floor.
