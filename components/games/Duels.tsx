@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { useTr, useUi } from "@/lib/i18n";
 import { DuelKind, LiveDuel, duelName } from "@/lib/live/duel";
+import { setSfxOn, unlockSfx, useSfxOn } from "@/lib/live/sfx";
 import { Guest } from "@/lib/live/social";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
 import { Chess as ChessState } from "@/lib/live/useChess";
@@ -17,6 +19,66 @@ import Pong from "./Pong";
 import TicTacToe from "./TicTacToe";
 
 const KINDS: DuelKind[] = ["chess", "checkers", "hockey", "ttt", "pong", "cables"];
+
+/** The games' sounds on and off, for this browser. */
+function SoundButton() {
+  const t = useTr();
+  const on = useSfxOn();
+  const label = on ? t("вимкнути звуки гри", "mute the game") : t("увімкнути звуки гри", "unmute the game");
+  return (
+    <button className="btn btn-ic" onClick={() => setSfxOn(!on)} title={label} aria-label={label}>
+      {on ? <Volume2 size={14} /> : <VolumeX size={14} />}
+    </button>
+  );
+}
+
+/**
+ * Once a game is over, another one with the same person on the same board: the button, the wait for their yes, or
+ * their own ask to answer. Whoever asks moves first, as with any invite.
+ */
+function Rematch({ duels }: { duels: DuelsState }) {
+  const t = useTr();
+  const m = duels.match!;
+  const rival = m.x.id === duels.self ? m.o : m.x;
+  if (duels.away) return null;
+  const ask = duels.again;
+  if (ask) {
+    return (
+      <div className="rematch" role="alert">
+        <span>
+          <b>{rival.name}</b> {t("хоче ще раз", "wants another game")}
+        </span>
+        <button className="btn ask-yes" onClick={() => duels.accept(ask)}>
+          {t("грати", "play")}
+        </button>
+        <button className="btn" onClick={() => duels.decline(ask)}>
+          {t("ні", "no")}
+        </button>
+      </div>
+    );
+  }
+  if (duels.waiting?.again === m.id) {
+    return (
+      <div className="rematch">
+        <span>{t(`Чекаю, поки ${rival.name} погодиться…`, `Waiting for ${rival.name} to say yes…`)}</span>
+        <button className="btn" onClick={duels.cancel}>
+          {t("скасувати", "cancel")}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <>
+      <button className="btn ask-yes" onClick={duels.rematch}>
+        <RotateCcw size={13} />
+        {t("ще раз", "play again")}
+      </button>
+      {duels.declined === rival.name && (
+        <span className="rematch-no">{t(`${rival.name} зараз не хоче`, `${rival.name} doesn't want to now`)}</span>
+      )}
+    </>
+  );
+}
 
 /** The match being played, or who in the café can be called to one and the invite in flight. */
 export default function Duels({
@@ -42,6 +104,14 @@ export default function Duels({
   const ui = useUi();
   const t = useTr();
   const board = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    window.addEventListener("pointerdown", unlockSfx, true);
+    window.addEventListener("keydown", unlockSfx, true);
+    return () => {
+      window.removeEventListener("pointerdown", unlockSfx, true);
+      window.removeEventListener("keydown", unlockSfx, true);
+    };
+  }, []);
   const m = duels.match;
   if (m) {
     const rival = m.x.id === duels.self ? m.o : m.x;
@@ -56,11 +126,11 @@ export default function Duels({
       <div className="duel">
         <div className="duel-board" ref={board}>
           {m.kind === "ttt" ? (
-            <TicTacToe ttt={ttt} self={duels.self} note={note} />
+            <TicTacToe key={m.id} ttt={ttt} self={duels.self} note={note} />
           ) : m.kind === "checkers" ? (
-            <Checkers chk={chk} self={duels.self} note={note} />
+            <Checkers key={m.id} chk={chk} self={duels.self} note={note} />
           ) : m.kind === "chess" ? (
-            <Chess chess={chess} self={duels.self} note={note} />
+            <Chess key={m.id} chess={chess} self={duels.self} note={note} />
           ) : m.kind === "cables" ? (
             <Cables key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("cables", w)} />
           ) : m.kind === "hockey" ? (
@@ -70,9 +140,11 @@ export default function Duels({
           )}
         </div>
         <div className="duel-tools">
+          {(m.over || m.gone) && <Rematch duels={duels} />}
           <button className="btn" onClick={duels.close}>
             {m.over || note ? t("закрити", "close") : t("здатись і вийти", "give up and leave")}
           </button>
+          <SoundButton />
           <FullscreenButton target={board} />
         </div>
       </div>

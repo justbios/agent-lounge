@@ -60,8 +60,12 @@ export function cleanPlayer(v: unknown): Player | null {
   return id && name ? { id, name } : null;
 }
 
+/**
+ * An invite with `again` asks for another game of the one just played (its id), so the other side can answer it on
+ * that game's board; a café without rematches takes it as a plain invite.
+ */
 export type DuelMsg =
-  | { t: "invite"; kind: DuelKind; game: string; from: Player; to: string }
+  | { t: "invite"; kind: DuelKind; game: string; from: Player; to: string; again?: string }
   | { t: "decline"; game: string; to: string }
   | { t: "accept"; kind: DuelKind; game: string; x: Player; o: Player }
   | { t: "leave"; game: string; by: string };
@@ -78,7 +82,8 @@ export function cleanDuel(p: unknown): DuelMsg | null {
       const kind = kindOf(m.kind);
       const from = cleanPlayer(m.from);
       const to = str(m.to, 64);
-      return kind && from && to ? { t: "invite", kind, game, from, to } : null;
+      const again = str(m.again, 64);
+      return kind && from && to ? { t: "invite", kind, game, from, to, ...(again ? { again } : {}) } : null;
     }
     case "decline": {
       const to = str(m.to, 64);

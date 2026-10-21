@@ -4,13 +4,17 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { Stint } from "@/lib/cafe/model";
 import { Ui, tr } from "@/lib/i18n";
 import { Run, stepTodo } from "./liveModel";
-import { LiveEvent } from "./types";
+import { Checkin, LiveEvent } from "./types";
 
 /*
  * Time left comes from the work in front of an agent where it can: a design check of 20 screens takes four times one
  * of 5. The work is its task list (TodoWrite, or TaskCreate and TaskUpdate), the speed the time per step, measured on
  * this job once a step is done and taken from the type's earlier jobs before that. An agent that keeps no list gets a
  * rougher guess: how long the type's jobs usually take, less the time it has already spent.
+ *
+ * None of that sees the rounds Claude hasn't started yet: a pipeline that sends out fixers, then reviewers, then QA,
+ * then fixers again looks a few minutes from done at every step. So while it runs subagents Claude is asked now and
+ * then how long the whole job still takes (lib/live/checkin.ts), and the pipeline's time counts down from its answer.
  */
 
 const STORE = "relay.runs";
@@ -182,6 +186,30 @@ export interface Eta {
   usual?: { jobMs: number; anyType?: boolean; over?: boolean };
   /** Claude: the desk whose job sets its time */
   waitsOn?: number;
+  /** Claude: its own word on the whole job, counted down since it said it */
+  told?: Told;
+}
+
+/** A check-in counted down to now: `left` is what remains of it, `over` once its time has run out. */
+export interface Told extends Checkin {
+  /** the time Claude said, before any of it ran down */
+  said: number;
+  /** how long ago it said it */
+  ago: number;
+  over?: boolean;
+}
+
+const HOUR = 3_600_000;
+
+/**
+ * Claude's last check-in as it stands at `clock`: null when there is none, it said the job was done, or its time ran
+ * out so long ago (as long again as it said, at least an hour) that it says nothing about the work now.
+ */
+export function heard(told: Checkin | undefined, clock: number): Told | null {
+  if (!told || told.left <= 0) return null;
+  const rest = told.left - (clock - told.at);
+  if (rest < -Math.max(told.left, HOUR)) return null;
+  return { ...told, said: told.left, ago: clock - told.at, left: Math.max(rest, 0), over: rest <= 0 };
 }
 
 /**
@@ -222,13 +250,15 @@ function onJob(s: Stint[] | undefined, clock: number): boolean {
 /**
  * Time left per desk. A subagent's comes from its own list, or from how long such jobs take; Claude's is the longest
  * of the agents it waits on, or of its own list when that runs longer. Agents sent off in the background count too,
- * after Claude has answered.
+ * after Claude has answered. While the job runs, Claude's own check-in sets its time unless some agent needs longer;
+ * once that runs out, the agents' guesses are all there is, marked as a floor.
  */
 export function guessAll(
   runs: (Run | null)[],
   stints: Stint[][],
   paces: Map<string, Pace>,
   clock: number,
+  told?: Checkin,
 ): (Eta | null)[] {
   const busy = runs.map((r, i) => !!r && onJob(stints[i], clock));
   const out = runs.map((r, i): Eta | null =>
@@ -249,6 +279,14 @@ export function guessAll(
     out[0] = { ...main, more: unknown };
   } else if (unknown) {
     out[0] = { left: null, more: true };
+  }
+  const said = busy.some(Boolean) ? heard(told, clock) : null;
+  if (said) {
+    const cur = out[0];
+    out[0] =
+      !said.over && (cur?.left == null || said.left >= cur.left)
+        ? { left: said.left, todo: main?.todo, told: said }
+        : { ...(cur ?? { left: null }), more: !!cur?.more || !!said.over, told: said };
   }
   return out;
 }
@@ -271,6 +309,7 @@ export function fmtSpan(ms: number, ui: Ui): string {
 export function etaText(e: Eta, ui: Ui): string {
   if (e.wrap) return tr(ui, "майже", "wrapping up");
   const steps = e.todo && `${e.todo.done}/${e.todo.total}`;
+  if (e.left == null && e.told?.over) return tr(ui, "довше, ніж казав", "past its estimate");
   if (e.left == null) return steps ? tr(ui, `кроки ${steps}`, `steps ${steps}`) : "";
   if (e.left < MIN) return e.more ? `≥ ${fmtSpan(MIN, ui)}` : fmtSpan(e.left, ui);
   return `${e.more ? "≥" : "≈"} ${fmtSpan(e.left, ui)}`;
@@ -285,9 +324,21 @@ export function usualText(e: Eta, ui: Ui): string | null {
   return tr(ui, `такі роботи тривають ~${job}`, `its jobs take ~${job}`);
 }
 
+/** Where Claude's estimate stands: "Claude's own estimate, 12 min ago"; overrun, "Claude said ~30 min, 40 min ago". */
+export function toldText(t: Told, ui: Ui): string {
+  if (t.ago < MIN) return tr(ui, "за словами Claude, щойно", "Claude's own estimate, just now");
+  const ago = fmtSpan(t.ago, ui);
+  if (t.over) {
+    const said = fmtSpan(t.said, ui);
+    return tr(ui, `Claude казав ~${said}, ${ago} тому`, `Claude said ~${said}, ${ago} ago`);
+  }
+  return tr(ui, `за словами Claude, ${ago} тому`, `Claude's own estimate, ${ago} ago`);
+}
+
 /** The agent card's line: the guess and what it rests on, "≈ 1 h 40 min · steps 3/20 · ~5 min a step". */
 export function etaDetail(e: Eta, ui: Ui, nameOf: (i: number) => string): string {
   const steps = e.todo && `${e.todo.done}/${e.todo.total}`;
+  if (e.left == null && e.told) return toldText(e.told, ui);
   if (e.left == null) {
     const wait = tr(ui, "час буде з першим зробленим", "a time comes with the first one done");
     if (steps) return `${tr(ui, `кроки ${steps}`, `steps ${steps}`)} · ${wait}`;
@@ -296,6 +347,8 @@ export function etaDetail(e: Eta, ui: Ui, nameOf: (i: number) => string): string
       : tr(ui, "невідомо: ще жодна робота агентів не закінчилась", "unknown: no agent's job has finished yet");
   }
   const parts = [etaText(e, ui)];
+  if (e.told) parts.push(toldText(e.told, ui));
+  if (e.told?.total) parts.push(`${e.told.done ?? 0}/${e.told.total}`);
   if (steps) parts.push(tr(ui, `кроки ${steps}`, `steps ${steps}`));
   if (e.stepMs != null && !e.wrap) {
     const per = fmtSpan(e.stepMs, ui);

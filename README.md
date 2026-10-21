@@ -11,8 +11,10 @@ and hands it the task; the subagent works with a bubble saying what it's doing, 
 whole team from `.claude/agents` has a desk, even before it's called.
 
 - **Live:** who is busy and what they're doing right now, in plain words.
-- **Time left:** a rough guess of when the whole pipeline finishes, in the top bar; click it for each agent's time left
-  and clock time, from the steps left on its task list or how long its jobs usually take.
+- **Time left:** when the whole pipeline finishes, in the top bar. While Claude runs subagents, a local hook asks it
+  every ~20 minutes to end a reply with a line like `⏱ 95m · 6/10 · QA on iOS`, its own estimate of the whole job,
+  rounds it hasn't started yet included; the café counts down from there. Click it for each agent's time left, from
+  the steps on its task list or how long its jobs usually take. `RELAY_CHECKIN=0` turns the questions off.
 - **Pings:** a sound and a phone push when Claude asks for permission or finishes its answer.
 - **Tokens and limits:** tokens per agent and chat, and your 5-hour and weekly subscription limits.
 - **Teams:** several people connect their Claude to one café, each on their own floor.

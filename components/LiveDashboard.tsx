@@ -308,7 +308,7 @@ export default function LiveDashboard({
   const tl = useMemo(() => buildTimeline(model), [model]);
   const views = model.agents.map((_, i) => agentView(model, tl, lay, i, clock));
   const paces = usePaces(feed.events);
-  const etas = !playing && scene?.runs ? guessAll(scene.runs, model.stints, paces, clock) : undefined;
+  const etas = !playing && scene?.runs ? guessAll(scene.runs, model.stints, paces, clock, scene.told) : undefined;
   const working = views.filter((v) => v.screen === "work").length;
   const spent = model.agents.reduce((sum, a) => sum + (a.tokens ?? 0), 0);
   const viewEvents = useMemo(
@@ -512,7 +512,7 @@ export default function LiveDashboard({
           onClose={() => setChatOpen(false)}
         />
       )}
-      <InviteToast duels={games.duels} onPlay={() => setGamesOpen(true)} />
+      <InviteToast duels={games.duels} open={gamesOpen} onPlay={() => setGamesOpen(true)} />
       {!gamesOpen && <TurnToast games={games} onOpen={() => setGamesOpen(true)} />}
       {rooms.fresh.length > 0 && sheet !== "ach" && sheet !== "myAch" && (
         <AchToast

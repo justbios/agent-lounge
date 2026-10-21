@@ -10,18 +10,21 @@ import {
   PROMOS,
   VALUE,
   checked,
-  file,
   kindOf,
   legal,
   light,
   owner,
-  rank,
   sqName,
 } from "@/lib/live/chess";
 import { Side, sideOf } from "@/lib/live/duel";
+import { sfx } from "@/lib/live/sfx";
 import { Chess as ChessState } from "@/lib/live/useChess";
+import BoardFrame from "./BoardFrame";
+import Finale, { Mood } from "./Finale";
 import Seat, { BoardSay } from "./Seat";
 import { ChessPiece } from "./Sprite";
+import { Sparks } from "./Sparks";
+import { useNewMoves } from "./useNewMoves";
 import { useSlide } from "./useSlide";
 
 const NAMES: Record<Kind, [uk: string, en: string]> = {
@@ -102,6 +105,8 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
   const grid = useRef<HTMLDivElement>(null);
   const [pick, setPick] = useState<{ ply: number; sq: number; to?: number } | null>(null);
   const ply = b.moves.length;
+  const [opened] = useState(ply);
+  const fresh = ply !== opened;
   const live = !b.winner && !note && b.turn === mine;
   const moves = live ? legal(b) : [];
   const sel = pick?.ply === ply ? pick : null;
@@ -110,6 +115,22 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
   const last = b.moves.at(-1);
   const check = b.winner === "draw" ? -1 : checked(b);
   const flip = mine === "o";
+  const lastSan = b.san.at(-1) ?? "";
+  const victim = fresh && last && lastSan.includes("x") ? b.taken.at(-1) : undefined;
+  // en passant: a pawn landed on the square the last double step skipped, and took the pawn that made it
+  const prev = b.moves.at(-2);
+  const passant = !!last && !!prev && Math.abs(prev[1] - prev[0]) === 2 * N && (prev[0] + prev[1]) / 2 === last[1];
+  const takenAt = passant ? prev[1] : last?.[1];
+  const movable = new Set(sel ? [] : moves.map((mv) => mv[0]));
+
+  useNewMoves(b, ply, (now, _, soon) => {
+    const san = now.san.at(-1) ?? "";
+    sfx(san.includes("x") ? "capture" : "move");
+    if (san.includes("=")) soon("promote", 120);
+    if (now.winner) soon(now.winner === "draw" ? "draw" : now.winner === mine ? "win" : "lose", 320);
+    else if (san.endsWith("+")) soon("check");
+    else if (now.turn === mine) soon("turn", 220);
+  });
 
   const slides: number[][] = last ? [[last[0], last[1]]] : [];
   if (last && kindOf(b.cells[last[1]]) === "k" && Math.abs(last[1] - last[0]) === 2) {
@@ -125,7 +146,12 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
       setPick(null);
       return chess.move(go[0]);
     }
-    if (owner(b.cells[sq]) === mine && sel?.sq !== sq && moves.some((mv) => mv[0] === sq)) {
+    if (owner(b.cells[sq]) === mine && sel?.sq !== sq) {
+      if (!moves.some((mv) => mv[0] === sq)) {
+        setPick(null);
+        return sfx("illegal");
+      }
+      sfx("select");
       return setPick({ ply, sq });
     }
     setPick(null);
@@ -152,15 +178,9 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
             : check >= 0
               ? t(`шах · ходить ${rival.name}`, `check · ${rival.name}’s move`)
               : t(`ходить ${rival.name}`, `${rival.name}’s move`)));
-  const mood = b.winner
-    ? b.winner === "draw"
-      ? "draw"
-      : b.winner === mine
-        ? "win"
-        : "lose"
-    : live
-      ? "go"
-      : null;
+  const end: Mood | null = b.winner ? (b.winner === "draw" ? "draw" : b.winner === mine ? "win" : "lose") : null;
+  const mood = end ?? (live ? "go" : null);
+  const verdict = { win: t("Мат! Перемога", "Checkmate! You win"), lose: t("Мат", "Checkmate"), draw: t("Нічия", "Draw") };
   const order = Array.from({ length: N * N }, (_, i) => (flip ? N * N - 1 - i : i));
   const promoting = sel?.to != null;
 
@@ -174,9 +194,9 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
       >
         <Taken b={b} side={theirs} />
       </Seat>
-      <div className="board-wrap">
+      <BoardFrame flip={flip} go={live}>
         <div className="chess-grid" ref={grid} role="grid" aria-label={t("шахова дошка", "chess board")}>
-          {order.map((sq, i) => {
+          {order.map((sq) => {
             const p = b.cells[sq];
             const who = owner(p);
             const hit = targets.has(sq) && (!!p || (kindOf(b.cells[sel!.sq]) === "p" && sq === b.ep));
@@ -186,6 +206,7 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
               sel?.sq === sq ? "sel" : "",
               targets.has(sq) ? (hit ? "hit" : "to") : "",
               sq === check ? "chk" : "",
+              movable.has(sq) ? "can" : "",
             ]
               .filter(Boolean)
               .join(" ");
@@ -202,8 +223,12 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
                 aria-label={`${sqName(sq)}${what}`}
               >
                 {who && <ChessPiece kind={kindOf(p)} white={who === "x"} />}
-                {i % N === 0 && <i className="rk">{rank(sq)}</i>}
-                {i >= N * (N - 1) && <i className="fl">{file(sq)}</i>}
+                {victim && sq === takenAt && (
+                  <span key={ply} className="poof">
+                    <ChessPiece kind={kindOf(victim)} white={owner(victim) === "x"} className="poof-piece" />
+                    <Sparks />
+                  </span>
+                )}
               </button>
             );
           })}
@@ -232,7 +257,8 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
             </button>
           </div>
         )}
-      </div>
+        {fresh && end && <Finale mood={end} text={verdict[end]} />}
+      </BoardFrame>
       <Seat
         name={m.x.id === self ? m.x.name : m.o.name}
         you

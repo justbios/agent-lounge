@@ -21,8 +21,11 @@ import {
 } from "@/lib/live/cables";
 import { tr, uiNow, useTr } from "@/lib/i18n";
 import { Match, Side, sideOf } from "@/lib/live/duel";
+import { sfx } from "@/lib/live/sfx";
 import { supabase } from "@/lib/supabaseClient";
-import { Ctx, LINE, px, shade } from "../cafe/pixel";
+import { shade } from "../cafe/pixel";
+import { ArcadeHud, ArcadeSay, ArcadeScreen, Final } from "./Arcade";
+import { Ctx, Cues, INK, Jolt, MINE, Screen, Sparks, THEIRS, bump, countdown, glow, pop } from "./fx";
 
 const W = CW * CELL;
 const H = CH * CELL;
@@ -33,29 +36,225 @@ const QUIET_MS = 2500;
 const RESEND_MS = 400;
 const HELLO_MS = 1000;
 const SWIPE_PX = 14;
-const MINE = "#ffd25a";
-const THEIRS = "#8fb3ff";
+const FANFARE_MS = 500;
+const FIRE = ["#ff8a5b", "#ffd25a", "#fff4c9", "#ff5d5d"];
+const CONFETTI = ["#ffd25a", "#8fb3ff", "#ff7aa8", "#7ef0c2", "#ffffff", "#c9a6ff"];
 const KEYS: Record<string, Dir> = { ArrowUp: 0, w: 0, ArrowRight: 1, d: 1, ArrowDown: 2, s: 2, ArrowLeft: 3, a: 3 };
+const DX = [0, 1, 0, -1];
+const DY = [-1, 0, 1, 0];
 
+/** The café's floor at night: dark tiles with a faint grid every five cells and a frame. */
 function drawFloor(ctx: Ctx) {
-  px(ctx, 0, 0, W, H, "#1a1d2b");
-  for (let y = 4; y < H; y += 10) for (let x = 4; x < W; x += 10) px(ctx, x, y, 1, 1, "#2c3149");
+  const floor = ctx.createRadialGradient(W / 2, H / 2, 4, W / 2, H / 2, W * 0.6);
+  floor.addColorStop(0, "#1a1e31");
+  floor.addColorStop(1, "#0c0e17");
+  ctx.fillStyle = floor;
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = "#1d2236";
+  for (let x = 10; x < W; x += 10) ctx.fillRect(x - 0.25, 0, 0.5, H);
+  for (let y = 10; y < H; y += 10) ctx.fillRect(0, y - 0.25, W, 0.5);
+  ctx.fillStyle = "#2b3352";
+  for (let x = 10; x < W; x += 10) for (let y = 10; y < H; y += 10) ctx.fillRect(x - 0.5, y - 0.5, 1, 1);
+  ctx.fillStyle = "#343c5e";
+  ctx.fillRect(0, 0, W, 0.5);
+  ctx.fillRect(0, H - 0.5, W, 0.5);
+  ctx.fillRect(0, 0, 0.5, H);
+  ctx.fillRect(W - 0.5, 0, 0.5, H);
 }
 
-function drawCable(ctx: Ctx, x: number, y: number, color: string) {
-  px(ctx, x * CELL, y * CELL, CELL, CELL, color);
-  px(ctx, x * CELL + 1, y * CELL + 1, 1, 1, shade(color, 0.72));
+/** where a cell's middle is, in units */
+const mid = (c: number) => c * CELL + CELL / 2;
+
+export interface Plug {
+  /** cell, as this viewer sees the floor */
+  x: number;
+  y: number;
+  d: Dir;
+  mine: boolean;
+  out: boolean;
 }
 
-function drawPlug(ctx: Ctx, x: number, y: number, color: string) {
-  px(ctx, x * CELL - 1, y * CELL - 1, CELL + 2, CELL + 2, LINE);
-  px(ctx, x * CELL, y * CELL, CELL, CELL, shade(color, 1.25));
-}
+/**
+ * What the floor looks like, apart from the game's rules: drawn the way this viewer sees it, their cable starting on
+ * the left. The cables are laid piece by piece onto two layers, a soft glow under a bright wire, kept until the round
+ * ends; the plugs, sparks and shake are drawn fresh every frame.
+ */
+export class CablesView {
+  readonly screen: Screen;
+  private bg!: HTMLCanvasElement;
+  private under!: HTMLCanvasElement;
+  private wire!: HTMLCanvasElement;
+  /** every piece laid this round, x0 y0 x1 y1 mine, to lay again at a new scale */
+  private laid: number[] = [];
+  /** where the two cables come out of the wall this round: x y mine */
+  private outlets: number[] = [];
+  private burnt: number[] = [];
+  private readonly sparks = new Sparks();
+  private readonly jolt = new Jolt();
+  private prev = 0;
 
-function drawSpark(ctx: Ctx, x: number, y: number) {
-  px(ctx, x * CELL - 2, y * CELL, CELL + 4, CELL, "#ff8a5b");
-  px(ctx, x * CELL, y * CELL - 2, CELL, CELL + 4, "#ff8a5b");
-  px(ctx, x * CELL, y * CELL, CELL, CELL, "#fff4c9");
+  constructor(canvas: HTMLCanvasElement) {
+    this.screen = new Screen(canvas, W, H);
+    this.paint();
+  }
+
+  private paint() {
+    const s = this.screen;
+    this.bg = s.layer(drawFloor);
+    this.under = s.layer(() => {});
+    this.wire = s.layer(() => {});
+    for (let i = 0; i < this.outlets.length; i += 3) this.outlet(this.outlets[i], this.outlets[i + 1], this.outlets[i + 2] === 1);
+    for (let i = 0; i < this.laid.length; i += 5) {
+      const [x0, y0, x1, y1, m] = this.laid.slice(i, i + 5);
+      this.piece(x0, y0, x1, y1, m === 1);
+    }
+    for (let i = 0; i < this.burnt.length; i += 2) this.scorch(this.burnt[i], this.burnt[i + 1]);
+  }
+
+  private ctxOf(layer: HTMLCanvasElement): Ctx {
+    const ctx = layer.getContext("2d")!;
+    this.screen.begin(ctx);
+    return ctx;
+  }
+
+  /**
+   * A piece from one cell's middle to the next, `r` units thick each side, running on past the far end by `r` but
+   * not back over the near one, so it joins the piece before without covering its bright core.
+   */
+  private band(ctx: Ctx, x0: number, y0: number, x1: number, y1: number, r: number) {
+    const ax = mid(x0);
+    const ay = mid(y0);
+    const bx = mid(x1) + Math.sign(x1 - x0) * r;
+    const by = mid(y1) + Math.sign(y1 - y0) * r;
+    if (y0 === y1) ctx.fillRect(Math.min(ax, bx), ay - r, Math.abs(bx - ax), 2 * r);
+    else ctx.fillRect(ax - r, Math.min(ay, by), 2 * r, Math.abs(by - ay));
+  }
+
+  private piece(x0: number, y0: number, x1: number, y1: number, mine: boolean) {
+    const color = mine ? MINE : THEIRS;
+    const u = this.ctxOf(this.under);
+    u.fillStyle = color;
+    this.band(u, x0, y0, x1, y1, 1.8);
+    const c = this.ctxOf(this.wire);
+    c.fillStyle = INK;
+    this.band(c, x0, y0, x1, y1, 0.9);
+    c.fillStyle = shade(color, 0.8);
+    this.band(c, x0, y0, x1, y1, 0.6);
+    c.fillStyle = shade(color, 1.3);
+    this.band(c, x0, y0, x1, y1, 0.2);
+  }
+
+  private outlet(x: number, y: number, mine: boolean) {
+    const c = this.ctxOf(this.wire);
+    c.fillStyle = INK;
+    c.fillRect(mid(x) - 2, mid(y) - 2, 4, 4);
+    c.fillStyle = "#d8d2c4";
+    c.fillRect(mid(x) - 1.5, mid(y) - 1.5, 3, 3);
+    c.fillStyle = mine ? MINE : THEIRS;
+    c.fillRect(mid(x) - 1.5, mid(y) + 1, 3, 0.5);
+    c.fillStyle = "#4a4458";
+    c.fillRect(mid(x) - 1, mid(y) - 0.5, 0.5, 1);
+    c.fillRect(mid(x) + 0.5, mid(y) - 0.5, 0.5, 1);
+  }
+
+  private scorch(x: number, y: number) {
+    const c = this.ctxOf(this.wire);
+    c.fillStyle = "#2a1410";
+    c.fillRect(mid(x) - 1.5, mid(y) - 1.5, 3, 3);
+    c.fillStyle = "#ff8a5b";
+    c.fillRect(mid(x) - 0.5, mid(y) - 0.5, 1, 1);
+  }
+
+  /** A new round: the floor swept clean, and the outlets each cable starts from. */
+  reset(outlets: readonly { x: number; y: number; mine: boolean }[]) {
+    this.laid = [];
+    this.burnt = [];
+    this.outlets = outlets.flatMap((o) => [o.x, o.y, o.mine ? 1 : 0]);
+    this.paint();
+  }
+
+  /** One more piece of cable, from cell (x0, y0) to its neighbour (x1, y1). */
+  lay(x0: number, y0: number, x1: number, y1: number, mine: boolean) {
+    this.laid.push(x0, y0, x1, y1, mine ? 1 : 0);
+    this.piece(x0, y0, x1, y1, mine);
+  }
+
+  /** A plug ran into something at cell (x, y): fire, a scorch mark, the floor shaking. */
+  crash(x: number, y: number, mine: boolean, now: number) {
+    this.burnt.push(x, y);
+    this.scorch(x, y);
+    this.sparks.burst(mid(x), mid(y), 40, 0.1, [...FIRE, mine ? MINE : THEIRS], { life: 700, size: 1.2, drag: 0.993 });
+    this.jolt.shake(2.2, 380, now);
+    this.jolt.flash("#ff8a5b", 0.2, 260, now);
+  }
+
+  /** The match is over: confetti for the winner. */
+  end(win: boolean) {
+    if (!win) return;
+    for (const x of [W * 0.2, W / 2, W * 0.8]) {
+      this.sparks.burst(x, -2, 55, 0.08, CONFETTI, {
+        dir: Math.PI / 2,
+        spread: 2.4,
+        life: 2800,
+        size: 1.5,
+        fall: 0.00006,
+        drag: 0.997,
+      });
+    }
+  }
+
+  /** One frame with both plugs; they pulse while the round is on. */
+  frame(ctx: Ctx, now: number, plugs: readonly Plug[], live: boolean) {
+    const s = this.screen;
+    if (s.takeResize()) this.paint();
+    const dt = this.prev ? Math.min(100, now - this.prev) : 16;
+    this.prev = now;
+    this.sparks.step(dt);
+    this.jolt.update(now);
+    const { dx, dy } = this.jolt;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = INK;
+    ctx.fillRect(0, 0, s.canvas.width, s.canvas.height);
+    s.blit(ctx, this.bg, dx, dy);
+    const op = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.16;
+    s.blit(ctx, this.under, dx, dy);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = op;
+    s.blit(ctx, this.wire, dx, dy);
+    s.begin(ctx, dx, dy);
+
+    for (const p of plugs) {
+      const color = p.mine ? MINE : THEIRS;
+      const x = mid(p.x);
+      const y = mid(p.y);
+      const beat = live && !p.out ? 0.5 + 0.5 * Math.sin(now / 90) : 0;
+      if (!p.out) glow(ctx, x, y, 6 + beat * 2, color, 0.35 + beat * 0.25);
+      ctx.fillStyle = INK;
+      ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+      ctx.fillStyle = p.out ? shade(color, 0.5) : shade(color, 1.35);
+      ctx.fillRect(x - 1, y - 1, 2, 2);
+      if (p.out) continue;
+      const fx = x + DX[p.d] * 1.5;
+      const fy = y + DY[p.d] * 1.5;
+      ctx.fillStyle = "#e9f2ea";
+      if (DX[p.d]) {
+        ctx.fillRect(fx - 0.25, fy - 1, 0.5, 0.5);
+        ctx.fillRect(fx - 0.25, fy + 0.5, 0.5, 0.5);
+      } else {
+        ctx.fillRect(fx - 1, fy - 0.25, 0.5, 0.5);
+        ctx.fillRect(fx + 0.5, fy - 0.25, 0.5, 0.5);
+      }
+    }
+    this.sparks.draw(ctx, s);
+    this.jolt.overlay(ctx, 0, 0, W, H, now);
+  }
+
+  dispose() {
+    this.screen.dispose();
+  }
 }
 
 /**
@@ -82,8 +281,10 @@ export default function Cables({
   const mineRef = useRef<HTMLElement>(null);
   const theirsRef = useRef<HTMLElement>(null);
   const sayRef = useRef<HTMLSpanElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
   const stopRef = useRef(!!note);
-  const [result, setResult] = useState<boolean | null>(null);
+  const [result, setResult] = useState<Final | null>(null);
+  const [tally, setTally] = useState<[number, number]>([0, 0]);
   const end = useEffectEvent(onEnd);
   const { id } = match;
   const me: Side = sideOf(match, self) ?? "o";
@@ -97,8 +298,10 @@ export default function Cables({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!sb || !canvas || !ctx || !room) return;
-    ctx.imageSmoothingEnabled = false;
+    const view = new CablesView(canvas);
+    const cues = new Cues();
     const rival: Side = me === "x" ? "o" : "x";
+    const plugs: Plug[] = [me, rival].map((s) => ({ x: 0, y: 0, d: 1 as Dir, mine: s === me, out: false }));
     const score: Record<Side, number> = { x: 0, o: 0 };
     const turns: Record<Side, Map<number, Dir>> = { x: new Map(), o: new Map() };
     const want: Dir[] = [];
@@ -126,19 +329,18 @@ export default function Cables({
       if (sayRef.current) sayRef.current.textContent = s;
     };
     const sayT = (uk: string, en: string) => say(tr(uiNow(), uk, en));
-    const hud = () => {
-      if (mineRef.current) mineRef.current.textContent = String(score[me]);
-      if (theirsRef.current) theirsRef.current.textContent = String(score[rival]);
-    };
+    const hud = () => setTally([score[me], score[rival]]);
+    /** what a turn looks like on this screen: the floor is mirrored for the player on the right */
+    const sd = (d: Dir): Dir => (me === "o" && d % 2 === 1 ? (((d + 2) % 4) as Dir) : d);
 
-    const draw = () => {
-      drawFloor(ctx);
-      const g = field.grid;
-      for (let i = 0; i < g.length; i++) {
-        if (g[i]) drawCable(ctx, sx(i % CW), Math.floor(i / CW), (g[i] === 1 ? "x" : "o") === me ? MINE : THEIRS);
-      }
-      for (const s of SIDES) drawPlug(ctx, sx(field.head[s].x), field.head[s].y, s === me ? MINE : THEIRS);
-      for (const c of field.crash) drawSpark(ctx, sx(c.x), c.y);
+    const draw = (now: number) => {
+      [me, rival].forEach((s, i) => {
+        const p = plugs[i];
+        p.x = sx(field.head[s].x);
+        p.y = field.head[s].y;
+        p.d = sd(field.dir[s]);
+      });
+      view.frame(ctx, now, plugs, playing);
     };
 
     const begin = (now: number, wait: number) => {
@@ -152,23 +354,45 @@ export default function Cables({
       }
       playing = true;
       nextAt = now + wait;
-      draw();
+      view.reset(SIDES.map((s) => ({ x: sx(START[s].x), y: START[s].y, mine: s === me })));
+      for (const p of plugs) p.out = false;
+      if (round === 1) countdown(cues, () => popRef.current, now, nextAt);
+      else {
+        pop(popRef.current, tr(uiNow(), `РАУНД ${round}`, `ROUND ${round}`), "#ffffff", wait + 250);
+        cues.at(nextAt, () => sfx("go"));
+      }
     };
 
     const roundOver = (crashed: Side[], now: number) => {
       playing = false;
+      crashed.forEach((s, i) => {
+        plugs[s === me ? 0 : 1].out = true;
+        view.crash(sx(field.crash[i].x), field.crash[i].y, s === me, now);
+      });
       if (crashed.length === 1) {
         const winner: Side = crashed[0] === "x" ? "o" : "x";
         score[winner] += 1;
         hud();
-        if (winner === me) sayT("раунд твій", "your round");
+        const ours = winner === me;
+        bump(ours ? mineRef.current : theirsRef.current);
+        pop(popRef.current, tr(uiNow(), "БАХ!", "ZAP!"), ours ? THEIRS : MINE, 900);
+        sfx(ours ? "goal" : "conceded");
+        if (ours) sayT("раунд твій", "your round");
         else sayT("раунд суперника", "their round");
-      } else sayT("нічия, ще раз", "draw, again");
+      } else {
+        pop(popRef.current, tr(uiNow(), "НІЧИЯ", "DRAW"), "#ffffff", 900);
+        sfx("wall");
+        sayT("нічия, ще раз", "draw, again");
+      }
       if (Math.max(score.x, score.o) >= WIN_AT) {
         over = true;
         const win = score[me] >= WIN_AT;
-        setResult(win);
+        setResult({ win, mine: score[me], theirs: score[rival] });
         end(win);
+        cues.at(now + FANFARE_MS, () => {
+          view.end(win);
+          sfx(win ? "win" : "lose");
+        });
       } else restartAt = now + SHOW_CRASH_MS;
     };
 
@@ -201,7 +425,11 @@ export default function Cables({
         quiet = false;
         say("");
       }
+      const was = { x: { ...field.head.x }, o: { ...field.head.o } };
       const crashed = step(field, { [me]: mine, [rival]: theirs } as Record<Side, Dir>);
+      for (const s of SIDES) {
+        if (!crashed.includes(s)) view.lay(sx(was[s].x), was[s].y, sx(field.head[s].x), field.head[s].y, s === me);
+      }
       n = t;
       if (crashed.length) roundOver(crashed, now);
       return true;
@@ -231,7 +459,8 @@ export default function Cables({
 
     const turn = (d: Dir) => {
       if (over || want.length >= 3) return;
-      want.push(me === "o" && d % 2 === 1 ? (((d + 2) % 4) as Dir) : d);
+      want.push(sd(d));
+      if (playing) sfx("steer");
     };
     const down = (e: KeyboardEvent) => {
       const d = KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
@@ -262,6 +491,8 @@ export default function Cables({
 
     const loop = () => {
       const now = performance.now();
+      if (stopRef.current) cues.clear();
+      cues.run(now);
       if (!stopRef.current && !over) {
         if (!met && helloAt && now - helloAt > HELLO_MS) {
           send({ t: "hello" });
@@ -272,13 +503,10 @@ export default function Cables({
           say("");
           begin(now, NEXT_MS);
         }
-        let moved = false;
         for (let i = 0; playing && i < 3 && now >= nextAt; i++) {
           if (!advance(now)) break;
-          moved = true;
           nextAt = Math.max(nextAt + TICK_MS, now - TICK_MS);
         }
-        if (moved) draw();
         if (playing && waitSince) {
           if (last && now - sentAt > RESEND_MS) {
             send(last);
@@ -290,9 +518,10 @@ export default function Cables({
           }
         }
       }
+      draw(now);
       raf = requestAnimationFrame(loop);
     };
-    draw();
+    draw(performance.now());
     raf = requestAnimationFrame(loop);
 
     return () => {
@@ -302,6 +531,7 @@ export default function Cables({
       window.removeEventListener("pointerup", release);
       window.removeEventListener("pointercancel", release);
       window.removeEventListener("keydown", down);
+      view.dispose();
       sb.removeChannel(ch);
     };
   }, [id, me, room]);
@@ -310,26 +540,31 @@ export default function Cables({
   const verdict =
     result === null
       ? null
-      : result
+      : result.win
         ? t("перемога твоя!", "you win!")
         : t(`перемога: ${rival.name}`, `${rival.name} wins`);
   return (
     <div className="pong">
-      <div className="ttt-hd">
-        <span>
-          {t("ти", "you")} <b ref={mineRef}>0</b> : <b ref={theirsRef}>0</b> {rival.name} · {t("до", "to")} {WIN_AT}
-        </span>
-        <b>{verdict ?? note ?? <span ref={sayRef} />}</b>
-      </div>
-      <canvas
-        ref={canvasRef}
-        width={W}
-        height={H}
-        aria-label={t(
-          "Кабелі: повертай стрілками, WASD або проведи пальцем; не врізайся у стіни й кабелі",
-          "Cables: turn with the arrows, WASD or a swipe; don't hit the walls or the cables",
-        )}
+      <ArcadeHud
+        rival={rival.name}
+        winAt={WIN_AT}
+        mine={tally[0]}
+        theirs={tally[1]}
+        mineRef={mineRef}
+        theirsRef={theirsRef}
       />
+      <ArcadeSay>{verdict ?? note ?? <span ref={sayRef} />}</ArcadeSay>
+      <ArcadeScreen popRef={popRef} final={result} rival={rival.name}>
+        <canvas
+          ref={canvasRef}
+          width={W * 3}
+          height={H * 3}
+          aria-label={t(
+            "Кабелі: повертай стрілками, WASD або проведи пальцем; не врізайся у стіни й кабелі",
+            "Cables: turn with the arrows, WASD or a swipe; don't hit the walls or the cables",
+          )}
+        />
+      </ArcadeScreen>
     </div>
   );
 }

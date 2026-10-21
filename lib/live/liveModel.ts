@@ -4,7 +4,7 @@ import type { Ui } from "@/lib/i18n";
 import { AgentDef, PotLevel } from "@/lib/types";
 import { Attention, nextAttention, stopText } from "./attention";
 import { sessionLabel } from "./label";
-import { LiveEvent } from "./types";
+import { Checkin, LiveEvent } from "./types";
 import { fillOf, tokensOf } from "./usage";
 
 export const CLAUDE_COLOR = "#ff9a62";
@@ -155,6 +155,8 @@ export interface LiveScene {
   finished?: { seat: number; start: number; end: number }[];
   /** when Claude's latest turn began, scene ms: the pipeline runs from there */
   turn?: number;
+  /** what Claude last said about its whole job, `at` in scene ms */
+  told?: Checkin;
 }
 
 /** One task-list change applied to a run's counts: TodoWrite sends the whole list, the Task tools one step. */
@@ -198,6 +200,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   const runs: (Run | null)[] = [null];
   let lastRun: Run | null = null;
   let mainLast = -Infinity;
+  let told: Checkin | undefined;
   const finished: { seat: number; start: number; end: number }[] = [];
   const bySubagent = new Map<string, number>();
   const pending: Pending[] = [];
@@ -276,6 +279,9 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     if (actor === 0 && working && !runs[0]) runs[0] = mainRun(t, lastRun);
     const run = runs[actor];
     if (run && (e.todo || e.todoStep)) stepTodo(run, e, t);
+    if (actor === 0 && e.checkin && e.checkin.at - origin >= (told?.at ?? -Infinity)) {
+      told = { ...e.checkin, at: e.checkin.at - origin };
+    }
 
     switch (e.kind) {
       case "prompt":
@@ -347,6 +353,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
         stints.forEach((_, i) => close(i, t));
         runs.fill(null);
         lastRun = null;
+        told = undefined;
         break;
     }
     if (actor === 0) mainLast = t;
@@ -387,6 +394,7 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     runs,
     finished,
     turn: (runs[0] ?? lastRun)?.start,
+    told,
     model: {
       agents,
       stints,

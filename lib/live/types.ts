@@ -49,6 +49,20 @@ export interface Say {
   o?: string;
 }
 
+/**
+ * What Claude itself said about its whole job in a check-in line, `⏱ 95m · 6/10 · QA on iOS`: the minutes until all
+ * of it is done, rounds it hasn't started yet included, how far it has got, and what runs now.
+ */
+export interface Checkin {
+  /** when Claude wrote the line, ms since epoch */
+  at: number;
+  /** ms left by Claude's own estimate; 0 means the job is done */
+  left: number;
+  done?: number;
+  total?: number;
+  now?: string;
+}
+
 /** One Claude Code hook call, boiled down to what the café shows. */
 export interface LiveEvent {
   seq: number;
@@ -89,6 +103,8 @@ export interface LiveEvent {
   compact?: boolean;
   /** prompts and answers: the 5-hour and weekly limits, when the status line has seen them */
   limits?: Limits;
+  /** the main chat's latest check-in line, sent once after Claude writes it */
+  checkin?: Checkin;
   /** a turn that broke off instead of finishing: "rate_limit", "overloaded", "server_error", … */
   err?: string;
   /** the relay.sh version that sent it; absent from older installs and from the bare curl hooks before relay.sh */

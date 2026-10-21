@@ -4,6 +4,21 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.12.0 — not released yet
+
+- The pipeline's time comes from Claude itself. `relay.sh` 7 adds a check-in: while a chat runs subagents, a local,
+  synchronous hook on `UserPromptSubmit` and on the Agent tool's `PostToolUse` asks Claude at most every 20 minutes
+  (`RELAY_CHECKIN`, 0 turns it off) to end its reply with `⏱ <minutes>m · <done>/<total> · <what now>`, its estimate of
+  the whole job. `PreToolUse` and `Stop` send the newest such line, and only it, to the café, which counts down from
+  it. Before, the time saw only the agents working at that moment, so a pipeline of rounds looked minutes from done
+  for hours. Reconnect to get the new hooks.
+- Games for two look and sound better: framed pixel boards, pieces with shading that slide into place, sparks on
+  captures and check, a win or lose finale, a proper air-hockey table, an arcade Pong, chiptune sounds made with Web
+  Audio, and a sound switch next to full screen.
+- Play again: when a game ends, «ще раз» asks the same opponent for another round of it without going back to the
+  list. They answer on the board, or in the invite if they closed it; if both press it at once, they land in the same
+  game. The invite carries an `again` field that older cafés ignore.
+
 ## 0.10.0 — not released yet
 
 Security release; ship the code together with `supabase/migrations/0021_security.sql`.

@@ -1,7 +1,16 @@
-import { KID_MARK, LIMITS_MARK, ROSTER_MARK, TITLE_MARK, USAGE_MARK, VERSION_MARK } from "./hookConfig.mjs";
+import { readCheckinSection } from "./checkin";
+import {
+  CHECKIN_MARK,
+  KID_MARK,
+  LIMITS_MARK,
+  ROSTER_MARK,
+  TITLE_MARK,
+  USAGE_MARK,
+  VERSION_MARK,
+} from "./hookConfig.mjs";
 import { plainTool } from "./plain";
 import { techLine } from "./tech";
-import { ContextFill, LimitWindow, Limits, LiveEvent, LiveKind, Say, Usage } from "./types";
+import { Checkin, ContextFill, LimitWindow, Limits, LiveEvent, LiveKind, Say, Usage } from "./types";
 
 type Json = Record<string, unknown>;
 
@@ -197,7 +206,7 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
 
 const MAX_ROSTER = 60;
 
-const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK, VERSION_MARK, KID_MARK];
+const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK, VERSION_MARK, KID_MARK, CHECKIN_MARK];
 const MAX_TOKENS = 1e11;
 
 /** The text after a marker line, up to the next marker; null when the hook sent no such section. */
@@ -290,6 +299,8 @@ export interface HookBody {
   version?: number;
   /** which answer key the computer holds (relay.sh 6), so the café knows which paired secret signs */
   kid?: string;
+  /** the main chat's newest check-in line (relay.sh 7) */
+  checkin?: Checkin;
 }
 
 function readKid(sec: string | null): string | undefined {
@@ -324,6 +335,7 @@ export function parseHookBody(text: string): HookBody | null {
     limits: readLimits(section(text, LIMITS_MARK)),
     version: readVersion(section(text, VERSION_MARK)),
     kid: readKid(section(text, KID_MARK)),
+    checkin: readCheckinSection(section(text, CHECKIN_MARK)),
   };
   const list = section(text, ROSTER_MARK);
   if (list == null) return { raw: raw as Json, text: json, agents: null, ...extra };
@@ -350,6 +362,7 @@ export function withExtras(ev: LiveEvent, body: HookBody, member: string | null)
     ...(body.ctx && (ev.kind === "stop" || ev.kind === "sub_stop") ? { ctx: body.ctx } : {}),
     ...(body.limits && ev.kind !== "roster" ? { limits: body.limits } : {}),
     ...(body.version ? { hv: body.version } : {}),
+    ...(body.checkin && !ev.agent && ev.kind !== "roster" ? { checkin: body.checkin } : {}),
   };
 }
 

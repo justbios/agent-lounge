@@ -2841,6 +2841,20 @@ body {
   font-size: 12.5px;
   color: var(--muted);
 }
+/* how far Claude says the whole job has got, in its own units */
+.pipe-sum .pipe-bar {
+  height: 6px;
+  margin-top: 6px;
+}
+.pipe-sum .pipe-bar span {
+  background: #ff9a62;
+}
+.pipe-warn {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #fbbf24;
+}
 .pipe-list {
   display: flex;
   flex-direction: column;
@@ -3308,35 +3322,43 @@ body {
 .bgame.ttt-game {
   width: min(280px, 82vw);
 }
+/* Tic-tac-toe: a slate with the # drawn in chalky lines, and a stroke through three in a row. */
+.ttt-board {
+  position: relative;
+  padding: 8px;
+  border: 2px solid #07050d;
+  background: #121829;
+  box-shadow:
+    3px 3px 0 var(--px-drop),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.08),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.4);
+}
+.ttt-board.go {
+  border-color: #ffd25a;
+}
 .ttt-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
-  padding: 6px;
-  border: 2px solid #07050d;
-  background: #0a0c12;
-  box-shadow: 3px 3px 0 var(--px-drop);
+  background: #46527c;
 }
 .ttt-grid button {
   display: grid;
   place-items: center;
   aspect-ratio: 1;
   padding: 0;
-  border: 2px solid var(--border-2);
-  background: var(--panel-2);
-  box-shadow:
-    inset 2px 2px 0 var(--px-hi),
-    inset -2px -2px 0 var(--px-lo);
+  border: 0;
+  background: #121829 repeating-conic-gradient(rgba(255, 255, 255, 0.025) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
 }
 .ttt-grid button:enabled {
   cursor: pointer;
 }
 .ttt-grid button:enabled:hover {
-  border-color: rgba(255, 255, 255, 0.32);
+  background-color: #19213a;
 }
 .ttt-grid .mark {
-  width: 60%;
-  height: 60%;
+  width: 62%;
+  height: 62%;
   filter: drop-shadow(2px 2px 0 #07050d);
 }
 .ttt-grid .ghost {
@@ -3345,31 +3367,52 @@ body {
 .ttt-grid button:enabled:hover .ghost {
   opacity: 0.3;
 }
-.ttt-grid .last {
-  border-color: #ffd25a;
-}
 .ttt-grid .last .mark {
-  animation: mark-pop 240ms steps(4, end) both;
+  animation: mark-pop 260ms steps(5, end) both;
 }
 .ttt-grid .win {
-  border-color: #4ade80;
-  background: #15281b;
+  background-color: #16301f;
 }
 .ttt-grid .dim .mark {
-  opacity: 0.35;
+  opacity: 0.3;
 }
 @keyframes mark-pop {
   from {
-    transform: scale(0.3);
+    transform: scale(0.2);
+  }
+  60% {
+    transform: scale(1.18);
   }
 }
+.ttt-line {
+  position: absolute;
+  inset: 8px;
+  width: calc(100% - 16px);
+  height: calc(100% - 16px);
+  overflow: visible;
+  pointer-events: none;
+}
+.ttt-line line {
+  stroke-linecap: square;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ttt-stroke 360ms steps(8, end) 140ms forwards;
+}
+@keyframes ttt-stroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Chess and draughts squares: maple and walnut with a fine pixel grain; the latest move stays lit. */
+.chess-grid,
 .chk-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   width: 100%;
   aspect-ratio: 1;
-  border: 2px solid #07050d;
 }
+.chess-grid button,
 .chk-grid button {
   position: relative;
   display: grid;
@@ -3378,61 +3421,209 @@ body {
   border: 0;
   aspect-ratio: 1;
   text-shadow: none;
+  background-size: 4px 4px;
 }
+/* a square's piece, the one just taken and the move dot share the one spot in its middle */
+.chess-grid button > *,
+.chk-grid button > *,
+.chess-grid .to::after,
+.chk-grid .to::after {
+  grid-area: 1 / 1;
+}
+.chess-grid .lt,
 .chk-grid .lt {
-  background: #ead4a7;
+  background-color: #ecd6aa;
+  background-image: repeating-conic-gradient(rgba(150, 100, 50, 0.07) 0 25%, transparent 0 50%);
 }
+.chess-grid .dk,
 .chk-grid .dk {
-  background: #a9774d;
+  background-color: #a8744a;
+  background-image: repeating-conic-gradient(rgba(60, 30, 10, 0.11) 0 25%, transparent 0 50%);
 }
+.chess-grid .was,
 .chk-grid .was {
-  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.36);
+  box-shadow: inset 0 0 0 100vmax rgba(205, 215, 30, 0.34);
 }
 .chk-grid .via {
-  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.24);
+  box-shadow: inset 0 0 0 100vmax rgba(205, 215, 30, 0.22);
 }
+.chess-grid .now,
 .chk-grid .now {
-  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.52);
+  box-shadow: inset 0 0 0 100vmax rgba(205, 215, 30, 0.5);
 }
 .chk-grid .gone {
-  box-shadow: inset 0 0 0 100vmax rgba(255, 70, 70, 0.26);
+  box-shadow: inset 0 0 0 100vmax rgba(255, 70, 70, 0.24);
 }
+.chess-grid .sel,
 .chk-grid .pick {
-  box-shadow: inset 0 0 0 100vmax rgba(24, 120, 60, 0.55);
+  box-shadow: inset 0 0 0 100vmax rgba(30, 140, 70, 0.45);
 }
+.chess-grid button:enabled,
 .chk-grid button:enabled {
   cursor: pointer;
 }
+.chess-grid button:enabled:hover,
 .chk-grid button.dk:enabled:hover {
   outline: 2px solid rgba(255, 255, 255, 0.55);
   outline-offset: -2px;
 }
-.chk-grid .can .man {
-  filter: drop-shadow(2px 0 0 #ffd25a) drop-shadow(-2px 0 0 #ffd25a) drop-shadow(0 2px 0 #ffd25a)
-    drop-shadow(0 -2px 0 #ffd25a);
-}
+/* where the picked piece can go: a round pixel dot, and corner wedges round a piece it can take */
+.chess-grid .to::after,
 .chk-grid .to::after {
   content: "";
-  width: 26%;
-  height: 26%;
-  background: rgba(22, 70, 26, 0.6);
+  z-index: 1;
+  width: 30%;
+  height: 30%;
+  background: rgba(20, 60, 24, 0.5);
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
 }
+.chess-grid .to:hover::after,
+.chk-grid .to:hover::after {
+  width: 38%;
+  height: 38%;
+  background: rgba(20, 60, 24, 0.72);
+}
+.chess-grid .hit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(20, 60, 24, 0.62) 0 21%, transparent 21%),
+    linear-gradient(225deg, rgba(20, 60, 24, 0.62) 0 21%, transparent 21%),
+    linear-gradient(315deg, rgba(20, 60, 24, 0.62) 0 21%, transparent 21%),
+    linear-gradient(45deg, rgba(20, 60, 24, 0.62) 0 21%, transparent 21%);
+}
+.chess-grid .chk::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid rgba(255, 70, 70, 0.9);
+  background: radial-gradient(circle, #ff3a3a 0 34%, rgba(235, 25, 25, 0.75) 56%, rgba(235, 25, 25, 0.15) 82%);
+  animation: chk-pulse 0.9s steps(3, end) infinite alternate;
+}
+@keyframes chk-pulse {
+  from {
+    opacity: 0.55;
+  }
+}
+.chess-grid .piece,
 .chk-grid .man {
   position: relative;
-  width: 78%;
-  height: 78%;
-  filter: drop-shadow(0 2px 0 rgba(7, 5, 13, 0.3));
+  filter: drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
+  transition:
+    transform 80ms steps(2, end),
+    filter 80ms steps(2, end);
 }
+.chess-grid .piece {
+  width: 86%;
+  height: 86%;
+}
+.chk-grid .man,
 .chk-grid .ghost {
-  width: 78%;
-  height: 78%;
-  opacity: 0.38;
+  width: 84%;
+  height: auto;
 }
-.chk-grid .lt i {
-  color: #9a6a42;
+.chess-grid .can:hover .piece,
+.chk-grid .can:hover .man {
+  transform: translateY(-3px);
+  filter: drop-shadow(3px 5px 0 rgba(7, 5, 13, 0.3));
 }
-.chk-grid .dk i {
-  color: #f1dfba;
+.chess-grid .sel .piece,
+.chk-grid .pick .man {
+  filter: drop-shadow(4px 7px 0 rgba(7, 5, 13, 0.28));
+  animation: piece-bob 0.7s steps(2, end) infinite alternate;
+}
+@keyframes piece-bob {
+  from {
+    transform: translateY(-4px) scale(1.06);
+  }
+  to {
+    transform: translateY(-6px) scale(1.06);
+  }
+}
+/* a man that must move (draughts take whenever they can) wears a gold rim */
+.chk-grid .can .man {
+  filter: drop-shadow(2px 0 0 #ffd25a) drop-shadow(-2px 0 0 #ffd25a) drop-shadow(0 2px 0 #ffd25a)
+    drop-shadow(0 -2px 0 #ffd25a) drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
+}
+.chk-grid .can:hover .man {
+  filter: drop-shadow(2px 0 0 #ffd25a) drop-shadow(-2px 0 0 #ffd25a) drop-shadow(0 2px 0 #ffd25a)
+    drop-shadow(0 -2px 0 #ffd25a) drop-shadow(3px 5px 0 rgba(7, 5, 13, 0.3));
+}
+/* a piece just taken: it flashes and bursts as the taker lands; a draughts man stays a faint ghost a moment longer */
+.chk-grid .ghost {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.chk-grid .ghost:not(.poof) {
+  opacity: 0.35;
+}
+.chk-grid .poof-piece {
+  width: 100%;
+  height: auto;
+}
+.chess-grid .poof {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.chess-grid .poof-piece {
+  width: 86%;
+  height: 86%;
+  animation: poof-out 380ms steps(5, end) var(--wait, 200ms) both;
+}
+.chk-grid .poof .poof-piece {
+  animation: poof-settle 420ms steps(5, end) var(--wait, 120ms) both;
+}
+@keyframes poof-out {
+  35% {
+    transform: scale(1.15);
+    opacity: 1;
+    filter: brightness(2.4);
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+    filter: brightness(3);
+  }
+}
+@keyframes poof-settle {
+  35% {
+    transform: scale(1.15);
+    filter: brightness(2.4);
+  }
+  to {
+    opacity: 0.35;
+  }
+}
+.spark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px;
+  background: #fff3c4;
+  box-shadow: 1px 1px 0 #07050d;
+  opacity: 0;
+  animation: spark-fly 440ms steps(6, end) var(--wait, 200ms) both;
+}
+@keyframes spark-fly {
+  from {
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--sx), var(--sy));
+  }
 }
 .seat-man {
   width: 20px;
@@ -3557,100 +3748,61 @@ body {
     transform: scale(0.6);
   }
 }
+/* The frame: walnut with a grain, the files and ranks burnt into it, and a gold rim while it is your move. */
 .board-wrap {
   position: relative;
-  padding: 6px;
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  grid-template-rows: 1fr 14px;
+  gap: 2px;
+  padding: 8px 10px 4px 4px;
   border: 2px solid #07050d;
-  background: linear-gradient(#5b3d26, #3e2818);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.08) 0 2px,
+      transparent 2px 6px,
+      rgba(255, 220, 170, 0.05) 6px 8px,
+      transparent 8px 13px
+    ),
+    linear-gradient(#6e4b2d, #45301c);
   box-shadow:
     3px 3px 0 var(--px-drop),
-    inset 2px 2px 0 rgba(255, 220, 170, 0.14),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.3);
+    inset 2px 2px 0 rgba(255, 220, 170, 0.2),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.35);
 }
-.chess-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  width: 100%;
-  aspect-ratio: 1;
+.board-wrap.go {
+  border-color: #ffd25a;
+}
+.board-sq {
+  position: relative;
   border: 2px solid #07050d;
+  box-shadow: 0 0 0 2px rgba(255, 220, 170, 0.14);
 }
-.chess-grid button {
-  position: relative;
+.board-ranks,
+.board-files {
   display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  aspect-ratio: 1;
-  text-shadow: none;
-}
-.chess-grid .lt {
-  background: #ead4a7;
-}
-.chess-grid .dk {
-  background: #a9774d;
-}
-.chess-grid .was {
-  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.36);
-}
-.chess-grid .now {
-  box-shadow: inset 0 0 0 100vmax rgba(170, 210, 0, 0.52);
-}
-.chess-grid .sel {
-  box-shadow: inset 0 0 0 100vmax rgba(24, 120, 60, 0.55);
-}
-.chess-grid .chk {
-  background-image: radial-gradient(circle, #ff2a2a 0, #ff2a2a 28%, rgba(230, 20, 20, 0.7) 48%, transparent 80%);
-}
-.chess-grid button:enabled {
-  cursor: pointer;
-}
-.chess-grid button:enabled:hover {
-  outline: 2px solid rgba(255, 255, 255, 0.55);
-  outline-offset: -2px;
-}
-.chess-grid .to::after {
-  content: "";
-  width: 26%;
-  height: 26%;
-  background: rgba(22, 70, 26, 0.5);
-}
-.chess-grid .hit::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 4px solid rgba(22, 70, 26, 0.55);
-}
-.chess-grid .piece {
-  position: relative;
-  width: 88%;
-  height: 88%;
-  filter: drop-shadow(0 2px 0 rgba(7, 5, 13, 0.3));
-}
-.chess-grid i,
-.chk-grid i {
-  position: absolute;
+  color: #f1dcb4;
   font-family: var(--mono);
   font-size: 10.5px;
-  font-style: normal;
   font-weight: 700;
   line-height: 1;
-  pointer-events: none;
+  text-shadow: 1px 1px 0 #07050d;
+  user-select: none;
 }
-.chess-grid .rk,
-.chk-grid .rk {
-  top: 2px;
-  left: 3px;
+.board-ranks {
+  grid-template-rows: repeat(8, 1fr);
+  padding: 2px 0;
 }
-.chess-grid .fl,
-.chk-grid .fl {
-  right: 3px;
-  bottom: 2px;
+.board-files {
+  grid-column: 2;
+  grid-template-columns: repeat(8, 1fr);
+  padding: 0 2px;
 }
-.chess-grid .lt i {
-  color: #9a6a42;
-}
-.chess-grid .dk i {
-  color: #f1dfba;
+.board-ranks span,
+.board-files span {
+  display: grid;
+  place-items: center;
 }
 .promo {
   position: absolute;
@@ -3710,11 +3862,100 @@ body {
   margin-right: 1px;
   vertical-align: -2px;
 }
+/* The end of a game seen live: a ribbon over the board, and pixel confetti for the winner; it clears by itself. */
+.finale {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  container-type: size;
+  pointer-events: none;
+  animation: finale-out 500ms steps(4, end) 3.6s forwards;
+}
+.finale.lose {
+  background: rgba(12, 4, 10, 0.3);
+}
+.finale-ribbon {
+  position: relative;
+  padding: 8px 18px;
+  border: 2px solid #07050d;
+  background: #262014;
+  color: #ffd25a;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: clamp(18px, 7cqw, 30px);
+  white-space: nowrap;
+  text-shadow: 2px 2px 0 #07050d;
+  box-shadow:
+    4px 4px 0 var(--px-drop),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.14),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.35);
+  animation: ribbon-in 380ms steps(6, end) both;
+}
+.finale.win .finale-ribbon {
+  background: #17402a;
+  color: #c4ffd8;
+}
+.finale.lose .finale-ribbon {
+  background: #451b1f;
+  color: #ffc2c2;
+}
+.finale.draw .finale-ribbon {
+  background: #1f2548;
+  color: #d0d8ff;
+}
+.finale i {
+  position: absolute;
+  top: -8px;
+  left: var(--x);
+  width: 6px;
+  height: 6px;
+  background: var(--c);
+  box-shadow: 1px 1px 0 rgba(7, 5, 13, 0.5);
+  animation: confetti var(--t) steps(14, end) var(--d) both;
+}
+@keyframes ribbon-in {
+  from {
+    transform: scale(0.2) rotate(-8deg);
+  }
+  70% {
+    transform: scale(1.12) rotate(1deg);
+  }
+}
+@keyframes confetti {
+  to {
+    transform: translate(var(--dx), calc(100cqh + 16px)) rotate(540deg);
+  }
+}
+@keyframes finale-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .seat-turn,
   .board-say.win,
-  .ttt-grid .last .mark {
+  .ttt-grid .last .mark,
+  .chess-grid .chk::before,
+  .chess-grid .sel .piece,
+  .chk-grid .pick .man,
+  .finale-ribbon {
     animation: none;
+  }
+  .ttt-line line {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .spark,
+  .finale i,
+  .chess-grid .poof {
+    display: none;
+  }
+  .chk-grid .poof .poof-piece {
+    animation: none;
+    opacity: 0.35;
   }
 }
 .duel {
@@ -3723,31 +3964,214 @@ body {
   align-items: flex-start;
   gap: 8px;
 }
+/* Arcade games for two: a pixel scoreboard, a line saying what's on, the table, big words popping up over it. */
 .pong {
   display: flex;
   flex-direction: column;
   gap: 6px;
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
 }
-.pong canvas {
+.arc-hud {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.arc-p {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px 10px;
+  border: 2px solid #07050d;
+  background: var(--panel-2);
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset 2px 2px 0 var(--px-hi),
+    inset 0 -3px 0 color-mix(in srgb, var(--c) 45%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.arc-p.them {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.arc-p i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--c);
+  box-shadow:
+    0 0 0 2px #07050d,
+    0 0 10px var(--c);
+}
+.arc-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.arc-p b {
+  display: flex;
+  flex: none;
+  color: var(--c);
+}
+.pxnum {
+  display: block;
+  width: calc(var(--len) * 16px - 4px);
+  height: 20px;
+  fill: currentColor;
+  filter: drop-shadow(2px 2px 0 #07050d);
+}
+.arc-to {
+  align-self: center;
+  flex: none;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.arc-say {
+  min-height: 1.4em;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.arc-screen {
+  position: relative;
+  align-self: center;
+  max-width: 100%;
+  border: 2px solid #07050d;
+  box-shadow:
+    3px 3px 0 var(--px-drop),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.arc-screen canvas {
   display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 160 / 100;
-  border: 1px solid var(--border-2);
-  border-radius: 10px;
-  image-rendering: pixelated;
+  background: #07050d;
   touch-action: none;
 }
-.hockey {
+/* the old tube: scanlines and a darker rim, over ping-pong and cables but not the hockey table */
+.pong:not(.hockey) .arc-screen {
+  align-self: stretch;
+}
+.pong:not(.hockey) .arc-screen::after {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.38)),
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+  content: "";
+  pointer-events: none;
+}
+.arc-pop {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-pixel), var(--mono);
+  font-size: clamp(30px, 9vw, 64px);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow:
+    3px 3px 0 #07050d,
+    -1px -1px 0 #07050d,
+    0 0 22px currentColor;
+  pointer-events: none;
+}
+.arc-end {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  max-width: none;
+  gap: 4px;
+  min-width: min(240px, 80%);
+  padding: 14px 18px 12px;
+  border: 2px solid #07050d;
+  background: rgba(13, 16, 23, 0.92);
+  box-shadow:
+    4px 4px 0 var(--px-drop),
+    inset 2px 2px 0 var(--px-hi);
+  transform: translate(-50%, -50%);
+  text-align: center;
+  animation: arc-end-in 420ms steps(5, end) 600ms both;
+  pointer-events: none;
+}
+.arc-end b {
+  font-family: var(--font-pixel), var(--mono);
+  font-size: clamp(24px, 6.5vw, 38px);
+  line-height: 1.05;
+  text-shadow: 3px 3px 0 #07050d;
+}
+.arc-end.win {
+  border-color: #4ade80;
+}
+.arc-end.win b {
+  color: #ffd25a;
+}
+.arc-end.lose b {
+  color: #ff8f8f;
+}
+.arc-final {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0;
+}
+.arc-final .pxnum {
+  width: calc(var(--len) * 12px - 3px);
+  height: 15px;
+}
+.arc-final .pxnum:first-child {
+  color: #ffd25a;
+}
+.arc-final .pxnum:last-child {
+  color: #8fb3ff;
+}
+.arc-final i {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 700;
+}
+.arc-end small {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@keyframes arc-end-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .arc-end {
+    animation: none;
+  }
+}
+.hockey {
+  align-items: stretch;
+  max-width: 440px;
 }
 .pong.hockey canvas {
   width: auto;
-  height: min(62vh, 520px);
-  aspect-ratio: 90 / 150;
+  height: min(64vh, 560px, calc((100vw - 52px) * 160 / 100));
+  aspect-ratio: 100 / 160;
 }
 .duel-guests {
   display: flex;
@@ -4681,21 +5105,42 @@ body {
   width: min(100%, calc((100dvh - 90px) * 160 / 112));
 }
 .duel-board:fullscreen .pong {
-  max-width: min(100%, calc((100dvh - 110px) * 1.6));
+  max-width: min(100%, calc((100dvh - 150px) * 1.6));
 }
 .duel-board:fullscreen .pong.hockey {
   max-width: none;
 }
 .duel-board:fullscreen .pong.hockey canvas {
-  height: calc(100dvh - 110px);
+  height: calc(100dvh - 150px);
 }
 .duel-board:fullscreen .bgame {
   width: min(calc(100vw - 48px), calc(100dvh - 250px));
 }
 .duel-tools {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+/* another game with the same person: the wait for their yes, or their ask */
+.rematch {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: rgba(127, 224, 160, 0.08);
+  border: 1px solid rgba(127, 224, 160, 0.35);
+  border-radius: 10px;
+}
+.rematch > span {
+  flex: 1 1 auto;
+}
+.rematch-no {
+  font-size: 12px;
+  color: var(--dim);
 }
 .cups-hud {
   align-items: center;

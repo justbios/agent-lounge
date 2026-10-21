@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { HOOK_EVENTS, STATUS_LINE, hookEntry, isRelayHook, statusChain } from "../lib/live/hookConfig.mjs";
+import { LOCAL_EVENTS, STATUS_LINE, isRelayHook, localGroups, statusChain } from "../lib/live/hookConfig.mjs";
 
 const args = new Set(process.argv.slice(2));
 const remove = args.has("--remove");
@@ -36,20 +36,21 @@ if (text.trim()) {
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const hooks = { ...(settings.hooks ?? {}) };
-const events = new Set(remove ? Object.keys(hooks) : [...Object.keys(hooks), ...HOOK_EVENTS]);
+const events = new Set(remove ? Object.keys(hooks) : [...Object.keys(hooks), ...LOCAL_EVENTS]);
 const touched = [];
 
 for (const event of events) {
   const groups = Array.isArray(hooks[event]) ? hooks[event] : [];
-  const relay = groups.flatMap((g) => (g.hooks ?? []).filter(isRelayHook));
-  const want = !remove && HOOK_EVENTS.includes(event);
-  if (want && relay.length === 1 && same(relay[0], hookEntry(event))) continue;
-  if (!want && relay.length === 0) continue;
+  const relay = groups
+    .map((g) => ({ ...g, hooks: (g.hooks ?? []).filter(isRelayHook) }))
+    .filter((g) => g.hooks.length > 0);
+  const want = !remove && LOCAL_EVENTS.includes(event) ? localGroups(event) : [];
+  if (same(relay, want)) continue;
 
   const kept = groups
     .map((g) => ({ ...g, hooks: (g.hooks ?? []).filter((h) => !isRelayHook(h)) }))
     .filter((g, i) => g.hooks.length > 0 || (groups[i].hooks ?? []).length === 0);
-  if (want) kept.push({ hooks: [hookEntry(event)] });
+  kept.push(...want);
   if (kept.length) hooks[event] = kept;
   else delete hooks[event];
   touched.push(event);

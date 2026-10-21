@@ -4,7 +4,7 @@ import { CSSProperties } from "react";
 import { Timer } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { Ui, tr, useTr, useUi } from "@/lib/i18n";
-import { Eta, etaText, fmtSpan, usualText } from "@/lib/live/eta";
+import { Eta, etaText, fmtSpan, toldText, usualText } from "@/lib/live/eta";
 import type { LiveScene } from "@/lib/live/liveModel";
 import Sheet from "./Sheet";
 
@@ -43,13 +43,20 @@ export function PipelineStat({ eta, now, onOpen }: { eta: Eta | null | undefined
     <button
       className="stat stat-btn"
       onClick={onOpen}
-      title={t("коли закінчить пайплайн; натисни, щоб побачити агентів", "when the pipeline ends; click for agents")}
+      title={
+        eta.told
+          ? t(
+              `коли закінчить пайплайн: ${toldText(eta.told, ui)}; натисни, щоб побачити агентів`,
+              `when the pipeline ends: ${toldText(eta.told, ui)}; click for agents`,
+            )
+          : t("коли закінчить пайплайн; натисни, щоб побачити агентів", "when the pipeline ends; click for agents")
+      }
     >
       <span className="stat-k">
         <Timer size={11} style={ICON} />
         {t("пайплайн", "pipeline")}
       </span>
-      <span className="stat-v">{eta.left == null ? t("невідомо", "unknown") : etaText(eta, ui)}</span>
+      <span className="stat-v">{(eta.left != null || eta.told) && etaText(eta, ui) || t("невідомо", "unknown")}</span>
       {at && <span className="stat-at">{at}</span>}
     </button>
   );
@@ -89,16 +96,20 @@ export function PipelineSheet({
   const lead = all?.more ? t("Щонайменше", "At least") : t("Ще", "Still");
   const span = all?.left != null && `${lead} ${fmtSpan(all.left, ui)}`;
 
+  const told = all?.told;
   const head = !all
     ? t("Зараз пайплайн не працює", "No pipeline is running now")
     : all.wrap
       ? t("Майже готово", "Wrapping up")
       : !span
-        ? t("Поки невідомо, коли закінчить", "No guess yet of when it finishes")
+        ? told?.over
+          ? t("Довше, ніж казав Claude", "Taking longer than Claude said")
+          : t("Поки невідомо, коли закінчить", "No guess yet of when it finishes")
         : `${span}${at ? ` — ${at}` : ""}`;
   const longest = all?.waitsOn != null ? model.agents[all.waitsOn].name : null;
   const why = longest && t(`чекає на ${longest}`, `waiting on ${longest}`);
   const unknown = busy.filter((r) => r.eta.left == null).length;
+  const progress = told?.total ? Math.round((100 * (told.done ?? 0)) / told.total) : null;
 
   return (
     <Sheet
@@ -111,13 +122,31 @@ export function PipelineSheet({
         <b>{head}</b>
         <span>
           {[
+            told && toldText(told, ui),
+            told?.total ? `${told.done ?? 0}/${told.total}` : null,
+            told?.now && t(`зараз: ${told.now}`, `now: ${told.now}`),
             why,
             own && t(`у Claude кроки ${own.done}/${own.total}`, `Claude's steps ${own.done}/${own.total}`),
-            unknown ? t(`без оцінки: ${unknown}`, `no guess: ${unknown}`) : null,
+            unknown && !told ? t(`без оцінки: ${unknown}`, `no guess: ${unknown}`) : null,
           ]
             .filter(Boolean)
             .join(" · ")}
         </span>
+        {progress != null && (
+          <span className="pipe-bar" aria-hidden>
+            <span style={{ width: `${progress}%` }} />
+          </span>
+        )}
+        {all && !told && busy.length > 0 && (
+          <small className="pipe-warn">
+            {t(
+              "Claude ще не казав, скільки лишилось усій роботі, тож тут лише агенти, які працюють зараз: наступних " +
+                "раундів (рев'ю, QA, повторів) цей час не бачить. Хуки спитають Claude з його наступною відповіддю.",
+              "Claude hasn't said yet how long the whole job takes, so this counts only the agents working now, not " +
+                "the rounds still to come (reviews, QA, re-runs). The hooks will ask Claude at its next turn.",
+            )}
+          </small>
+        )}
       </div>
 
       {busy.length > 0 && (
@@ -193,14 +222,18 @@ export function PipelineSheet({
 
       <p className="alerts-hint">
         {t(
-          "Час приблизний. Агент зі списком задач: скільки пунктів лишилось, помножене на час одного пункту. " +
-            "Агент без списку: скільки зазвичай тривають його роботи, мінус те, що він уже працює; поки жодна " +
-            "його робота не закінчилась, береться звичайна робота будь-якого агента. Пайплайн закінчить, коли " +
-            "повернеться найдовший з тих, хто працює зараз; агентів, яких Claude покличе потім, тут ще не видно.",
-          "A rough guess. An agent with a task list: the steps left times the time one step takes. An agent " +
-            "without one: how long its jobs usually take, less the time it has already worked; until one of its " +
-            "jobs has finished, any agent's usual job stands in. The pipeline finishes when the longest of the " +
-            "agents working now is back; agents Claude calls later aren't counted yet.",
+          "Час приблизний. Поки Claude працює з агентами, хуки раз на ~20 хвилин просять його дописати у " +
+            "відповідь рядок «⏱ 95m · 6/10 · що зараз»: скільки, на його думку, лишилось усій роботі, разом з " +
+            "раундами, яких ще не почато. Від цього рядка й рахується час пайплайну; коли якийсь агент явно " +
+            "потребує більше, береться його час. Агент зі списком задач: скільки пунктів лишилось, помножене на " +
+            "час одного пункту. Агент без списку: скільки зазвичай тривають його роботи, мінус те, що він уже " +
+            "працює. Вимкнути запитання: RELAY_CHECKIN=0 у змінних середовища Claude Code.",
+          "A rough guess. While Claude works with agents, the hooks ask it every ~20 minutes to add a line like " +
+            "“⏱ 95m · 6/10 · what now” to its reply: how long it thinks the whole job still takes, rounds not " +
+            "started yet included. The pipeline's time counts down from that line, unless some agent clearly needs " +
+            "longer. An agent with a task list: the steps left times the time one step takes. An agent without " +
+            "one: how long its jobs usually take, less the time it has already worked. To stop the questions, set " +
+            "RELAY_CHECKIN=0 in Claude Code's environment.",
         )}
       </p>
     </Sheet>

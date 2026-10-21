@@ -1,7 +1,9 @@
 #!/bin/sh
 # Agent Lounge for Claude Code: forwards a hook's JSON to an Agent Lounge café, with extras after marker lines.
 # Async, silent, exits 0.
-#   relay.sh [--url URL] [roster] [title] [usage] [limits]   hook, JSON on stdin
+#   relay.sh [--url URL] [roster] [title] [usage] [limits] [eta]   hook, JSON on stdin
+#   relay.sh [--url URL] checkin                              UserPromptSubmit, and PostToolUse of a subagent: now and
+#                                                             then asks Claude how long its whole job still takes
 #   relay.sh [--url URL] ask                                  PermissionRequest, and PreToolUse of a question or a plan:
 #                                                             the only hooks Claude waits for
 #   relay.sh [--url URL] away on|off|status                   «я не за комп'ютером», switched on only from here
@@ -14,7 +16,7 @@
 state="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}"
 conf="${XDG_CONFIG_HOME:-$HOME/.config}/relay"
 keyfile="${RELAY_ANSWER_KEY:-$conf/answer-key}"
-version=6
+version=7
 
 field() {
   printf '%s' "$1" | grep -oE "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d'"' -f4
@@ -273,6 +275,92 @@ ask() {
   exit 0
 }
 
+# How often a chat running subagents is asked how long its whole job still takes, in minutes; 0 switches it off.
+every="${RELAY_CHECKIN:-20}"
+case "$every" in '' | *[!0-9]*) every=20 ;; esac
+# A chat that sent out no subagent for this long is no pipeline any more, and isn't asked.
+quiet_s=10800
+
+# relay.sh checkin: the café can only see the agents that run now, never the rounds Claude hasn't started yet, so
+# while a chat runs subagents it asks Claude itself, at most every $every minutes and only at a turn it takes anyway
+# (a prompt, a subagent's result), to end its reply with a line like «⏱ 95m · 6/10 · QA on iOS». The request is
+# context only Claude sees; the line is in its reply, and checkin_line sends it to the café. This is the one hook
+# Claude waits for on every pipeline, so it stays on this machine and posts nothing. Its state: the last subagent,
+# the last request, when a line last went to the café, that line's time, and 1 when it said the job was done: then
+# Claude isn't asked again until it sends out another subagent.
+checkin() {
+  j=$(cat)
+  [ "$every" -gt 0 ] || exit 0
+  sid=$(safe "$(field "$j" session_id)")
+  [ -n "$sid" ] && [ -z "$(field "$j" agent_id)" ] || exit 0
+  ev=$(field "$j" hook_event_name)
+  mkdir -p "$state/checkin" 2>/dev/null || exit 0
+  f="$state/checkin/$sid"
+  sub=0 asked=0 sent=0 said=- end=0
+  [ -f "$f" ] && read -r sub asked sent said end < "$f"
+  case "$sub:$asked:$sent" in *[!0-9:]* | :* | *::* | *:) sub=0 asked=0 sent=0 said=- ;; esac
+  [ "$end" = 1 ] || end=0
+  now=$(date +%s)
+  [ "$ev" = PostToolUse ] && sub=$now
+  [ "$end" = 1 ] && [ "$sub" -gt "$sent" ] && end=0
+  if [ "$end" = 0 ] && [ $((now - sub)) -le "$quiet_s" ] && [ $((now - asked)) -ge $((every * 60)) ]; then
+    asked=$now
+    ask="Agent Lounge check-in (the user follows this pipeline in a café that shows when it will be done):"
+    ask="$ask end your reply to this turn with one line in exactly this form:"
+    ask="$ask ⏱ <minutes>m · <done>/<total> · <what runs now, a few words>."
+    ask="$ask The minutes are your honest estimate until the WHOLE job is finished, counting every round still ahead"
+    ask="$ask (fixes, reviews, QA, re-runs), not only the agents running now; done/total in whatever units fit"
+    ask="$ask (bugs, screens, stages), or leave that part out. Write ⏱ 0m once everything is done."
+    ask="$ask Nothing else about your work changes."
+    printf '{"hookSpecificOutput":{"hookEventName":"%s","additionalContext":"%s"}}\n' "$ev" "$ask"
+  fi
+  [ -f "$f" ] || find "$state/checkin" -type f -mtime +2 -delete 2>/dev/null
+  printf '%s %s %s %s %s\n' "$sub" "$asked" "$sent" "${said:--}" "$end" > "$f"
+  exit 0
+}
+
+iso() {
+  date -u -r "$1" +%Y-%m-%dT%H:%M:%S 2>/dev/null || date -u -d "@$1" +%Y-%m-%dT%H:%M:%S 2>/dev/null
+}
+
+# The newest «⏱ …» line in Claude's own replies in this chat that the café hasn't had yet, with the time Claude wrote
+# it; a line from more than an hour before the last request belongs to some earlier job. Only for a chat that runs
+# subagents; a tool call looks only while a check-in is still unanswered, an answer always. Prints the section, or
+# nothing.
+checkin_line() {
+  [ -z "$(field "$1" agent_id)" ] || return 0
+  sid=$(safe "$(field "$1" session_id)")
+  t=$(field "$1" transcript_path)
+  f="$state/checkin/$sid"
+  [ -n "$sid" ] && [ -f "$f" ] && [ -f "$t" ] || return 0
+  read -r sub asked sent said end < "$f"
+  case "$sub:$asked:$sent" in *[!0-9:]* | :* | *::* | *:) return 0 ;; esac
+  [ "$(field "$1" hook_event_name)" = Stop ] || [ "$asked" -gt "$sent" ] || return 0
+  line=$(tail -c 524288 "$t" | LC_ALL=C awk -v after="$said" -v since="$(iso $((asked - 3600)))" '
+    !index($0, "\"role\":\"assistant\"") || !index($0, "{\"type\":\"text\",\"text\":\"") || !index($0, "⏱") { next }
+    !match($0, /"timestamp":"[0-9T:.Z-]+"/) { next }
+    {
+      ts = substr($0, RSTART + 13, RLENGTH - 14)
+      if ((after != "-" && ts <= after) || ts < since) next
+      at = 0
+      while ((i = index(substr($0, at + 1), "⏱")) > 0) at += i
+      s = substr($0, at, 300)
+      if ((k = index(s, "\\n")) > 0) s = substr(s, 1, k - 1)
+      for (q = 1; q <= length(s); q++) {
+        c = substr(s, q, 1)
+        if (c == "\\") q++
+        else if (c == "\"") { s = substr(s, 1, q - 1); break }
+      }
+      best = ts "\t" s
+    }
+    END { if (best != "") print best }')
+  [ -n "$line" ] || return 0
+  printf '\n#relay-eta\n%s\n' "$line"
+  rest=$(printf '%s' "${line##*⏱}" | sed 's/^[^0-9]*//')
+  case "$rest" in 0 | 0[!0-9.,]*) end=1 ;; *) end=0 ;; esac
+  printf '%s %s %s %s %s\n' "$sub" "$asked" "$(date +%s)" "${line%%	*}" "$end" > "$f"
+}
+
 clip_copy() {
   if command -v pbcopy >/dev/null 2>&1; then pbcopy
   elif [ -n "$WAYLAND_DISPLAY" ] && command -v wl-copy >/dev/null 2>&1; then wl-copy
@@ -391,6 +479,7 @@ case "$url" in
     ;;
 esac
 split_key
+[ "$1" = "checkin" ] && checkin
 [ "$1" = "ask" ] && ask
 [ "$1" = "pair" ] && pair "$2"
 [ "$1" = "away" ] && away "$2"
@@ -416,6 +505,9 @@ j=$(cat)
         ;;
       limits)
         [ -f "$state/limits" ] && printf '\n#relay-limits\n' && head -c 400 "$state/limits"
+        ;;
+      eta)
+        checkin_line "$j"
         ;;
     esac
   done

@@ -38,6 +38,10 @@ permission prompts, questions and plans. The parts and their trust:
   header, not in the URL.
 - Café events carry short descriptions only (`lib/live/normalize.ts`) and live for 24 hours, at most 12000 per room.
   An agent's task list arrives as two counts, steps done and steps in all, never the steps' words.
+- The pipeline check-in (`relay.sh checkin`, version 7) is a hook Claude waits for, but it only reads and writes a
+  small state file in `~/.local/state/relay/checkin` and never touches the network. What it adds to Claude's context
+  is a fixed sentence in the script, asking for a `⏱` line; it carries nothing from the café. The café keeps only the
+  numbers of that line and up to 48 characters of what runs now.
 - While «я не за комп'ютером» is on, a permission request, question or plan is stored whole in `relay_asks`
   (the command, a written file's content, the plan): the text is erased after 24 hours, the row after 30 days.
 - Writes are capped at 600 events per room per minute and 200 new rooms per hour site-wide.
