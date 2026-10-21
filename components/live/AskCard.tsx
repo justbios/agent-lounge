@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ShieldQuestion } from "lucide-react";
 import { Two, Ui, useTr, useUi } from "@/lib/i18n";
-import { Ask, ASK_MS, AskQuestion, OWN_MAX } from "@/lib/live/asks";
+import { Ask, ASK_MS, AskQuestion, OWN_MAX, recommended } from "@/lib/live/asks";
 import { Asks } from "@/lib/live/useAsks";
 
 const clock = (t: number, ui: Ui) =>
@@ -13,6 +13,39 @@ const WANTS: Record<"AskUserQuestion" | "ExitPlanMode", Two> = {
   AskUserQuestion: { uk: "питає", en: "asks" },
   ExitPlanMode: { uk: "пропонує план", en: "proposes a plan" },
 };
+
+/** A text of your own, folded behind a small link until you want it. */
+function Own({
+  value,
+  label,
+  hint,
+  onChange,
+}: {
+  value: string;
+  label: string;
+  hint: string;
+  onChange: (text: string) => void;
+}) {
+  const [open, setOpen] = useState(value !== "");
+  if (!open) {
+    return (
+      <button className="ask-link" onClick={() => setOpen(true)}>
+        ✎ {label}
+      </button>
+    );
+  }
+  return (
+    <input
+      className="ask-own"
+      autoFocus
+      value={value}
+      maxLength={OWN_MAX}
+      placeholder={hint}
+      aria-label={label}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
 
 function Questions({
   questions,
@@ -49,38 +82,40 @@ function Questions({
     <>
       {questions.map((q) => (
         <div className="ask-q" key={q.question}>
-          <div className="ask-q-text">
-            {q.header && <b>{q.header}</b>} {q.question}
+          <p className="ask-q-text">
+            {q.question}
             {q.multiSelect && <small> · {t("можна кілька", "pick any")}</small>}
-          </div>
+          </p>
           <div className="ask-opts" role={q.multiSelect ? "group" : "radiogroup"} aria-label={q.question}>
             {q.options.map((o) => {
               const on = !!picked[q.question]?.includes(o.label);
+              const { text, best } = recommended(o.label);
               return (
                 <button
                   key={o.label}
-                  className={on ? "ask-opt on" : "ask-opt"}
+                  className={`ask-opt ${on ? "on" : ""} ${best ? "best" : ""}`}
                   role={q.multiSelect ? "checkbox" : "radio"}
                   aria-checked={on}
                   onClick={() => pick(q, o.label)}
                 >
-                  <span>{o.label}</span>
+                  <span className="ask-opt-l">
+                    {text}
+                    {best && <em className="ask-best">★ {t("радить Claude", "Claude's pick")}</em>}
+                  </span>
                   {o.description && <small>{o.description}</small>}
                 </button>
               );
             })}
           </div>
-          <input
-            className="ask-own"
+          <Own
             value={own[q.question] ?? ""}
-            maxLength={OWN_MAX}
-            placeholder={
+            label={t("свій варіант", "your own answer")}
+            hint={
               q.multiSelect
-                ? t("і свій варіант, якщо треба…", "and your own, if needed…")
-                : t("або свій варіант…", "or your own answer…")
+                ? t("додасться після вибраних", "goes after the ones picked")
+                : t("замість варіантів вище", "instead of the options above")
             }
-            aria-label={t(`Свій варіант: ${q.question}`, `Your own answer: ${q.question}`)}
-            onChange={(e) => write(q, e.target.value)}
+            onChange={(text) => write(q, text)}
           />
         </div>
       ))}
@@ -93,7 +128,20 @@ function Questions({
   );
 }
 
-function AskRow({ a, now, asks, onOpen }: { a: Ask; now: number; asks: Asks; onOpen: (session: string) => void }) {
+function AskRow({
+  a,
+  now,
+  more,
+  asks,
+  onOpen,
+}: {
+  a: Ask;
+  now: number;
+  /** how many more wait after this one */
+  more: number;
+  asks: Asks;
+  onOpen: (session: string) => void;
+}) {
   const ui = useUi();
   const t = useTr();
   // why not, or what to change in the plan: Claude reads it with the «no»
@@ -104,25 +152,31 @@ function AskRow({ a, now, asks, onOpen }: { a: Ask; now: number; asks: Asks; onO
   const detail = ui === "en" ? (a.detailEn ?? a.detail) : a.detail;
   return (
     <div className="ask">
-      <div className="ask-what">
+      <div className="ask-hd">
         <span>
           <button className="ask-chat" onClick={() => onOpen(a.session)}>
             {a.label}
           </button>{" "}
-          {body ? WANTS[body.tool][ui] : t("просить дозволу", "asks permission")} ·{" "}
-          {t(`ще ${left} хв, потім спитає в терміналі`, `${left} min left, then it asks in the terminal`)}
+          {body ? WANTS[body.tool][ui] : t("просить дозволу", "asks permission")}
         </span>
-        {!body && <code>{detail}</code>}
-        {!body && a.change != null && (
-          <details>
-            <summary>{t("що саме зміниться", "what exactly changes")}</summary>
-            <pre className="ask-plan">{a.change}</pre>
-          </details>
-        )}
-        {body?.tool === "ExitPlanMode" && <pre className="ask-plan">{body.input.plan}</pre>}
+        <span
+          className="ask-left"
+          title={t(`за ${left} хв спитає в терміналі`, `in ${left} min it asks in the terminal`)}
+        >
+          {more > 0 && t(`ще ${more} · `, `${more} more · `)}
+          {t(`${left} хв`, `${left} min`)}
+        </span>
       </div>
+      {!body && <code className="ask-cmd">{detail}</code>}
+      {!body && a.change != null && (
+        <details>
+          <summary>{t("що саме зміниться", "what exactly changes")}</summary>
+          <pre className="ask-plan">{a.change}</pre>
+        </details>
+      )}
+      {body?.tool === "ExitPlanMode" && <pre className="ask-plan">{body.input.plan}</pre>}
       {!asks.canAnswer(a) ? (
-        <p className="ask-unpaired">
+        <p className="ask-note">
           {t(
             "Цей браузер не спарено з комп'ютером, який питає, тож відповісти звідси не можна. На тому комп'ютері запусти",
             "This browser isn't paired with the computer that's asking, so you can't answer from here. On that computer, run",
@@ -132,19 +186,7 @@ function AskRow({ a, now, asks, onOpen }: { a: Ask; now: number; asks: Asks; onO
       ) : body?.tool === "AskUserQuestion" ? (
         <Questions questions={body.input.questions} onReply={(answers) => asks.reply(a, answers)} />
       ) : (
-        <div className="ask-say">
-          <input
-            className="ask-own"
-            value={note}
-            maxLength={OWN_MAX}
-            placeholder={
-              body
-                ? t("що змінити в плані: піде разом із «ні»", "what to change: sent with “no”")
-                : t("чому ні: піде разом із «заборонити»", "why not: sent with “deny”")
-            }
-            aria-label={body ? t("Що змінити в плані", "What to change in the plan") : t("Чому ні", "Why not")}
-            onChange={(e) => setNote(e.target.value)}
-          />
+        <>
           <div className="ask-btns">
             <button
               className="btn ask-yes"
@@ -156,21 +198,28 @@ function AskRow({ a, now, asks, onOpen }: { a: Ask; now: number; asks: Asks; onO
               }
               onClick={() => asks.answer(a, true)}
             >
-              {body ? t("затвердити план", "approve plan") : t("дозволити раз", "allow once")}
+              ✓ {body ? t("затвердити", "approve") : t("дозволити раз", "allow once")}
             </button>
-            <button className={why ? "btn ask-no" : "btn"} onClick={() => asks.answer(a, false, note)}>
-              {body ? t("ні, хай планує далі", "no, keep planning") : t("заборонити", "deny")}
+            <button className="btn ask-no" onClick={() => asks.answer(a, false, note)}>
+              ✗ {body ? t("ні, хай доробить", "no, keep planning") : t("ні", "deny")}
             </button>
           </div>
-        </div>
+          <Own
+            value={note}
+            label={body ? t("що змінити в плані", "what to change") : t("пояснити «ні»", "say why not")}
+            hint={t("Claude прочитає це разом із «ні»", "Claude reads it with the “no”")}
+            onChange={setNote}
+          />
+        </>
       )}
     </div>
   );
 }
 
 /**
- * While the user is away from the computer: the switch's state with a way back, and each permission prompt, question
- * or plan Claude is waiting on, to answer from here. `settled` holds the ones the terminal has already answered.
+ * While the user is away from the computer: the permission prompt, question or plan Claude has waited on longest, to
+ * answer from here, one at a time, and the switch's state with a way back. `settled` holds the ones the terminal has
+ * already answered.
  */
 export default function AskCard({
   asks,
@@ -186,26 +235,27 @@ export default function AskCard({
   const ui = useUi();
   const t = useTr();
   if (asks.until == null) return null;
-  const open = asks.asks.filter((a) => a.at + ASK_MS > now && !settled.has(a.id));
+  const open = asks.asks.filter((a) => a.at + ASK_MS > now && !settled.has(a.id)).sort((x, y) => x.at - y.at);
+  const first = open[0];
 
   return (
-    <div className={`notice asks ${open.length ? "asks-now" : ""}`} role={open.length ? "alert" : "status"}>
-      <div className="away-hd">
+    <section className={`card asks ${first ? "asks-now" : ""}`} role={first ? "alert" : "status"}>
+      {first && <AskRow key={first.id} a={first} now={now} more={open.length - 1} asks={asks} onOpen={onOpen} />}
+      {asks.failed && <p className="ask-note">{asks.failed}</p>}
+      <div className="away-ft">
         <span>
-          <ShieldQuestion size={14} />{" "}
-          {t(
-            `Ти не за комп'ютером до ${clock(asks.until, ui)}: коли Claude просить дозволу, питає чи показує план, це чекає тут.`,
-            `You're away until ${clock(asks.until, ui)}: when Claude asks for permission, asks a question or shows a plan, it waits here.`,
-          )}
+          <ShieldQuestion size={14} />
+          {first
+            ? t(`Ти не за комп'ютером до ${clock(asks.until, ui)}`, `You're away until ${clock(asks.until, ui)}`)
+            : t(
+                `Ти не за комп'ютером до ${clock(asks.until, ui)}: питання Claude прийдуть сюди`,
+                `You're away until ${clock(asks.until, ui)}: Claude's questions will come here`,
+              )}
         </span>
         <button className="btn" disabled={asks.busy} onClick={asks.back}>
           {t("я повернувся", "I'm back")}
         </button>
       </div>
-      {asks.failed && <p className="ask-unpaired">{asks.failed}</p>}
-      {open.map((a) => (
-        <AskRow key={a.id} a={a} now={now} asks={asks} onOpen={onOpen} />
-      ))}
-    </div>
+    </section>
   );
 }

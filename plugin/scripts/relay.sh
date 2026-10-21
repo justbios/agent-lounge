@@ -3,7 +3,8 @@
 # Async, silent, exits 0.
 #   relay.sh [--url URL] [roster] [title] [usage] [limits] [eta]   hook, JSON on stdin
 #   relay.sh [--url URL] checkin                              UserPromptSubmit, and PostToolUse of a subagent: now and
-#                                                             then asks Claude how long its whole job still takes
+#                                                             then asks Claude how long its whole job still takes, and
+#                                                             while you are away, to ask you in options
 #   relay.sh [--url URL] ask                                  PermissionRequest, and PreToolUse of a question or a plan:
 #                                                             the only hooks Claude waits for
 #   relay.sh [--url URL] answered                             PostToolUse: after a prompt you answered, says so
@@ -314,11 +315,34 @@ quiet_s=10800
 # Claude isn't asked again until it sends out another subagent.
 checkin() {
   j=$(cat)
-  [ "$every" -gt 0 ] || exit 0
-  sid=$(safe "$(field "$j" session_id)")
-  [ -n "$sid" ] && [ -z "$(field "$j" agent_id)" ] || exit 0
   ev=$(field "$j" hook_event_name)
-  mkdir -p "$state/checkin" 2>/dev/null || exit 0
+  ctx=$(away_hint "$j")
+  ask=$(checkin_ask "$j")
+  ctx="$ctx${ctx:+${ask:+ }}$ask"
+  [ -n "$ctx" ] && printf '{"hookSpecificOutput":{"hookEventName":"%s","additionalContext":"%s"}}\n' "$ev" "$ctx"
+  exit 0
+}
+
+# While you are away (relay.sh away on or always), a prompt also tells Claude that you answer from a phone, where only
+# a question asked with its question tool reaches you, as options to tap; a question written into a reply would wait
+# for you at the computer. A fixed sentence of this script, nothing from the café.
+away_hint() {
+  [ "$(field "$1" hook_event_name)" = UserPromptSubmit ] && [ -z "$(field "$1" agent_id)" ] && away_on || return 0
+  h="Agent Lounge: the user is away from the computer and answers from a phone, where only questions asked with the"
+  h="$h AskUserQuestion tool reach them, as options to tap. Whenever you need their decision or input, ask with"
+  h="$h AskUserQuestion (2-4 options; the one you recommend first, its label ending in (Recommended)) instead of"
+  h="$h ending your turn with a question in text."
+  printf '%s' "$h"
+}
+
+# The check-in request when one is due, as text, or nothing; keeps its state in $state/checkin.
+checkin_ask() {
+  j=$1
+  [ "$every" -gt 0 ] || return 0
+  sid=$(safe "$(field "$j" session_id)")
+  [ -n "$sid" ] && [ -z "$(field "$j" agent_id)" ] || return 0
+  ev=$(field "$j" hook_event_name)
+  mkdir -p "$state/checkin" 2>/dev/null || return 0
   f="$state/checkin/$sid"
   sub=0 asked=0 sent=0 said=- end=0
   [ -f "$f" ] && read -r sub asked sent said end < "$f"
@@ -336,11 +360,10 @@ checkin() {
     ask="$ask (fixes, reviews, QA, re-runs), not only the agents running now; done/total in whatever units fit"
     ask="$ask (bugs, screens, stages), or leave that part out. Write ⏱ 0m once everything is done."
     ask="$ask Nothing else about your work changes."
-    printf '{"hookSpecificOutput":{"hookEventName":"%s","additionalContext":"%s"}}\n' "$ev" "$ask"
+    printf '%s' "$ask"
   fi
   [ -f "$f" ] || find "$state/checkin" -type f -mtime +2 -delete 2>/dev/null
   printf '%s %s %s %s %s\n' "$sub" "$asked" "$sent" "${said:--}" "$end" > "$f"
-  exit 0
 }
 
 # Claude asked for permission or asked a question in this chat: the agent that asked, kept until its tool goes through.

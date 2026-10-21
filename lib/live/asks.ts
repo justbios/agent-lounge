@@ -177,6 +177,15 @@ export function askChange(name: string, input: Record<string, unknown>): string 
   }
 }
 
+/** Claude marks the option it recommends by ending its label with «(Recommended)». */
+const RECOMMENDED = /\s*\((?:recommended|рекомендовано|рекомендую)\)\s*$/i;
+
+/** An option's label as the café shows it, and whether Claude recommends it; the answer still carries the whole label. */
+export function recommended(label: string): { text: string; best: boolean } {
+  const best = RECOMMENDED.test(label);
+  return { text: best ? label.replace(RECOMMENDED, "") : label, best };
+}
+
 /** How long a text of your own may be, an answer's or a denial's: the same limit as relay_ask_reply's. */
 export const OWN_MAX = 1000;
 

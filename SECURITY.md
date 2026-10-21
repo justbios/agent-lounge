@@ -37,6 +37,8 @@ permission prompts, questions and plans. The parts and their trust:
   signed input, so only a paired phone can write them, and Claude reads them as the user's own words, the way it would
   read them typed in the terminal. A note never turns a «no» into a «yes»: `relay.sh` 8 adds it after its fixed
   denial sentence, and an older script leaves it out.
+- While you are away, the local check-in hook also adds a fixed sentence of `relay.sh` 8 to each prompt you send:
+  you answer from a phone, so Claude should ask with its question tool, in options. It carries nothing from the café.
 - Hook scripts older than version 6 cannot check signatures and are never handed an answer.
 
 ### Data

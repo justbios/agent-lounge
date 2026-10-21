@@ -9,6 +9,8 @@ While away mode is on, Claude's permission prompts, questions and plans from thi
 minutes in the café, where a phone paired with this computer can answer them. It is switched on only here, on the
 computer; the café can only switch it off ("I'm back", «я повернувся»). With `always` it stays on until `off`: then
 "I'm back" only sends the question waiting at that moment to the terminal, and the next one waits in the café again.
+While it is on, each prompt also tells Claude to ask with its question tool, in options, since only those reach the
+phone.
 
 1. Run exactly one of these, by the argument:
    - `on`: `sh "${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh" away on`

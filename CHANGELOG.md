@@ -15,6 +15,12 @@ Ship the code together with `supabase/migrations/0023_ask_words.sql`; reconnect 
   passes a note on; the new `relay_ask_answer` and `relay_ask_reply` check their shape.
 - `/agent-lounge:away always` keeps «я не за комп'ютером» on until `away off`, so every question goes to the café
   first. «Я повернувся» then sends only the question waiting at that moment back to the terminal.
+- The answer card is simpler and wears the café's pixel look: one question at a time (the one waiting longest, with
+  how many more are behind it), big option buttons, the option Claude recommends marked «★ радить Claude» instead of
+  its «(Recommended)», and your own answer or a note behind a small ✎ link until you want it.
+- While you are away, each prompt you send also tells Claude that you answer from a phone, so it asks with its
+  question tool, options and its pick first, instead of ending its turn with a question in text that the café can't
+  answer. It is a fixed sentence of `relay.sh`, added by the local check-in hook.
 - One board of all chats above the café: the ones that wait on you on top, then a turn that broke off, your turn,
   busy, and the rest, each with what it did last; a click opens the chat. While Claude waits on you anywhere, the
   board's first line turns into a yellow «Claude чекає на тебе» plate that stays until you answer.
