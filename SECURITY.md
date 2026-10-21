@@ -47,6 +47,8 @@ permission prompts, questions and plans. The parts and their trust:
   header, not in the URL.
 - Café events carry short descriptions only (`lib/live/normalize.ts`) and live for 24 hours, at most 12000 per room.
   An agent's task list arrives as two counts, steps done and steps in all, never the steps' words.
+- Token counts (`#relay-usage`) are numbers, and since `relay.sh` 8 the id of the model that answered last, which the
+  server keeps only if it matches `claude-[a-z0-9.-]`, so the café can price them.
 - The pipeline check-in (`relay.sh checkin`, version 7) is a hook Claude waits for, but it only reads and writes a
   small state file in `~/.local/state/relay/checkin` and never touches the network. What it adds to Claude's context
   is a fixed sentence in the script, asking for a `⏱` line; it carries nothing from the café. The café keeps only the

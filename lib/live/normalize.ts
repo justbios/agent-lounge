@@ -259,6 +259,12 @@ function readUsage(sec: string | null): Usage | undefined {
   return u.in + u.cw + u.cr + u.out > 0 ? u : undefined;
 }
 
+/** A model id as Claude Code writes it in the transcript, never the <synthetic> of its own error replies. */
+function readModel(sec: string | null): string | undefined {
+  const m = firstJson(sec)?.m;
+  return typeof m === "string" && /^claude-[a-z0-9.-]{1,40}$/i.test(m) ? m.toLowerCase() : undefined;
+}
+
 const MAX_WINDOW = 2_000_000;
 
 function readCtx(sec: string | null): ContextFill | undefined {
@@ -297,6 +303,8 @@ export interface HookBody {
   title?: string;
   usage?: Usage;
   ctx?: ContextFill;
+  /** the model the tokens in `usage` were spent on (relay.sh 8) */
+  model?: string;
   limits?: Limits;
   version?: number;
   /** which answer key the computer holds (relay.sh 6), so the café knows which paired secret signs */
@@ -334,6 +342,7 @@ export function parseHookBody(text: string): HookBody | null {
     title: readTitle(section(text, TITLE_MARK)) ?? cleanTitle((raw as Json).session_title),
     usage: readUsage(section(text, USAGE_MARK)),
     ctx: readCtx(section(text, USAGE_MARK)),
+    model: readModel(section(text, USAGE_MARK)),
     limits: readLimits(section(text, LIMITS_MARK)),
     version: readVersion(section(text, VERSION_MARK)),
     kid: readKid(section(text, KID_MARK)),
@@ -360,7 +369,7 @@ export function withExtras(ev: LiveEvent, body: HookBody, member: string | null)
     ...ev,
     ...(member ? { member } : {}),
     ...(body.title ? { title: body.title } : {}),
-    ...(body.usage && SPENDS.has(ev.kind) ? { usage: body.usage } : {}),
+    ...(body.usage && SPENDS.has(ev.kind) ? { usage: body.usage, ...(body.model ? { model: body.model } : {}) } : {}),
     ...(body.ctx && (ev.kind === "stop" || ev.kind === "sub_stop") ? { ctx: body.ctx } : {}),
     ...(body.limits && ev.kind !== "roster" ? { limits: body.limits } : {}),
     ...(body.version ? { hv: body.version } : {}),

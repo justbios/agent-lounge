@@ -30,7 +30,8 @@ number() {
 
 # Sums the usage of every assistant message once (a message is written as one line per content block), skipping
 # the message id given as $1, and stops at a half-written last line.
-# Prints: in cache_write cache_read out bytes last_id context, where context is the last message's whole input
+# Prints: in cache_write cache_read out bytes last_id context model, where context is the last message's whole input
+# and model the last message's model id, so the café can price the tokens
 sum_usage() {
   LC_ALL=C awk -v skip="$1" '
     function n(s, k) { return match(s, "\"" k "\":[0-9]+") ? substr(s, RSTART + length(k) + 3, RLENGTH - length(k) - 3) + 0 : 0 }
@@ -48,19 +49,22 @@ sum_usage() {
       I[id] = n(s, "input_tokens"); W[id] = n(s, "cache_creation_input_tokens"); R[id] = n(s, "cache_read_input_tokens")
       o = n(s, "output_tokens"); if (o > O[id]) O[id] = o
       last = id
+      if (match($0, /"model":"claude-[A-Za-z0-9._-]+"/)) model = substr($0, RSTART + 9, RLENGTH - 10)
     }
     END {
       for (k in I) { i += I[k]; w += W[k]; r += R[k]; t += O[k] }
       c = last == "" ? 0 : I[last] + W[last] + R[last]
-      printf "%d %d %d %d %d %s %d\n", i, w, r, t, bytes, (last == "" ? (skip == "" ? "-" : skip) : last), c
+      printf "%d %d %d %d %d %s %d %s\n", i, w, r, t, bytes, (last == "" ? (skip == "" ? "-" : skip) : last), c, (model == "" ? "-" : model)
     }'
 }
 
-# $5 is how full the context is after the last answer and $6 how big it is, 0 when unknown.
+# $5 is how full the context is after the last answer, $6 how big it is, 0 when unknown, and $7 the model.
 usage_json() {
   [ "$(($1 + $2 + $3 + $4))" -gt 0 ] || return 0
-  printf '\n#relay-usage\n{"in":%d,"cw":%d,"cr":%d,"out":%d,"ctx":%d,"win":%d}\n' \
-    "$1" "$2" "$3" "$4" "${5:-0}" "${6:-0}"
+  m=""
+  case "$7" in claude-*) m=",\"m\":\"$7\"" ;; esac
+  printf '\n#relay-usage\n{"in":%d,"cw":%d,"cr":%d,"out":%d,"ctx":%d,"win":%d%s}\n' \
+    "$1" "$2" "$3" "$4" "${5:-0}" "${6:-0}" "$m"
 }
 
 safe() {
@@ -74,7 +78,7 @@ usage() {
   if [ -n "$sub" ]; then
     [ -f "$sub" ] || return 0
     set -- $(sum_usage "" < "$sub")
-    usage_json "$1" "$2" "$3" "$4" "$7"
+    usage_json "$1" "$2" "$3" "$4" "$7" 0 "$8"
     return 0
   fi
   t=$(field "$1" transcript_path)
@@ -99,7 +103,7 @@ usage() {
   case "$seen" in '' | *[!0-9]*) seen=0 ;; esac
   case "$win" in '' | *[!0-9]*) win=0 ;; esac
   [ "$used" -gt 0 ] || used=$seen
-  usage_json "$1" "$2" "$3" "$4" "$used" "$win"
+  usage_json "$1" "$2" "$3" "$4" "$used" "$win" "$8"
 }
 
 save_limits() {

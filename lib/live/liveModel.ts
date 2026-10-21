@@ -4,8 +4,9 @@ import type { Ui } from "@/lib/i18n";
 import { AgentDef, PotLevel } from "@/lib/types";
 import { Attention, nextAttention, stopText } from "./attention";
 import { sessionLabel } from "./label";
-import { Checkin, LiveEvent } from "./types";
-import { fillOf, tokensOf } from "./usage";
+import { costOf } from "./price";
+import { Checkin, LiveEvent, Usage } from "./types";
+import { ZERO_USAGE, addUsage, fillOf, sizeOf } from "./usage";
 
 export const CLAUDE_COLOR = "#ff9a62";
 export const PALETTE = ["#38bdf8", "#34d399", "#a78bfa", "#fbbf24", "#f472b6", "#a3e635", "#f87171", "#2dd4bf", "#e879f9", "#facc15", "#60a5fa", "#fb7185"];
@@ -199,7 +200,8 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   const seats: Seat[] = [{ type: "main", busy: true, parent: 0 }];
   const stints: Stint[][] = [[]];
   const notes: Note[][] = [[]];
-  const spent: number[] = [0];
+  const spent: Usage[] = [ZERO_USAGE];
+  const costs: { usd: number; part: boolean; model?: string; ctxSize?: number }[] = [{ usd: 0, part: false }];
   const pots: PotLevel[][] = [[]];
   const runs: (Run | null)[] = [null];
   let lastRun: Run | null = null;
@@ -252,7 +254,8 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     });
     stints.push([]);
     notes.push([]);
-    spent.push(0);
+    spent.push(ZERO_USAGE);
+    costs.push({ usd: 0, part: false });
     pots.push([]);
     runs.push(null);
     return i;
@@ -277,8 +280,18 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     const t = e.at - origin;
     const key = `e${e.seq}`;
     const actor = e.agent ? seatFor(e.agent, e.agentType ?? "agent", t, key) : 0;
-    spent[actor] += tokensOf(e.usage);
-    if (e.ctx) pots[actor].push({ ts: t, fill: fillOf(e.ctx) });
+    if (e.usage) {
+      spent[actor] = addUsage(spent[actor], e.usage);
+      const usd = e.model ? costOf(e.usage, e.model) : null;
+      const c = costs[actor];
+      if (usd == null) c.part = true;
+      else c.usd += usd;
+      if (e.model) c.model = e.model;
+    }
+    if (e.ctx) {
+      pots[actor].push({ ts: t, fill: fillOf(e.ctx) });
+      costs[actor].ctxSize = sizeOf(e.ctx);
+    }
     const working = e.kind === "tool" || e.kind === "fail" || e.kind === "dispatch";
     if (actor === 0 && working && !runs[0]) runs[0] = mainRun(t, lastRun);
     const run = runs[actor];
@@ -386,8 +399,15 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   for (const [n, s] of owner) n.ts = n.tone === "done" ? Math.max(n.ts, s.end) : Math.max(n.ts, s.start);
   for (const ns of notes) ns.sort((a, b) => a.ts - b.ts);
 
-  spent.forEach((n, i) => {
-    if (n > 0) agents[i].tokens = n;
+  spent.forEach((u, i) => {
+    const n = u.in + u.cw + u.cr + u.out;
+    const c = costs[i];
+    if (n > 0) Object.assign(agents[i], { tokens: n, usage: u, model: c.model });
+    if (c.usd > 0) Object.assign(agents[i], { cost: c.usd, costPart: c.part });
+    if (c.ctxSize) agents[i].ctxSize = c.ctxSize;
+  });
+  seats.forEach((s, i) => {
+    if (i > 0 && stints[i].length) agents[i].parent = s.parent;
   });
   pots.forEach((p, i) => {
     if (p.length) agents[i].pot = p;

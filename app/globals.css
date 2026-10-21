@@ -694,6 +694,11 @@ body {
   color: #1d1708;
   background: #ffd25a;
 }
+/* an agent that goes in circles or runs long past Claude's own estimate */
+.rr-warn {
+  color: #2a1505;
+  background: #ff9f43;
+}
 
 .foot {
   margin-top: 22px;
@@ -1364,6 +1369,19 @@ body {
   background: var(--ink);
   color: var(--c);
 }
+.cafe-bubble.warn {
+  box-shadow:
+    0 0 0 2px #ff9f43,
+    0 3px 0 rgba(7, 5, 13, 0.55);
+}
+.cb-warn {
+  overflow: hidden;
+  padding: 0.05em 0.35em;
+  border-radius: 2px;
+  background: #ff9f43;
+  color: #2a1505;
+  text-overflow: ellipsis;
+}
 .cb-rest {
   visibility: hidden;
 }
@@ -1529,6 +1547,10 @@ body {
   color: #2a0c0c;
   background: #ff8f8f;
 }
+.chat-flag.flag-warn {
+  color: #2a1505;
+  background: #ff9f43;
+}
 @keyframes flag-pulse {
   50% {
     box-shadow: 0 0 0 4px rgba(255, 210, 90, 0.25);
@@ -1545,6 +1567,18 @@ body {
   animation: flag-pulse 1.4s ease-in-out infinite;
 }
 .cafe-name.ask b {
+  font-weight: 600;
+}
+.cafe-name.warn {
+  max-width: calc(26cqw * var(--k, 1));
+  padding: 0.25em 0.45em;
+  border-radius: 3px;
+  background: #ff9f43;
+  color: #2a1505 !important;
+  text-shadow: none;
+  opacity: 1;
+}
+.cafe-name.warn b {
   font-weight: 600;
 }
 .alerts {
@@ -2617,6 +2651,97 @@ body {
 }
 .ac-log .tone-done .ac-txt {
   color: #6ee7a8;
+}
+.ac-warn {
+  margin: 0;
+  padding: 7px 9px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #ffd2a6;
+  background: rgba(255, 159, 67, 0.12);
+  border: 2px solid #ff9f43;
+}
+.ac-warn b {
+  display: inline-block;
+  width: 15px;
+  margin-right: 4px;
+  font-family: var(--font-pixel), var(--mono);
+  color: #2a1505;
+  text-align: center;
+  background: #ff9f43;
+}
+/* who started whom: the agent's parent, then the agents it handed work to, nested */
+.ac-crew {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ac-crew-up,
+.ac-crew-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.ac-crew-up:disabled,
+.ac-crew-row:disabled {
+  cursor: default;
+}
+.ac-crew-up:not(:disabled):hover,
+.ac-crew-row:not(:disabled):hover {
+  background: var(--panel-2);
+}
+.ac-crew-up b {
+  color: var(--text);
+}
+.ac-crew-row {
+  padding-left: calc(4px + var(--d) * 14px);
+}
+.ac-crew-row i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  background: var(--c);
+  opacity: 0.45;
+}
+.ac-crew-row.cr-work i {
+  opacity: 1;
+  box-shadow: 0 0 6px var(--c);
+}
+.ac-crew-row.cr-done i {
+  background: #4ade80;
+}
+.ac-crew-row b {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-weight: 600;
+}
+.ac-crew-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ac-crew-row.cr-done span {
+  color: #6ee7a8;
+}
+.ac-crew-more {
+  padding-left: 4px;
+  font-size: 11px;
+  color: var(--dim);
 }
 .scene-note {
   position: absolute;
@@ -5598,6 +5723,9 @@ body {
 }
 .board-row.attn-err .board-now {
   color: #ff8f8f;
+}
+.board-row.attn-warn .board-now {
+  color: #ffb871;
 }
 .board-nm,
 .board-now {

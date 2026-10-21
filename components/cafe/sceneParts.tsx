@@ -16,6 +16,13 @@ export interface SceneAlert {
   text: string;
 }
 
+/** An agent that looks stuck: a few words for its name plate, the whole story for its card. */
+export interface SceneWarn {
+  kind: "loop" | "late";
+  short: string;
+  long: string;
+}
+
 /** Where a popover hangs, as fractions of the scene: below or above that point, or beside it on one side. */
 export interface Anchor {
   x: number;
@@ -65,16 +72,31 @@ export function agentAnchor(model: CafeModel, tl: CafeTimeline, lay: CafeLayout,
 /** True when `p` falls on the cat sitting or walking at `c`. */
 export const onCat = (c: Point, p: Point) => p.x >= c.x - 9 && p.x < c.x + 9 && p.y >= c.y - 13 && p.y < c.y + 2;
 
-export function CafeBubble({ b, name, color, style }: { b: Bubble; name: string; color: string; style: CSSProperties }) {
+export function CafeBubble({
+  b,
+  name,
+  color,
+  style,
+  warn,
+}: {
+  b: Bubble;
+  name: string;
+  color: string;
+  style: CSSProperties;
+  warn?: SceneWarn;
+}) {
   const sp = useSpeech();
   const text = line(b, sp);
   const tool = chip(b.tool, sp);
   const shown = Math.min(text.length, Math.floor(b.age / TYPE_MS_PER_CHAR) + 1);
   return (
-    <div className={`cafe-bubble tone-${b.tone}`} style={{ ...style, "--c": color } as CSSProperties}>
+    <div
+      className={`cafe-bubble tone-${b.tone} ${warn ? "warn" : ""}`}
+      style={{ ...style, "--c": color } as CSSProperties}
+    >
       <div className="cb-hd">
         <span className="cb-who">{name}</span>
-        {tool && <span className="cb-tool">{tool}</span>}
+        {warn ? <span className="cb-warn">! {warn.short}</span> : tool && <span className="cb-tool">{tool}</span>}
       </div>
       <div className="cb-txt">
         {text.slice(0, shown)}

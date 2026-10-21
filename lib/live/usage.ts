@@ -4,10 +4,12 @@ export const ZERO_USAGE: Usage = { in: 0, cw: 0, cr: 0, out: 0 };
 
 export const tokensOf = (u: Usage | undefined): number => (u ? u.in + u.cw + u.cr + u.out : 0);
 
-/** How full a context is, 0–1; without the window's size, a chat past 200k must have the long one. */
+/** The context window's size; without the status line's word, a chat past 200k must have the long one. */
+export const sizeOf = (c: ContextFill): number => c.size ?? (c.used > 200_000 ? 1_000_000 : 200_000);
+
+/** How full a context is, 0–1. */
 export function fillOf(c: ContextFill): number {
-  const size = c.size ?? (c.used > 200_000 ? 1_000_000 : 200_000);
-  return Math.min(1, c.used / size);
+  return Math.min(1, c.used / sizeOf(c));
 }
 
 export function addUsage(a: Usage, b: Usage | undefined): Usage {

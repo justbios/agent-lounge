@@ -177,8 +177,8 @@ export default function AlertsMenu({ cloud, push, asks }: { cloud: boolean; push
               <b>{t("Звук", "Sound")}</b>
               <small>
                 {t(
-                  "дверний дзвоник, коли Claude чекає на тебе (і ще двічі, якщо ніхто не відповів), коротший, коли він відповів, і чотири ноти вгору, коли ліміт скинувся, поки сторінка відкрита",
-                  "a doorbell when Claude waits for you (twice more if nobody answers), a shorter chime when it answered, and four notes up when a limit resets, while the page is open",
+                  "дверний дзвоник, коли Claude чекає на тебе (і ще двічі, якщо ніхто не відповів), коротший, коли він відповів, чотири ноти вгору, коли ліміт скинувся, і тривожні дві ноти двічі, коли агент ходить по колу чи затягнув роботу, поки сторінка відкрита",
+                  "a doorbell when Claude waits for you (twice more if nobody answers), a shorter chime when it answered, four notes up when a limit resets, and two uneasy notes twice when an agent goes in circles or runs late, while the page is open",
                 )}
               </small>
             </span>

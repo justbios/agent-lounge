@@ -21,6 +21,9 @@ import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
 import { useAsks } from "@/lib/live/useAsks";
 import { useLimitResets } from "@/lib/live/useLimitResets";
+import { useStuck } from "@/lib/live/useStuck";
+import { useSpeech } from "@/lib/live/speech";
+import { stuckLong, stuckShort } from "@/lib/live/stuck";
 import { useAccess } from "@/lib/live/access";
 import { settledAsks } from "@/lib/live/asks";
 import { awayEmpty, awaySummary, dismissAway, useAway } from "@/lib/live/away";
@@ -37,7 +40,7 @@ import { REACT_MS } from "@/lib/live/social";
 import { useGames } from "@/lib/live/useGames";
 import { useSocial } from "@/lib/live/useSocial";
 import { latestLimits, tokenRate } from "@/lib/live/usage";
-import { Placing, SceneAlert } from "./cafe/CafeScene";
+import { Placing, SceneAlert, SceneWarn } from "./cafe/CafeScene";
 import { themeOf } from "./cafe/theme";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
@@ -67,7 +70,7 @@ import ReplayBar from "./live/ReplayBar";
 import Stage from "./live/Stage";
 import StatBar from "./live/StatBar";
 import TeamBar from "./live/TeamBar";
-import { ago } from "./live/format";
+import { ago, logText } from "./live/format";
 
 const PICK_KEY = "relay.session";
 const VIEW_KEY = "relay.view";
@@ -217,6 +220,13 @@ export default function LiveDashboard({
   };
   const waiting = useAlerts(sessions.filter((s) => recent(s) && mine(s)), session?.id ?? null, push.state === "on", openChat);
   const flagged = new Set([...waiting, ...sessions.filter((s) => s.attn && !mine(s)).map((s) => s.id)]);
+  const stuck = useStuck(
+    feed.events,
+    now,
+    viewing ? [] : sessions.filter((s) => recent(s) && mine(s)),
+    push.state === "on",
+  );
+  const sp = useSpeech();
   const focusOn = (m: string | null) => {
     setFocus(m);
     const first = m == null ? null : sessions.find((s) => memberOf(s) === m);
@@ -305,6 +315,16 @@ export default function LiveDashboard({
   const alertSeat = whole ? teamAttn?.seat : attn ? (attn.agent ? scene?.seatOf[attn.agent] : 0) : undefined;
   const alert: SceneAlert | undefined =
     attn && alertSeat != null ? { agent: alertSeat, kind: attn.kind, text: attentionText(attn, ui) } : undefined;
+  const warns = useMemo(() => {
+    const m = new Map<number, SceneWarn>();
+    if (playing || whole || !session || !scene) return m;
+    for (const s of stuck.get(session.id) ?? []) {
+      const seat = s.agent ? scene.seatOf[s.agent] : 0;
+      if (seat == null) continue;
+      m.set(seat, { kind: s.kind, short: stuckShort(s, ui), long: stuckLong(s, s.e ? logText(s.e, sp) : "", ui) });
+    }
+    return m;
+  }, [stuck, playing, whole, session, scene, sp, ui]);
   const clock = !scene || !now ? 0 : playing && rp ? rp.vnow - scene.origin : now - scene.origin;
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model]);
   const tl = useMemo(() => buildTimeline(model), [model]);
@@ -433,6 +453,7 @@ export default function LiveDashboard({
         <ChatBoard
           chats={sessions.filter(recent)}
           waiting={waiting}
+          stuck={stuck}
           current={inHouse ? null : (session?.id ?? null)}
           now={now}
           team={team.on}
@@ -645,6 +666,7 @@ export default function LiveDashboard({
           model={model}
           clock={clock}
           alert={alert}
+          warns={warns}
           etas={etas}
           rate={rate}
           guests={social.guests}
@@ -682,6 +704,7 @@ export default function LiveDashboard({
               views={views}
               clock={clock}
               alert={alert}
+              warns={warns}
               etas={etas}
               rosterCount={whole ? 0 : roster.length}
               title={whole ? t("команда", "team") : t("агенти", "agents")}

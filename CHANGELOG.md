@@ -41,6 +41,19 @@ Ship the code together with `supabase/migrations/0023_ask_words.sql`; reconnect 
   café, a four-note chime with the sound on, and a notification with desktop notifications or push on. It comes only
   while a café tab is open, which shows the notification itself: nothing reaches the server at that moment, so a push
   to a closed phone would need a scheduled job.
+- Who started whom: an agent's card names the agent that started it («↑ запустив bug-fixer», a click opens that card)
+  and shows, nested, every subagent it started in the last 3 hours with what each does now, up to 8 rows.
+- «!» when an agent goes in circles or runs late. In circles: the same step failed three times among its last ten
+  actions, or the same command, search or page came back five times, the last of them in the past 15 minutes. Late:
+  the job runs past Claude's own `⏱` estimate by 15 minutes or half of it, whichever is more, while the chat isn't
+  silent. The warning shows on the agent's name plate or bubble, on the board of chats and in the list of agents,
+  and the card says what repeats. A new one rings two uneasy notes twice and sends a notification with desktop
+  notifications or push on. The café works it out in the browser every 15 seconds, so no push reaches a closed
+  phone.
+- Cost and context in each agent's card: what its tokens would cost at API prices («≈ $1.44 · Opus 5.5 · 99% витрат
+  чату», «≥» when some of them came without a model), how much context it has used and has left, and the tokens split
+  into input, cache write, cache read and output. On Pro or Max this is no bill but a share of the limit. `relay.sh`
+  now adds the model's id (`claude-…`) to its token counts; nothing else of the transcript leaves the computer.
 
 ## 0.12.0 — not released yet
 

@@ -99,6 +99,8 @@ export interface LiveEvent {
   title?: string;
   /** answers, finished subagents and closed chats: the tokens spent since the last report */
   usage?: Usage;
+  /** with `usage`: the model of the last reply those tokens came from (relay.sh 8), to price them */
+  model?: string;
   /** answers and finished subagents: how full the context was after the last reply */
   ctx?: ContextFill;
   /** roster only: Claude Code has just compacted the chat */

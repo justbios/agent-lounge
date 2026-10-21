@@ -6,6 +6,7 @@ import { tr, useUi } from "@/lib/i18n";
 import { attentionText } from "@/lib/live/attention";
 import { LiveSession } from "@/lib/live/liveModel";
 import { useSpeech } from "@/lib/live/speech";
+import { Stuck, stuckShort } from "@/lib/live/stuck";
 import { memberName, memberOf } from "@/lib/live/teamModel";
 import { ago, logText } from "./format";
 import { ACTIVE_MS } from "./House";
@@ -23,13 +24,16 @@ function readOpen(): boolean {
 /** At work right now: busy a moment ago and not waiting on anyone. */
 const working = (s: LiveSession, now: number) => !s.attn && now - s.last < ACTIVE_MS;
 
-/** Waiting on you first, longest first; then a turn that broke off, then your turn, then busy, then the rest. */
-function rank(s: LiveSession, waiting: Set<string>, now: number): number {
+/**
+ * Waiting on you first, longest first; then a turn that broke off, one that looks stuck, your turn, busy, the rest.
+ */
+function rank(s: LiveSession, waiting: Set<string>, stuck: Map<string, Stuck[]>, now: number): number {
   const a = waiting.has(s.id) ? s.attn : null;
   if (a?.kind === "ask") return 0;
   if (a?.err) return 1;
-  if (a) return 2;
-  return working(s, now) ? 3 : 4;
+  if (stuck.has(s.id)) return 2;
+  if (a) return 3;
+  return working(s, now) ? 4 : 5;
 }
 
 /**
@@ -39,6 +43,7 @@ function rank(s: LiveSession, waiting: Set<string>, now: number): number {
 export default function ChatBoard({
   chats,
   waiting,
+  stuck,
   current,
   now,
   team,
@@ -47,6 +52,8 @@ export default function ChatBoard({
   chats: LiveSession[];
   /** chats that wait on the user: a question or a permission, or an answer not seen yet */
   waiting: Set<string>;
+  /** chats where an agent goes in circles or the job runs long past Claude's own estimate */
+  stuck: Map<string, Stuck[]>;
   current: string | null;
   now: number;
   /** a team café names each chat's teammate */
@@ -63,11 +70,11 @@ export default function ChatBoard({
     } catch {}
   };
   const list = [...chats].sort((a, b) => {
-    const d = rank(a, waiting, now) - rank(b, waiting, now);
+    const d = rank(a, waiting, stuck, now) - rank(b, waiting, stuck, now);
     if (d) return d;
-    return rank(a, waiting, now) === 0 ? a.attn!.at - b.attn!.at : b.last - a.last;
+    return rank(a, waiting, stuck, now) === 0 ? a.attn!.at - b.attn!.at : b.last - a.last;
   });
-  const asking = list.filter((s) => rank(s, waiting, now) === 0);
+  const asking = list.filter((s) => rank(s, waiting, stuck, now) === 0);
   const first = asking[0];
   if (list.length < 2 && !first) return null;
   const busy = list.filter((s) => working(s, now)).length;
@@ -105,8 +112,15 @@ export default function ChatBoard({
         <div className="board-rows">
           {list.map((s) => {
             const a = waiting.has(s.id) ? s.attn : null;
-            const tone = a ? (a.kind === "done" && a.err ? "err" : a.kind) : null;
-            const doing = a ? attentionText(a, ui) : s.latest ? logText(s.latest, sp) : "";
+            const w = a?.kind === "ask" || a?.err ? undefined : stuck.get(s.id)?.[0];
+            const tone = w ? "warn" : a ? (a.kind === "done" && a.err ? "err" : a.kind) : null;
+            const doing = w
+              ? `${stuckShort(w, ui)}${w.e ? `: ${logText(w.e, sp)}` : ""}`
+              : a
+                ? attentionText(a, ui)
+                : s.latest
+                  ? logText(s.latest, sp)
+                  : "";
             return (
               <button
                 key={s.id}
@@ -114,7 +128,9 @@ export default function ChatBoard({
                 onClick={() => onOpen(s.id)}
               >
                 {tone ? (
-                  <span className={`chat-flag flag-${tone}`}>{tone === "ask" ? "!" : tone === "err" ? "×" : "✓"}</span>
+                  <span className={`chat-flag flag-${tone}`}>
+                    {tone === "ask" || tone === "warn" ? "!" : tone === "err" ? "×" : "✓"}
+                  </span>
                 ) : (
                   <span className={`chat-dot ${working(s, now) ? "busy" : ""}`} />
                 )}
@@ -123,7 +139,7 @@ export default function ChatBoard({
                   {team && <small> · {memberName(memberOf(s), ui)}</small>}
                 </span>
                 <span className="board-now">{doing}</span>
-                <span className="board-ago">{ago(now - (a?.at ?? s.last), ui)}</span>
+                <span className="board-ago">{ago(now - (w?.at ?? a?.at ?? s.last), ui)}</span>
               </button>
             );
           })}

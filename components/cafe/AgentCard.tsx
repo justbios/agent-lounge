@@ -7,14 +7,18 @@ import { AgentView } from "@/lib/cafe/timeline";
 import { Two, Ui, enPlural, tr, useTr, useUi } from "@/lib/i18n";
 import { LookPick, NAME_MAX } from "@/lib/live/interior";
 import { Eta, etaDetail } from "@/lib/live/eta";
+import { fmtCost, modelName } from "@/lib/live/price";
 import { REACTIONS } from "@/lib/live/social";
-import { chip, line, said, useSpeech } from "@/lib/live/speech";
+import { Speech, chip, line, said, useSpeech } from "@/lib/live/speech";
 import { badge, plural } from "../live/format";
 import { fmtTokens } from "../live/tokens";
 import { PROP_NAMES, potAt, propIndex, propName } from "./desk";
 import { LOOK_CHOICES, lookIndex, pickedLook } from "./people";
 
 const LAST = 5;
+/** the crew shows agents that worked this long before the card's moment, or still do */
+const CREW_RECENT_MS = 3 * 3600 * 1000;
+const CREW_MAX = 8;
 
 function span(ms: number, ui: Ui): string {
   const m = Math.round(ms / 60000);
@@ -155,6 +159,76 @@ function LookRow({
   );
 }
 
+function crewState(model: CafeModel, i: number, clock: number): "work" | "done" | "idle" {
+  const s = model.stints[i].filter((x) => x.start <= clock);
+  const last = s.at(-1);
+  if (last && last.end > clock) return "work";
+  return model.notes[i].findLast((n) => n.ts <= clock)?.tone === "done" ? "done" : "idle";
+}
+
+/** Who handed this agent its task, and whom it handed work to in turn, nested, with what each does now. */
+function Crew({
+  model,
+  agent,
+  clock,
+  nameOf,
+  onPick,
+  sp,
+}: {
+  model: CafeModel;
+  agent: number;
+  clock: number;
+  nameOf: (i: number) => string;
+  onPick?: (i: number) => void;
+  sp: Speech;
+}) {
+  const t = useTr();
+  const recent = (j: number) => model.stints[j].some((s) => s.start <= clock && s.end > clock - CREW_RECENT_MS);
+  const kids = (i: number) => model.agents.flatMap((a, j) => (j !== i && a.parent === i && recent(j) ? [j] : []));
+  const rows: { i: number; depth: number }[] = [];
+  const walk = (i: number, depth: number) => {
+    for (const j of kids(i)) {
+      if (rows.length >= CREW_MAX || rows.some((r) => r.i === j)) continue;
+      rows.push({ i: j, depth });
+      if (depth < 3) walk(j, depth + 1);
+    }
+  };
+  walk(agent, 0);
+  const more = kids(agent).length - rows.filter((r) => r.depth === 0).length;
+  const parent = agent > 0 ? model.agents[agent].parent : undefined;
+  if (parent == null && !rows.length) return null;
+  const pick = (i: number) => (onPick ? { onClick: () => onPick(i) } : {});
+  return (
+    <div className="ac-crew">
+      <span className="ac-k">{t("хто кого запустив", "who started whom")}</span>
+      {parent != null && (
+        <button className="ac-crew-up" {...pick(parent)} disabled={!onPick}>
+          ↑ {t("запустив", "started by")} <b>{nameOf(parent)}</b>
+        </button>
+      )}
+      {rows.map(({ i, depth }) => {
+        const st = crewState(model, i, clock);
+        const n = model.notes[i].findLast((x) => x.ts <= clock);
+        const doing = st === "work" ? (n ? line(n, sp) : "") : st === "done" ? t("готово", "done") : t("чекає", "idle");
+        return (
+          <button
+            key={i}
+            className={`ac-crew-row cr-${st}`}
+            style={{ "--d": depth, "--c": model.agents[i].color } as CSSProperties}
+            {...pick(i)}
+            disabled={!onPick}
+          >
+            <i aria-hidden />
+            <b>{nameOf(i)}</b>
+            <span>{doing}</span>
+          </button>
+        );
+      })}
+      {more > 0 && <span className="ac-crew-more">{t(`і ще ${more}`, `and ${more} more`)}</span>}
+    </div>
+  );
+}
+
 export function AgentCard({
   model,
   view,
@@ -166,11 +240,17 @@ export function AgentCard({
   onReact,
   look,
   onLook,
+  stuck,
+  onPick,
 }: {
   model: CafeModel;
   view: AgentView;
   agent: number;
   clock: number;
+  /** why this agent looks stuck: going in circles, or the job running long past Claude's own estimate */
+  stuck?: string;
+  /** opens another agent's card, from the crew */
+  onPick?: (i: number) => void;
   /** the guess of the time this agent's job has left */
   eta?: Eta | null;
   /** an agent's name as the scene shows it, for "waiting on …" */
@@ -194,6 +274,10 @@ export function AgentCard({
     : badge(view, carrying, sp);
   const fill = potAt(a.pot, clock);
   const now = asking ?? (view.screen === "work" || view.walker ? (recent[0] ? line(recent[0], sp) : a.work) : null);
+  const name = nameOf ?? ((i: number) => model.agents[i].name);
+  const allCost = model.agents.reduce((s, x) => s + (x.cost ?? 0), 0);
+  const share = a.cost && allCost > a.cost ? Math.round((a.cost / allCost) * 100) : null;
+  const u = a.usage;
   return (
     <div className="agent-card">
       <div className="ac-hd">
@@ -204,6 +288,11 @@ export function AgentCard({
         </div>
         <span className={`rr-badge ${b.cls}`}>{b.text}</span>
       </div>
+      {stuck && (
+        <p className="ac-warn" role="alert">
+          <b>!</b> {stuck}
+        </p>
+      )}
       <div className="ac-now">
         <span className="ac-k">{t("зараз", "now")}</span>
         <span>{now || said("idle_now", sp, t("нічого не робить, чекає задачу", "idle, waiting for a task"))}</span>
@@ -229,7 +318,31 @@ export function AgentCard({
           )}
         >
           <span className="ac-k">{t("контекст", "context")}</span>
-          <span>{Math.round(fill * 100)}%</span>
+          <span>
+            {Math.round(fill * 100)}%
+            {a.ctxSize != null &&
+              t(
+                ` · ${fmtTokens(fill * a.ctxSize, ui)} з ${fmtTokens(a.ctxSize, ui)}, лишилось ~${fmtTokens((1 - fill) * a.ctxSize, ui)}`,
+                ` · ${fmtTokens(fill * a.ctxSize, ui)} of ${fmtTokens(a.ctxSize, ui)}, ~${fmtTokens((1 - fill) * a.ctxSize, ui)} left`,
+              )}
+          </span>
+        </div>
+      )}
+      {a.cost != null && (
+        <div
+          className="ac-now"
+          title={t(
+            "що ці токени коштували б за цінами API; на підписці Pro чи Max це не гроші, а частка ліміту: дорожча модель з'їдає його швидше",
+            "what these tokens would cost at API prices; on a Pro or Max plan it isn't money but a share of the limit: a pricier model eats it faster",
+          )}
+        >
+          <span className="ac-k">{t("витрати", "cost")}</span>
+          <span>
+            {a.costPart ? "≥ " : "≈ "}
+            {fmtCost(a.cost)}
+            {a.model && ` · ${modelName(a.model)}`}
+            {share != null && t(` · ${share}% витрат чату`, ` · ${share}% of the chat's`)}
+          </span>
         </div>
       )}
       <div className="ac-stats">
@@ -245,13 +358,18 @@ export function AgentCard({
           title={
             a.tokens == null
               ? t("токени з'являться, коли хук почне їх надсилати", "tokens show up once the hook starts sending them")
-              : undefined
+              : u &&
+                t(
+                  `вхід ${fmtTokens(u.in, ui)} · запис у кеш ${fmtTokens(u.cw, ui)} · читання з кешу ${fmtTokens(u.cr, ui)} · вихід ${fmtTokens(u.out, ui)}`,
+                  `input ${fmtTokens(u.in, ui)} · cache write ${fmtTokens(u.cw, ui)} · cache read ${fmtTokens(u.cr, ui)} · output ${fmtTokens(u.out, ui)}`,
+                )
           }
         >
           <b>{a.tokens == null ? "—" : fmtTokens(a.tokens, ui)}</b>
           <span>{t("токенів", "tokens")}</span>
         </div>
       </div>
+      <Crew model={model} agent={agent} clock={clock} nameOf={name} onPick={onPick} sp={sp} />
       {recent.length > 0 && (
         <ol className="ac-log">
           {recent.map((n) => (

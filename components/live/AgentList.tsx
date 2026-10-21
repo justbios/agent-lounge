@@ -3,7 +3,7 @@ import { AgentView } from "@/lib/cafe/timeline";
 import { useTr, useUi } from "@/lib/i18n";
 import { Eta, etaText } from "@/lib/live/eta";
 import { line, said, useSpeech } from "@/lib/live/speech";
-import { SceneAlert } from "../cafe/CafeScene";
+import { SceneAlert, SceneWarn } from "../cafe/CafeScene";
 import { badge } from "./format";
 
 export default function AgentList({
@@ -11,6 +11,7 @@ export default function AgentList({
   views,
   clock,
   alert,
+  warns,
   etas,
   rosterCount,
   title,
@@ -20,6 +21,7 @@ export default function AgentList({
   views: AgentView[];
   clock: number;
   alert?: SceneAlert;
+  warns?: Map<number, SceneWarn>;
   /** per desk: the guess of the time its job has left */
   etas?: (Eta | null)[];
   rosterCount: number;
@@ -41,10 +43,16 @@ export default function AgentList({
       <div className="roster">
         {model.agents.map((a, i) => {
           const v = views[i];
+          const w = warns?.get(i);
           const b =
             alert?.kind === "ask" && alert.agent === i
               ? { cls: "rr-ask", text: askText ?? said("b_ask", sp, t("чекає на тебе", "waiting for you")) }
-              : badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0, sp);
+              : w
+                ? {
+                    cls: "rr-warn",
+                    text: w.kind === "loop" ? t("по колу", "in circles") : t("затягнулось", "running late"),
+                  }
+                : badge(v, !!v.walker?.carrying || (v.walker?.give ?? -1) >= 0, sp);
           let last = "";
           for (const n of model.notes[i]) {
             if (n.ts > clock) break;
@@ -63,7 +71,9 @@ export default function AgentList({
                 </div>
                 <div className="rr-note">{last || a.role}</div>
               </div>
-              <span className={`rr-badge ${b.cls}`}>{b.text}</span>
+              <span className={`rr-badge ${b.cls}`} title={w?.long}>
+                {b.text}
+              </span>
             </div>
           );
         })}

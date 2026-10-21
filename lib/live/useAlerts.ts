@@ -64,6 +64,28 @@ function ack(session: string, seq: number) {
   emit();
 }
 
+/**
+ * A notification the open page shows itself, for what no push brings: through the service worker when push has one
+ * (a phone's browser shows them no other way), else on its own; nothing without permission.
+ */
+export function pageNotify(title: string, body: string, tag: string) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const opts = { body, tag, icon: "/icon-192.png" };
+  const own = () => {
+    const n = new Notification(title, opts);
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  };
+  const sw = navigator.serviceWorker;
+  if (!sw) return own();
+  void sw
+    .getRegistration("/")
+    .then((reg) => (reg ? reg.showNotification(title, opts) : own()))
+    .catch(() => {});
+}
+
 export function useAlertPrefs(): AlertPrefs {
   return useSyncExternalStore(subscribe, prefsSnap, () => DEFAULT_PREFS);
 }

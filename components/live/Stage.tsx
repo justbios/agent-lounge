@@ -22,7 +22,7 @@ import { Gain } from "@/lib/live/useBeanGains";
 import { CafeState } from "@/lib/live/useCafe";
 import { CafeSound } from "@/lib/live/useCafeSound";
 import { ScenePop } from "../cafe/AgentCard";
-import CafeScene, { Anchor, FixturePick, Placing, SceneAlert } from "../cafe/CafeScene";
+import CafeScene, { Anchor, FixturePick, Placing, SceneAlert, SceneWarn } from "../cafe/CafeScene";
 import { SeatReaction } from "../cafe/SceneSocial";
 import { THEMES, THEME_IDS, themeOf, themeText } from "../cafe/theme";
 import DoorInvite from "./DoorInvite";
@@ -131,6 +131,7 @@ export default function Stage({
   model,
   clock,
   alert,
+  warns,
   etas,
   rate,
   guests,
@@ -163,6 +164,8 @@ export default function Stage({
   model: CafeModel;
   clock: number;
   alert?: SceneAlert;
+  /** desks whose agent looks stuck */
+  warns?: Map<number, SceneWarn>;
   /** per desk: the guess of the time its job has left, for the agent card */
   etas?: (Eta | null)[];
   /** tokens a minute over the last quarter hour, for the meter on the wall */
@@ -372,6 +375,7 @@ export default function Stage({
           model={model}
           clock={clock}
           alert={alert}
+          warns={warns}
           etas={etas}
           asleep={asleep}
           rate={rate}

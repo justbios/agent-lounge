@@ -23,7 +23,18 @@ import { HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
 import { buildRoom, doorOf, fixtures } from "./room";
-import { Anchor, CafeBubble, FixturePick, Placing, SceneAlert, agentAnchor, anchorAt, fixtureAnchor, onCat } from "./sceneParts";
+import {
+  Anchor,
+  CafeBubble,
+  FixturePick,
+  Placing,
+  SceneAlert,
+  SceneWarn,
+  agentAnchor,
+  anchorAt,
+  fixtureAnchor,
+  onCat,
+} from "./sceneParts";
 import { BeanGains, BeanSack, ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
 import { THEMES, Theme } from "./theme";
 import { GOLD_COAT, visitorFrame, visitorSeat } from "./visitor";
@@ -31,7 +42,7 @@ import VisitorTag from "./VisitorTag";
 import { fmtTokens } from "../live/tokens";
 import type { Gain } from "@/lib/live/useBeanGains";
 
-export type { Anchor, FixturePick, Placing, SceneAlert } from "./sceneParts";
+export type { Anchor, FixturePick, Placing, SceneAlert, SceneWarn } from "./sceneParts";
 
 const NO_DECOR: DecorSet = new Set();
 const SIGN_TEXT: Two = { uk: "інтернет-кафе", en: "internet café" };
@@ -70,6 +81,7 @@ export default function CafeScene({
   model,
   clock,
   alert,
+  warns,
   etas,
   decor,
   catName,
@@ -98,6 +110,8 @@ export default function CafeScene({
   model: CafeModel;
   clock: number;
   alert?: SceneAlert;
+  /** desks whose agent looks stuck: a few words for its name plate and the whole story for its card */
+  warns?: Map<number, SceneWarn>;
   /** per desk: the guess of the time its job has left, for the agent card */
   etas?: (Eta | null)[];
   decor?: DecorSet;
@@ -434,15 +448,18 @@ export default function CafeScene({
           {agents.map((a, i) => {
             if (talking.has(i)) return null;
             const ask = alert?.kind === "ask" && alert.agent === i;
+            const warn = ask ? undefined : warns?.get(i);
             const nick = looks[a.id]?.name;
             return (
               <span
                 key={a.id}
-                className={`cafe-name ${ask ? "ask" : ""} ${nick ? "plate" : ""}`}
+                className={`cafe-name ${ask ? "ask" : warn ? "warn" : ""} ${nick ? "plate" : ""}`}
                 style={{ ...pos(lay.desks[i].x, lay.desks[i].top - 2), color: a.color }}
               >
+                {warn && "! "}
                 {nick ?? a.name.toLowerCase()}
                 {ask && <b> · {alert.text}</b>}
+                {warn && <b> · {warn.short}</b>}
               </span>
             );
           })}
@@ -464,7 +481,14 @@ export default function CafeScene({
             </span>
           )}
           {bubbles.map((b) => (
-            <CafeBubble key={b.key} b={b} name={nameOf(b.agent)} color={agents[b.agent].color} style={pos(b.x, b.y)} />
+            <CafeBubble
+              key={b.key}
+              b={b}
+              name={nameOf(b.agent)}
+              color={agents[b.agent].color}
+              style={pos(b.x, b.y)}
+              warn={alert?.kind === "ask" && alert.agent === b.agent ? undefined : warns?.get(b.agent)}
+            />
           ))}
         </div>
       </div>
@@ -484,6 +508,8 @@ export default function CafeScene({
               eta={etas?.[selIdx] ?? null}
               nameOf={nameOf}
               asking={alert?.kind === "ask" && alert.agent === selIdx ? alert.text : undefined}
+              stuck={warns?.get(selIdx)?.long}
+              onPick={(i) => setSel(agents[i].id)}
               onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
               look={looks[agents[selIdx].id]}
               onLook={onLook && ((pick) => onLook(agents[selIdx].id, pick))}

@@ -1,4 +1,5 @@
 import type { Two, Ui } from "./i18n";
+import type { Usage } from "./live/types";
 
 export type AgentEventType =
   | "start"
@@ -62,6 +63,17 @@ export interface AgentDef {
   look?: number;
   /** live only: the context over time, shown as the coffee pot on the desk */
   pot?: PotLevel[];
+  /** live only: the context window's size, as the status line said or guessed from how much was used */
+  ctxSize?: number;
+  /** live only: the tokens by kind, and what they would cost on the API */
+  usage?: Usage;
+  cost?: number;
+  /** some tokens came without their model (relay.sh before 8), so `cost` covers only the rest */
+  costPart?: boolean;
+  /** the model of the latest reply */
+  model?: string;
+  /** live only: the desk that handed this agent its latest task */
+  parent?: number;
 }
 
 /** A demo agent with its words in both languages: its role, what it works on, what it says when it hands over. */

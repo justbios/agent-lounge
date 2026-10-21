@@ -10,14 +10,15 @@ Every Claude Code chat becomes a room in the café. Claude sits at its desk. Whe
 and hands it the task; the subagent works with a bubble saying what it's doing, then carries the result back. Your
 whole team from `.claude/agents` has a desk, even before it's called.
 
-- **Live:** who is busy and what they're doing right now, in plain words.
+- **Live:** who is busy and what they're doing right now, in plain words, who started whom, and a «!» with a sound
+  when an agent goes in circles or runs past Claude's own estimate.
 - **Time left:** when the whole pipeline finishes, in the top bar. While Claude runs subagents, a local hook asks it
   every ~20 minutes to end a reply with a line like `⏱ 95m · 6/10 · QA on iOS`, its own estimate of the whole job,
   rounds it hasn't started yet included; the café counts down from there. Click it for each agent's time left, from
   the steps on its task list or how long its jobs usually take. `RELAY_CHECKIN=0` turns the questions off.
 - **Pings:** a sound and a phone push when Claude asks for permission or finishes its answer.
-- **Tokens and limits:** tokens per agent and chat, and your 5-hour and weekly subscription limits, with when they
-  run out at your pace and a ping when they reset.
+- **Tokens and limits:** tokens per agent and chat, what they would cost at API prices, each agent's context left,
+  and your 5-hour and weekly subscription limits, with when they run out at your pace and a ping when they reset.
 - **Teams:** several people connect their Claude to one café, each on their own floor.
 - **For the waiting:** a daily recap, achievements, furniture you earn with work, and mini-games with whoever is watching.
 

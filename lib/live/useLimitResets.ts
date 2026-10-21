@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Ui, tr, uiNow } from "@/lib/i18n";
 import { chime } from "./chime";
-import { useAlertPrefs } from "./useAlerts";
+import { pageNotify, useAlertPrefs } from "./useAlerts";
 import { MemberLimits, hitNow } from "./usage";
 
 /** A window this full, or one Claude ran into, is worth a ping when it resets; a quiet one resets unnoticed. */
@@ -30,18 +30,6 @@ export function resetHint(r: LimitReset, ui: Ui): string {
   if (r.still === "week") return tr(ui, "але тижневий ліміт ще вичерпано", "but the weekly limit is still used up");
   if (r.still === "five") return tr(ui, "але 5-годинний ліміт ще вичерпано", "but the 5-hour limit is still used up");
   return r.hit ? tr(ui, "Claude знову може працювати", "Claude can work again") : tr(ui, "знову 0%", "back to 0%");
-}
-
-async function notify(title: string, body: string, tag: string) {
-  const opts = { body, tag, icon: "/icon-192.png" };
-  // a phone's browser shows notifications only through the service worker, which push already registered
-  const reg = await navigator.serviceWorker?.getRegistration("/").catch(() => undefined);
-  if (reg) return reg.showNotification(title, opts);
-  const n = new Notification(title, opts);
-  n.onclick = () => {
-    window.focus();
-    n.close();
-  };
 }
 
 /**
@@ -84,10 +72,13 @@ export function useLimitResets(limits: MemberLimits | null, pushOn: boolean): [L
       const o = limits?.limits?.[other];
       const ring: LimitReset = o && o.pct >= 100 && o.reset * 1000 > now ? { ...r, still: other } : r;
       if (p.sound) chime("reset");
-      if ((p.desktop || pushOn) && "Notification" in window && Notification.permission === "granted") {
+      if (p.desktop || pushOn) {
         const ui = uiNow();
-        const body = `${resetTitle(ring, ui)}: ${resetHint(ring, ui)}`;
-        void notify(tr(ui, "Ліміт скинувся", "Your limit reset"), body, `relay-limit-${r.which}`).catch(() => {});
+        pageNotify(
+          tr(ui, "Ліміт скинувся", "Your limit reset"),
+          `${resetTitle(ring, ui)}: ${resetHint(ring, ui)}`,
+          `relay-limit-${r.which}`,
+        );
       }
       setShown(ring);
     }
