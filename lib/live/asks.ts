@@ -177,16 +177,21 @@ export function askChange(name: string, input: Record<string, unknown>): string 
   }
 }
 
-/** A question's answers the way Claude Code reads them and relay_ask_reply checks them: labels in option order. */
+/** How long a text of your own may be, an answer's or a denial's: the same limit as relay_ask_reply's. */
+export const OWN_MAX = 1000;
+
+/**
+ * A question's answers the way Claude Code reads them and relay_ask_reply checks them: the labels picked in option
+ * order, then the text of your own, if you wrote one.
+ */
 export function answerText(questions: AskQuestion[], picked: Record<string, string[]>): Record<string, string> {
   return Object.fromEntries(
-    questions.map((q) => [
-      q.question,
-      q.options
-        .map((o) => o.label)
-        .filter((l) => picked[q.question]?.includes(l))
-        .join(", "),
-    ]),
+    questions.map((q) => {
+      const got = picked[q.question] ?? [];
+      const labels = q.options.map((o) => o.label);
+      const own = got.find((p) => !labels.includes(p));
+      return [q.question, [...labels.filter((l) => got.includes(l)), ...(own ? [own] : [])].join(", ")];
+    }),
   );
 }
 

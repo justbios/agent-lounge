@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { tr, uiNow } from "@/lib/i18n";
 import { supabase } from "@/lib/supabaseClient";
 import { sha256Hex, signWith, useAnswerKeys } from "./answerKeys";
-import { Ask, AskBody, answerText, askChange, askFromRaw } from "./asks";
+import { Ask, AskBody, OWN_MAX, answerText, askChange, askFromRaw } from "./asks";
 
 const AWAY_POLL_MS = 3_000;
 const IDLE_POLL_MS = 60_000;
@@ -22,8 +22,9 @@ export interface Asks {
   canAnswer: (a: Ask) => boolean;
   /** how many computers this browser is paired with */
   paired: number;
-  answer: (a: Ask, allow: boolean) => void;
-  /** a question's answers: each question's text to the option labels picked */
+  /** yes or no to a permission or a plan; a no may say why, which Claude reads with it */
+  answer: (a: Ask, allow: boolean, note?: string) => void;
+  /** a question's answers: each question's text to the option labels picked and at most one text of your own */
   reply: (a: Ask, picked: Record<string, string[]>) => void;
   /** the last answer that did not go through: the ask is back in the list */
   failed: string | null;
@@ -140,9 +141,11 @@ export function useAsks(key: string | null, personal: boolean): Asks {
       });
   };
 
-  const answer = (a: Ask, allow: boolean) =>
+  const answer = (a: Ask, allow: boolean, note?: string) =>
     send(a, async () => {
-      const u = allow && a.body?.tool === "ExitPlanMode" ? JSON.stringify(a.input ?? {}) : "";
+      const said = allow ? "" : (note ?? "").trim().slice(0, OWN_MAX);
+      const plan = allow && a.body?.tool === "ExitPlanMode";
+      const u = plan ? JSON.stringify(a.input ?? {}) : said ? JSON.stringify(said) : "";
       const p_sig = await sign(a, allow ? "allow" : "deny", u);
       if (!p_sig) return false;
       const { data, error } = await supabase!.rpc("relay_ask_answer", {

@@ -8,7 +8,9 @@ export type LiveKind =
   | "stop"
   | "notify"
   | "session_end"
-  | "roster";
+  | "roster"
+  /** a tool Claude asked about went through: you answered; nothing to show, it only clears «чекає на тебе» */
+  | "answered";
 
 /** Tokens one report adds: fresh input, cache writes, cache reads and output. */
 export interface Usage {

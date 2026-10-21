@@ -58,12 +58,14 @@ function Hall({
   onOpen: (id: string) => void;
 }) {
   const ui = useUi();
+  // a turn that broke off is no «your turn»: it gets its own red flag
+  const tone = flag === "done" && err ? "err" : flag;
   return (
-    <button className={`hall ${on ? "on" : ""} ${flag ? `attn-${flag}` : ""}`} onClick={() => onOpen(id)}>
+    <button className={`hall ${on ? "on" : ""} ${tone ? `attn-${tone}` : ""}`} onClick={() => onOpen(id)}>
       <span className="hall-pic" style={named ? ({ viewTransitionName: ZOOM_NAME } as CSSProperties) : undefined}>
         <MiniCafe model={scene.model} origin={scene.origin} alert={alert} asleep={asleep} {...look} />
         {flag && (
-          <span className={`chat-flag flag-${flag}`}>
+          <span className={`chat-flag flag-${tone}`}>
             {flag === "ask" ? tr(ui, "! чекає", "! waiting") : err ? FLAG_ERR(err, ui) : tr(ui, "✓ твоя черга", "✓ your turn")}
           </span>
         )}

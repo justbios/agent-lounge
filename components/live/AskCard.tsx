@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ShieldQuestion } from "lucide-react";
 import { Two, Ui, useTr, useUi } from "@/lib/i18n";
-import { Ask, ASK_MS, AskQuestion } from "@/lib/live/asks";
+import { Ask, ASK_MS, AskQuestion, OWN_MAX } from "@/lib/live/asks";
 import { Asks } from "@/lib/live/useAsks";
 
 const clock = (t: number, ui: Ui) =>
@@ -23,13 +23,27 @@ function Questions({
 }) {
   const t = useTr();
   const [picked, setPicked] = useState<Record<string, string[]>>({});
-  const pick = (q: AskQuestion, label: string) =>
+  // a text of your own: one choice takes it instead of an option, several take it after the options
+  const [own, setOwn] = useState<Record<string, string>>({});
+  const pick = (q: AskQuestion, label: string) => {
     setPicked((p) => {
       const was = p[q.question] ?? [];
       if (!q.multiSelect) return { ...p, [q.question]: [label] };
       return { ...p, [q.question]: was.includes(label) ? was.filter((l) => l !== label) : [...was, label] };
     });
-  const ready = questions.every((q) => picked[q.question]?.length);
+    if (!q.multiSelect) setOwn((o) => ({ ...o, [q.question]: "" }));
+  };
+  const write = (q: AskQuestion, text: string) => {
+    setOwn((o) => ({ ...o, [q.question]: text }));
+    if (!q.multiSelect && text.trim()) setPicked((p) => ({ ...p, [q.question]: [] }));
+  };
+  const answers = Object.fromEntries(
+    questions.map((q) => {
+      const text = own[q.question]?.trim();
+      return [q.question, [...new Set([...(picked[q.question] ?? []), ...(text ? [text] : [])])]];
+    }),
+  );
+  const ready = questions.every((q) => answers[q.question].length);
 
   return (
     <>
@@ -56,10 +70,22 @@ function Questions({
               );
             })}
           </div>
+          <input
+            className="ask-own"
+            value={own[q.question] ?? ""}
+            maxLength={OWN_MAX}
+            placeholder={
+              q.multiSelect
+                ? t("і свій варіант, якщо треба…", "and your own, if needed…")
+                : t("або свій варіант…", "or your own answer…")
+            }
+            aria-label={t(`Свій варіант: ${q.question}`, `Your own answer: ${q.question}`)}
+            onChange={(e) => write(q, e.target.value)}
+          />
         </div>
       ))}
       <div className="ask-btns">
-        <button className="btn ask-yes" disabled={!ready} onClick={() => onReply(picked)}>
+        <button className="btn ask-yes" disabled={!ready} onClick={() => onReply(answers)}>
           {t("відповісти", "answer")}
         </button>
       </div>
@@ -70,7 +96,10 @@ function Questions({
 function AskRow({ a, now, asks, onOpen }: { a: Ask; now: number; asks: Asks; onOpen: (session: string) => void }) {
   const ui = useUi();
   const t = useTr();
+  // why not, or what to change in the plan: Claude reads it with the «no»
+  const [note, setNote] = useState("");
   const body = a.body;
+  const why = note.trim() !== "";
   const left = Math.max(1, Math.ceil((a.at + ASK_MS - now) / 60_000));
   const detail = ui === "en" ? (a.detailEn ?? a.detail) : a.detail;
   return (
@@ -103,13 +132,36 @@ function AskRow({ a, now, asks, onOpen }: { a: Ask; now: number; asks: Asks; onO
       ) : body?.tool === "AskUserQuestion" ? (
         <Questions questions={body.input.questions} onReply={(answers) => asks.reply(a, answers)} />
       ) : (
-        <div className="ask-btns">
-          <button className="btn ask-yes" onClick={() => asks.answer(a, true)}>
-            {body ? t("затвердити план", "approve plan") : t("дозволити раз", "allow once")}
-          </button>
-          <button className="btn" onClick={() => asks.answer(a, false)}>
-            {body ? t("ні, хай планує далі", "no, keep planning") : t("заборонити", "deny")}
-          </button>
+        <div className="ask-say">
+          <input
+            className="ask-own"
+            value={note}
+            maxLength={OWN_MAX}
+            placeholder={
+              body
+                ? t("що змінити в плані: піде разом із «ні»", "what to change: sent with “no”")
+                : t("чому ні: піде разом із «заборонити»", "why not: sent with “deny”")
+            }
+            aria-label={body ? t("Що змінити в плані", "What to change in the plan") : t("Чому ні", "Why not")}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <div className="ask-btns">
+            <button
+              className="btn ask-yes"
+              disabled={why}
+              title={
+                why
+                  ? t("Ти написав, чому ні: зітри це, щоб дозволити", "You wrote why not: clear it to allow")
+                  : undefined
+              }
+              onClick={() => asks.answer(a, true)}
+            >
+              {body ? t("затвердити план", "approve plan") : t("дозволити раз", "allow once")}
+            </button>
+            <button className={why ? "btn ask-no" : "btn"} onClick={() => asks.answer(a, false, note)}>
+              {body ? t("ні, хай планує далі", "no, keep planning") : t("заборонити", "deny")}
+            </button>
+          </div>
         </div>
       )}
     </div>

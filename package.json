@@ -1,6 +1,6 @@
 {
   "name": "agent-lounge",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Your Claude Code agents, live in a pixel café.",
   "license": "Apache-2.0",
   "repository": {

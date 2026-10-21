@@ -41,6 +41,8 @@ export interface LiveSession {
   attn: Attention | null;
   /** team café: the teammate whose Claude this chat is */
   member?: string;
+  /** what it did last, for the board of all chats; what it waits on is {@link attn} */
+  latest?: LiveEvent;
 }
 
 /** The palette colour a subagent type usually gets in the café, for places outside the scene such as the day card. */
@@ -81,10 +83,12 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
         ask: e.kind === "prompt" && e.tool === "питання" ? e.text : undefined,
         attn: nextAttention(null, e),
         member: e.member,
+        latest: e.kind === "answered" || e.kind === "notify" ? undefined : e,
       });
       continue;
     }
     s.attn = nextAttention(s.attn, e);
+    if (e.kind !== "answered" && e.kind !== "notify") s.latest = e;
     s.last = e.at;
     s.count += 1;
     if (e.kind === "session_end") s.ended = true;

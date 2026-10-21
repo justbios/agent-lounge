@@ -10,22 +10,31 @@ export function unlockChime() {
   } catch {}
 }
 
-/** A short two-note arcade ding: higher for a question, lower and softer for a finished answer. */
-export function chime(kind: "ask" | "done") {
+const SOUNDS = {
+  /** Claude waits on you: a three-note doorbell, unlike anything else in the café */
+  ask: { notes: [1319, 988, 1319], wave: "triangle", step: 0.15, peak: 0.16, ring: 0.24 },
+  /** a finished answer: two notes up, softer */
+  done: { notes: [784, 1047], wave: "square", step: 0.11, peak: 0.05, ring: 0.16 },
+  /** a turn that broke off: two notes down */
+  err: { notes: [523, 392], wave: "square", step: 0.14, peak: 0.06, ring: 0.2 },
+} as const;
+
+/** A short arcade sound for each way Claude hands you the ball. */
+export function chime(kind: keyof typeof SOUNDS) {
   if (!ctx || ctx.state !== "running") return;
-  const notes = kind === "ask" ? [988, 1319] : [784, 1047];
+  const s = SOUNDS[kind];
   const t0 = ctx.currentTime + 0.01;
-  notes.forEach((f, i) => {
+  s.notes.forEach((f, i) => {
     const osc = ctx!.createOscillator();
     const gain = ctx!.createGain();
-    osc.type = "square";
+    osc.type = s.wave;
     osc.frequency.value = f;
-    const t = t0 + i * 0.11;
+    const t = t0 + i * s.step;
     gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(kind === "ask" ? 0.08 : 0.05, t + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    gain.gain.linearRampToValueAtTime(s.peak, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + s.ring);
     osc.connect(gain).connect(ctx!.destination);
     osc.start(t);
-    osc.stop(t + 0.18);
+    osc.stop(t + s.ring + 0.02);
   });
 }

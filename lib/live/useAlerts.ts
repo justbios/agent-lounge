@@ -7,6 +7,9 @@ import { chime, unlockChime } from "./chime";
 import { LiveSession } from "./liveModel";
 
 const PREFS_KEY = "relay.alerts";
+/** A question nobody answered rings again after this long, and once more after twice as long. */
+const NUDGE_MS = 3 * 60_000;
+const NUDGES = 2;
 const ACK_KEY = "relay.ack";
 const baseTitle = (ui: Ui) =>
   tr(ui, "Agent Lounge — живий конвеєр агентів", "Agent Lounge — your Claude Code agents, live");
@@ -123,7 +126,7 @@ export function useAlerts(
   }, []);
 
   const fire = useEffectEvent((s: LiveSession, a: Attention, looking: boolean) => {
-    if (p.sound) chime(a.kind);
+    if (p.sound) chime(a.kind === "done" && a.err ? "err" : a.kind);
     if (!p.desktop || pushOn || looking || !("Notification" in window) || Notification.permission !== "granted") return;
     const u = uiNow();
     const title =
@@ -143,6 +146,26 @@ export function useAlerts(
       n.close();
     };
   });
+
+  // a question still waiting rings again, a couple of times, then leaves it to the yellow plate
+  const nudged = useRef(new Map<number, number>());
+  const nudge = useEffectEvent(() => {
+    const t = Date.now();
+    for (const s of sessions) {
+      const a = s.attn;
+      if (a?.kind !== "ask" || a.at < mountedAt.current) continue;
+      const n = nudged.current.get(a.seq) ?? 0;
+      if (n >= NUDGES || t - a.at < NUDGE_MS * (n + 1) || t - a.at > NUDGE_MS * (NUDGES + 1)) continue;
+      nudged.current.set(a.seq, n + 1);
+      chime("ask");
+      return;
+    }
+  });
+  useEffect(() => {
+    if (!p.sound) return;
+    const id = setInterval(nudge, 15_000);
+    return () => clearInterval(id);
+  }, [p.sound]);
 
   useEffect(() => {
     if (!sessions.length || !mountedAt.current) return;

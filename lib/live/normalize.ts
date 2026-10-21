@@ -180,6 +180,8 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
         say: plainTool(toolName, input),
         ...planStep(toolName, input),
       });
+    case "PostToolUse":
+      return ev("answered");
     case "PostToolUseFailure":
       return ev("fail", { tool: describeTool(toolName, input).tool, ...tech("fail", toolName), say: { a: "fail" } });
     case "SubagentStart":

@@ -4,6 +4,29 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.13.0 — not released yet
+
+Ship the code together with `supabase/migrations/0023_ask_words.sql`; reconnect to get `relay.sh` 8 and its hooks.
+
+- Answer Claude from the café in your own words. Each question has a «свій варіант» field: in a single-choice
+  question it takes the option's place, in a multiple-choice one it comes after the options, and Claude gets
+  «option, option, your text». A «no» to a permission or a plan can say why or what to change, and Claude reads it
+  after the fixed denial sentence. Both are signed like every answer, at most 1000 characters, and only `relay.sh` 8
+  passes a note on; the new `relay_ask_answer` and `relay_ask_reply` check their shape.
+- `/agent-lounge:away always` keeps «я не за комп'ютером» on until `away off`, so every question goes to the café
+  first. «Я повернувся» then sends only the question waiting at that moment back to the terminal.
+- One board of all chats above the café: the ones that wait on you on top, then a turn that broke off, your turn,
+  busy, and the rest, each with what it did last; a click opens the chat. While Claude waits on you anywhere, the
+  board's first line turns into a yellow «Claude чекає на тебе» plate that stays until you answer.
+- «Чекає на тебе» goes away the moment you answer, in the terminal too, not at Claude's next step: a `Notification`
+  about a permission or a question leaves a mark on the computer, and a new async `PostToolUse` hook
+  (`relay.sh answered`) posts the chat's, agent's and tool's names once that agent's tool goes through. Nothing else
+  of the tool leaves the computer.
+- Its own sound: a three-note doorbell when Claude waits on you, rung twice more after 3 and 6 minutes if nobody
+  answered; two notes up for an answer, two down for a turn that broke off.
+- Fixed: the English café showed what Claude waits on in Ukrainian, and a turn that broke off on the limit or an error
+  was flagged as a green «your turn»; it is red now.
+
 ## 0.12.0 — not released yet
 
 - The pipeline's time comes from Claude itself. `relay.sh` 7 adds a check-in: while a chat runs subagents, a local,

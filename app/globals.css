@@ -873,6 +873,39 @@ body {
   opacity: 0.4;
   cursor: default;
 }
+.btn.ask-no {
+  color: #2a0c0c;
+  background: #ff9a8a;
+  border-color: #ff9a8a;
+}
+.ask-say {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ask-say .ask-own {
+  flex: 1 1 220px;
+}
+.ask-own {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  max-width: 560px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.ask-own::placeholder {
+  color: inherit;
+  opacity: 0.55;
+}
+.ask-own:focus {
+  outline: none;
+  border-color: #7fe0a0;
+}
 .ask-q {
   flex: 1 1 100%;
   display: flex;
@@ -1406,6 +1439,10 @@ body {
 .chat-flag.flag-done {
   color: #0c2218;
   background: #4ade80;
+}
+.chat-flag.flag-err {
+  color: #2a0c0c;
+  background: #ff8f8f;
 }
 @keyframes flag-pulse {
   50% {
@@ -4522,6 +4559,9 @@ body {
 .hall.attn-done {
   border-color: rgba(74, 222, 128, 0.55);
 }
+.hall.attn-err {
+  border-color: rgba(255, 143, 143, 0.6);
+}
 .hall-pic {
   position: relative;
   display: block;
@@ -5345,5 +5385,140 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .hook-dot {
     animation: none;
+  }
+}
+
+/* ---------- the board of all chats, and «Claude чекає на тебе» on top of it ---------- */
+.board {
+  margin-bottom: 14px;
+}
+.board-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px 8px 16px;
+}
+.board-sum {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.board-ask {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 13px;
+  color: #ffe9b8;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.board-ask b {
+  white-space: nowrap;
+}
+.board-what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+.board-more {
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 210, 90, 0.2);
+}
+.card.board-wait {
+  border-color: rgba(255, 210, 90, 0.6);
+  background: linear-gradient(rgba(255, 196, 64, 0.1), rgba(255, 196, 64, 0.03)), var(--panel);
+  box-shadow: 0 0 18px rgba(255, 210, 90, 0.12);
+}
+.board-rows {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  max-height: 260px;
+  overflow-y: auto;
+}
+.board-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 2fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--text);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+.board-row:last-child {
+  border-bottom: 0;
+}
+.board-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+.board-row.on {
+  background: rgba(255, 154, 98, 0.08);
+}
+.board-row .chat-dot {
+  justify-self: center;
+}
+.board-row .chat-flag {
+  justify-self: center;
+  padding: 1px 6px;
+}
+.board-row.attn-ask .board-now {
+  color: #ffd25a;
+}
+.board-row.attn-err .board-now {
+  color: #ff8f8f;
+}
+.board-nm,
+.board-now {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board-nm {
+  font-weight: 600;
+}
+.board-nm small {
+  font-weight: 400;
+  color: var(--dim);
+}
+.board-now {
+  color: var(--muted);
+}
+.board-ago {
+  font-size: 11px;
+  color: var(--dim);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .board-row {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+  }
+  .board-now {
+    grid-row: 2;
+    grid-column: 2 / -1;
+  }
+  .board-ago {
+    grid-row: 1;
+    grid-column: 3;
   }
 }

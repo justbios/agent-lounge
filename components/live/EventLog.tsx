@@ -28,8 +28,9 @@ export default function EventLog({
   team?: Record<string, string>;
 }) {
   const log = useMemo(() => {
-    if (session) return events.filter((e) => e.session === session && e.kind !== "roster").slice(-LOG_ROWS);
-    return team ? events.filter((e) => e.kind !== "roster").slice(-LOG_ROWS) : NO_EVENTS;
+    const shown = (e: LiveEvent) => e.kind !== "roster" && e.kind !== "answered";
+    if (session) return events.filter((e) => e.session === session && shown(e)).slice(-LOG_ROWS);
+    return team ? events.filter(shown).slice(-LOG_ROWS) : NO_EVENTS;
   }, [events, session, team]);
   const sp = useSpeech();
   const ui = useUi();

@@ -6,6 +6,7 @@
 #                                                             then asks Claude how long its whole job still takes
 #   relay.sh [--url URL] ask                                  PermissionRequest, and PreToolUse of a question or a plan:
 #                                                             the only hooks Claude waits for
+#   relay.sh [--url URL] answered                             PostToolUse: after a prompt you answered, says so
 #   relay.sh [--url URL] away on|off|status                   «я не за комп'ютером», switched on only from here
 #   relay.sh [--url URL] pair [new]                           a link that lets a phone answer for this computer
 #   relay.sh statusline                                       statusLine command: keeps limits and context, prints a line
@@ -16,7 +17,7 @@
 state="${RELAY_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/relay}"
 conf="${XDG_CONFIG_HOME:-$HOME/.config}/relay"
 keyfile="${RELAY_ANSWER_KEY:-$conf/answer-key}"
-version=7
+version=8
 
 field() {
   printf '%s' "$1" | grep -oE "\"$2\":\"[^\"]*\"" | head -n 1 | cut -d'"' -f4
@@ -136,17 +137,21 @@ title_of() {
 }
 
 # A permission prompt gets PermissionRequest's answer; a question or a plan gets PreToolUse's, with $3: Claude's own
-# input as the paired phone passed it back, the question's answers added or the plan as Claude wrote it.
+# input as the paired phone passed it back, the question's answers added or the plan as Claude wrote it. A denial's
+# $3 is what the user wrote with it, a JSON string as the phone signed it, or nothing.
 reply() {
+  said=""
+  case "$2:$3" in deny:\"*\") said=${3#\"} && said=${said%\"} ;; esac
   if [ "$1" = PermissionRequest ]; then
     m=""
-    [ "$2" = deny ] && m=',"message":"The user denied this from the Agent Lounge café."'
+    [ "$2" = deny ] && m=',"message":"The user denied this from the Agent Lounge café.'"${said:+ They wrote: $said}"'"'
     printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"%s"%s}}}' "$2" "$m"
     exit 0
   fi
   if [ "$2" = deny ]; then
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",%s}}' \
-      '"permissionDecisionReason":"The user rejected this plan in Agent Lounge. Stay in plan mode and revise it."'
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny",%s%s"}}' \
+      '"permissionDecisionReason":"The user rejected this plan in Agent Lounge. Stay in plan mode and revise it.' \
+      "${said:+ They wrote: $said}"
     exit 0
   fi
   [ -n "$3" ] &&
@@ -197,8 +202,14 @@ kid_of() {
   printf '%s' "$1" | hex256 | cut -c1-16
 }
 
-# «Я не за комп'ютером» lives here, on this machine: the café can switch it off, never on.
+# «Я не за комп'ютером» lives here, on this machine: the café can switch it off, never on. `away always` keeps it
+# on for good: then «я повернувся» in the café only sends the question waiting now to the terminal.
+always_on() {
+  [ -f "$conf/away-always" ]
+}
+
 away_on() {
+  always_on && return 0
   [ -f "$state/away-until" ] || return 1
   read -r t < "$state/away-until"
   case "$t" in '' | *[!0-9]*) return 1 ;; esac
@@ -215,11 +226,11 @@ note() {
   return 0
 }
 
-# Only while you have turned on «я не за комп'ютером» on this computer (relay.sh away on) does it answer: the café
-# shows the request, the question or the plan, waits up to 10 minutes for your answer there, and gives Claude that,
-# if a phone paired with this computer signed it over exactly what this script sent. Otherwise, after those 10
-# minutes, or on any failure it prints nothing, and the terminal asks as usual. Never «always allow», never a
-# changed command. When the café says you are back, the switch here goes off too.
+# Only while you have turned on «я не за комп'ютером» on this computer (relay.sh away on, or away always) does it
+# answer: the café shows the request, the question or the plan, waits up to 10 minutes for your answer there, and
+# gives Claude that, if a phone paired with this computer signed it over exactly what this script sent. Otherwise,
+# after those 10 minutes, or on any failure it prints nothing, and the terminal asks as usual. Never «always allow»,
+# never a changed command. When the café says you are back, the switch here goes off too, unless it is on always.
 ask() {
   j=$(cat)
   ev=$(field "$j" hook_event_name)
@@ -236,16 +247,29 @@ ask() {
   ak=$(answer_key) || exit 0
   base="${url%%/api/claude-hook*}/api/claude-ask${url#*/api/claude-hook}"
   case "$base" in *\?*) sep='&' ;; *) sep='?' ;; esac
-  r=$({
-    printf '%s' "$j"
-    printf '\n#relay-title\n'
-    title_of "$j"
-    printf '\n#relay-v\n%s\n' "$version"
-    printf '\n#relay-kid\n%s\n' "$(kid_of "$ak")"
-  } | post "$base" -s -m 4 -w '\n%{http_code}' -H 'content-type: text/plain' --data-binary @-)
-  case "$r" in *204) rm -f "$state/away-until" && exit 0 ;; esac
+  open_ask() {
+    {
+      printf '%s' "$j"
+      printf '\n#relay-title\n'
+      title_of "$j"
+      printf '\n#relay-v\n%s\n' "$version"
+      printf '\n#relay-kid\n%s\n' "$(kid_of "$ak")"
+    } | post "$base" -s -m 4 -w '\n%{http_code}' -H 'content-type: text/plain' --data-binary @-
+  }
+  r=$(open_ask)
+  # the café has its owner back: switch off here too, unless away is on for good, which turns the café's side on again
+  case "$r" in
+    *204)
+      always_on || { rm -f "$state/away-until" && exit 0; }
+      away_base="${url%%/api/claude-hook*}/api/claude-away${url#*/api/claude-hook}"
+      [ "$(printf 'on' | post "$away_base" -s -m 4 -o /dev/null -w '%{http_code}' --data-binary @-)" = 200 ] || exit 0
+      r=$(open_ask)
+      ;;
+  esac
   id=$(printf '%s' "$r" | grep -oE '"id":"[0-9a-f-]{36}"' | cut -d'"' -f4)
   [ -n "$id" ] || exit 0
+  # the café shows it as waiting on you now, and Claude Code sends no Notification for a prompt this hook answers
+  mark_wait "$j"
   sum=$(printf '%s' "$j" | hex256)
   end=$(($(date +%s) + 600))
   fails=0
@@ -316,6 +340,32 @@ checkin() {
   fi
   [ -f "$f" ] || find "$state/checkin" -type f -mtime +2 -delete 2>/dev/null
   printf '%s %s %s %s %s\n' "$sub" "$asked" "$sent" "${said:--}" "$end" > "$f"
+  exit 0
+}
+
+# Claude asked for permission or asked a question in this chat: the agent that asked, kept until its tool goes through.
+mark_wait() {
+  sid=$(safe "$(field "$1" session_id)")
+  [ -n "$sid" ] && mkdir -p "$state/waits" 2>/dev/null || return 0
+  [ -f "$state/waits/$sid" ] || find "$state/waits" -type f -mtime +2 -delete 2>/dev/null
+  printf '%s\n' "$(safe "$(field "$1" agent_id)")" > "$state/waits/$sid"
+}
+
+# relay.sh answered: a tool went through after Claude asked about it, so you answered, in the terminal or in the café.
+# Only then does this post anything, and only the names, never the tool's output: the café's «чекає на тебе» goes
+# away as you answer, not at Claude's next step.
+answered() {
+  j=$(cat)
+  sid=$(safe "$(field "$j" session_id)")
+  f="$state/waits/$sid"
+  [ -n "$sid" ] && [ -f "$f" ] || exit 0
+  read -r who < "$f"
+  aid=$(safe "$(field "$j" agent_id)")
+  [ "$who" = "$aid" ] || exit 0
+  rm -f "$f"
+  printf '{"hook_event_name":"PostToolUse","session_id":"%s","agent_id":"%s","agent_type":"%s","tool_name":"%s"}\n#relay-v\n%s\n' \
+    "$sid" "$aid" "$(safe "$(field "$j" agent_type)")" "$(safe "$(field "$j" tool_name)")" "$version" |
+    post "$url" -s -m 5 -o /dev/null -H 'content-type: text/plain' --data-binary @-
   exit 0
 }
 
@@ -397,7 +447,7 @@ away() {
   case "$url" in https://*/api/claude-hook*) ;; *) echo "away: not-connected"; exit 1 ;; esac
   base="${url%%/api/claude-hook*}/api/claude-away${url#*/api/claude-hook}"
   case "$1" in
-    on)
+    on | always)
       answer_key >/dev/null || { new_answer_key && echo "key: new"; } || { echo "away: no-openssl"; exit 1; }
       code=$(printf 'on' | post "$base" -s -m 8 -o /dev/null -w '%{http_code}' --data-binary @-)
       if [ "$code" != 200 ]; then
@@ -405,19 +455,26 @@ away() {
         echo "cafe: ${code:-000}"
         exit 1
       fi
-      mkdir -p "$state" && printf '%s\n' "$(($(date +%s) + 43200))" > "$state/away-until"
-      echo "away: on"
-      echo "until: $(clock "$(($(date +%s) + 43200))")"
+      if [ "$1" = always ]; then
+        mkdir -p "$conf" && : > "$conf/away-always"
+        echo "away: always"
+      else
+        mkdir -p "$state" && printf '%s\n' "$(($(date +%s) + 43200))" > "$state/away-until"
+        echo "away: on"
+        echo "until: $(clock "$(($(date +%s) + 43200))")"
+      fi
       echo "kid: $(kid_of "$(answer_key)")"
       ;;
     off)
-      rm -f "$state/away-until"
+      rm -f "$state/away-until" "$conf/away-always"
       code=$(printf 'off' | post "$base" -s -m 8 -o /dev/null -w '%{http_code}' --data-binary @-)
       echo "away: off"
       echo "cafe: ${code:-000}"
       ;;
     *)
-      if away_on; then
+      if always_on; then
+        echo "away: always"
+      elif away_on; then
         read -r t < "$state/away-until"
         echo "away: on"
         echo "until: $(clock "$t")"
@@ -481,6 +538,7 @@ esac
 split_key
 [ "$1" = "checkin" ] && checkin
 [ "$1" = "ask" ] && ask
+[ "$1" = "answered" ] && answered
 [ "$1" = "pair" ] && pair "$2"
 [ "$1" = "away" ] && away "$2"
 if [ $# -eq 0 ]; then
@@ -508,6 +566,12 @@ j=$(cat)
         ;;
       eta)
         checkin_line "$j"
+        ;;
+      waits)
+        case "$(field "$j" notification_type):$(field "$j" message)" in
+          auth_success:*) ;;
+          permission_prompt:* | *[Pp]ermission*) mark_wait "$j" ;;
+        esac
         ;;
     esac
   done

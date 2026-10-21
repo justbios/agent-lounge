@@ -53,6 +53,7 @@ import BetStrip from "./live/BetStrip";
 import EmptyCafe from "./live/EmptyCafe";
 import AskCard from "./live/AskCard";
 import AwayCard from "./live/AwayCard";
+import ChatBoard from "./live/ChatBoard";
 import GamesPanel from "./live/GamesPanel";
 import House, { ACTIVE_MS } from "./live/House";
 import InviteToast from "./live/InviteToast";
@@ -424,6 +425,17 @@ export default function LiveDashboard({
             <X size={14} />
           </button>
         </div>
+      )}
+
+      {now > 0 && !viewing && (
+        <ChatBoard
+          chats={sessions.filter(recent)}
+          waiting={waiting}
+          current={inHouse ? null : (session?.id ?? null)}
+          now={now}
+          team={team.on}
+          onOpen={openChat}
+        />
       )}
 
       {now > 0 && <AskCard asks={asks} now={now} settled={settled} onOpen={openChat} />}

@@ -1,5 +1,5 @@
 {
-  "description": "Forwards hook events, the chat name, token counts and the last usage limits to the Agent Lounge café saved by /agent-lounge:connect, silent and async; while you turned away mode on with /agent-lounge:away, a phone paired with this computer can answer Claude's permission prompts, questions and plans from the café, and the hook checks its signature before passing it on; while Claude runs subagents, a local hook now and then asks it how long the whole job still takes, so the café can show when the pipeline will be done.",
+  "description": "Forwards hook events, the chat name, token counts and the last usage limits to the Agent Lounge café saved by /agent-lounge:connect, silent and async; while you turned away mode on with /agent-lounge:away, a phone paired with this computer can answer Claude's permission prompts, questions and plans from the café, and the hook checks its signature before passing it on; while Claude runs subagents, a local hook now and then asks it how long the whole job still takes, so the café can show when the pipeline will be done; after a prompt you answered, an async hook tells the café so, with the chat's, agent's and tool's names only.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -51,6 +51,16 @@
           {
             "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" checkin",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" answered",
+            "async": true,
             "timeout": 5
           }
         ]
@@ -121,7 +131,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" title",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/scripts/relay.sh\" title waits",
             "async": true,
             "timeout": 5
           }
