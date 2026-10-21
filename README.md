@@ -20,6 +20,8 @@ whole team from `.claude/agents` has a desk, even before it's called.
 - **Tokens and limits:** tokens per agent and chat, what they would cost at API prices, each agent's context left,
   and your 5-hour and weekly subscription limits, with when they run out at your pace and a ping when they reset.
 - **Teams:** several people connect their Claude to one café, each on their own floor.
+- **Your crew:** name each agent and make it a person, a robot, a cat or an alien; the name and look follow the agent
+  to any desk and chat.
 - **For the waiting:** a daily recap, achievements, furniture you earn with work, and mini-games with whoever is watching.
 
 The hooks are async and silent: they never slow Claude down and cost no tokens. Run locally, the café keeps

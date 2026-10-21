@@ -5,6 +5,8 @@ import { Two, Ui, useTr, useUi } from "@/lib/i18n";
 import { BRAND, ItemId, TITLE_MAX } from "@/lib/live/interior";
 import { CafeState } from "@/lib/live/useCafe";
 import { RoomKind } from "@/lib/live/cafeRoom";
+import type { AgentDef } from "@/lib/types";
+import AgentLooks from "./AgentLooks";
 import Sheet from "./Sheet";
 import Shop, { beans } from "./Shop";
 import ThemePicker from "./ThemePicker";
@@ -119,13 +121,18 @@ const OWN: Record<RoomKind, (whose: string | null, ui: Ui) => string> = {
   theirs: (whose, ui) => (ui === "en" ? `${whose}'s room` : `Кімната: ${whose}`),
 };
 
-/** Furniture for coffee beans, and the room's own look: the view, the café's name, the pet and its name. */
+/** Furniture for coffee beans, and the room's own look: the view, the café's name, the pet, its name and the agents. */
 export default function ShopPanel({
   cafe,
+  agents,
+  seed,
   onClose,
   onPlace,
 }: {
   cafe: CafeState;
+  /** the agents of the chat on screen, to name and dress */
+  agents: AgentDef[];
+  seed: number;
   onClose: () => void;
   onPlace: (item: ItemId) => void;
 }) {
@@ -208,6 +215,7 @@ export default function ShopPanel({
             onSave={(v) => cafe.save({ cat_name: v || null })}
           />
         )}
+        {cafe.editable && agents.length > 0 && <AgentLooks cafe={cafe} agents={agents} seed={seed} />}
       </section>
     </Sheet>
   );

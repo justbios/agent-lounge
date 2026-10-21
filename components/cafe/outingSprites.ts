@@ -1,6 +1,6 @@
 import { drawCupSteam } from "./ambient";
 import { Outing } from "./outing";
-import { Look, drawPerson, styleFrontBack } from "./people";
+import { Look, drawPerson, head } from "./people";
 import { Box, Ctx, LINE, Rect, paint, px } from "./pixel";
 
 const SHOES = "#2b2433";
@@ -12,13 +12,6 @@ function drawLounging(ctx: Ctx, x: number, B: number, k: Look) {
   const T = Math.round(B) - 20;
   const sil: Box[] = [[L + 1, T, 8, 8], [L + 1, T + 8, 8, 6], [L + 2, T + 14, 6, 2], [L + 3, T + 16, 4, 4]];
   const f: Rect[] = [
-    [L + 1, T, 8, 8, k.skin],
-    [L + 1, T, 8, 3, k.hair],
-    [L + 1, T + 3, 1, 2, k.hair],
-    [L + 8, T + 3, 1, 2, k.hair],
-    [L + 3, T + 4, 1, 2, LINE],
-    [L + 6, T + 4, 1, 2, LINE],
-    [L + 2, T + 7, 6, 1, k.skinDark],
     [L + 1, T + 8, 8, 6, k.shirtDark],
     [L + 2, T + 8, 6, 5, k.shirt],
     [L + 2, T + 13, 1, 1, k.skin],
@@ -29,8 +22,8 @@ function drawLounging(ctx: Ctx, x: number, B: number, k: Look) {
     [L + 3, T + 19, 2, 1, SHOES],
     [L + 5, T + 19, 2, 1, SHOES],
   ];
-  const [es, ef] = styleFrontBack(L, T, k, false);
-  paint(ctx, [...sil, ...es], [...f, ...ef]);
+  const [hs, hf] = head(L, T, k, "front");
+  paint(ctx, [...sil, ...hs], [...f, ...hf]);
 }
 
 function drawChat(ctx: Ctx, x: number, top: number, t: number) {

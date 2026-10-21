@@ -13,7 +13,7 @@ import { Speech, chip, line, said, useSpeech } from "@/lib/live/speech";
 import { badge, plural } from "../live/format";
 import { fmtTokens } from "../live/tokens";
 import { PROP_NAMES, potAt, propIndex, propName } from "./desk";
-import { LOOK_CHOICES, lookIndex, pickedLook } from "./people";
+import { LOOK_CHOICES, hideOf, lookIndex, pickedLook } from "./people";
 
 const LAST = 5;
 /** the crew shows agents that worked this long before the card's moment, or still do */
@@ -78,6 +78,21 @@ const STYLES: Two[] = [
   { uk: "кепка", en: "cap" },
 ];
 
+const KINDS: Two[] = [
+  { uk: "людина", en: "person" },
+  { uk: "робот", en: "robot" },
+  { uk: "кіт", en: "cat" },
+  { uk: "прибулець", en: "alien" },
+];
+
+/** what the skin pick is called for each kind */
+const HIDES: Two[] = [
+  { uk: "шкіра", en: "skin" },
+  { uk: "метал", en: "metal" },
+  { uk: "шерсть", en: "fur" },
+  { uk: "колір", en: "colour" },
+];
+
 function NickField({ value, color, onSave }: { value?: string; color: string; onSave: (v: string) => void }) {
   const t = useTr();
   const [v, setV] = useState(value ?? "");
@@ -103,7 +118,8 @@ function NickField({ value, color, onSave }: { value?: string; color: string; on
   );
 }
 
-function LookRow({
+/** The buttons that change one agent's look, and its desk plate: in its card and in the café's settings. */
+export function LookRow({
   base,
   desk,
   color,
@@ -119,6 +135,7 @@ function LookRow({
   const ui = useUi();
   const t = useTr();
   const def = lookIndex(base);
+  const kind = pick?.kind ?? 0;
   const cur = { style: pick?.style ?? def.style, hair: pick?.hair ?? def.hair, skin: pick?.skin ?? def.skin };
   const prop = pick?.prop ?? desk;
   const put = (patch: Partial<LookPick>) => {
@@ -131,14 +148,27 @@ function LookRow({
   const sw = (c?: string) => <i className="ac-sw" style={{ background: c }} />;
   return (
     <div className="ac-look" role="group" aria-label={t("вигляд агента", "agent's look")}>
-      <button onClick={() => next("style")} title={t("наступна зачіска", "next hairstyle")}>
-        {STYLES[cur.style]?.[ui]}
+      <button
+        onClick={() => put({ kind: (kind + 1) % LOOK_CHOICES.kind || undefined })}
+        title={t(
+          "хто за столом: людина, робот, кіт чи прибулець",
+          "who sits at the desk: a person, a robot, a cat or an alien",
+        )}
+      >
+        {KINDS[kind][ui]}
       </button>
-      <button onClick={() => next("hair")} title={t("наступний колір волосся", "next hair colour")}>
-        {sw(pickedLook({ hair: cur.hair }).hair)} {t("волосся", "hair")}
-      </button>
-      <button onClick={() => next("skin")} title={t("наступний відтінок шкіри", "next skin tone")}>
-        {sw(pickedLook({ skin: cur.skin }).skin)} {t("шкіра", "skin")}
+      {kind === 0 && (
+        <button onClick={() => next("style")} title={t("наступна зачіска", "next hairstyle")}>
+          {STYLES[cur.style]?.[ui]}
+        </button>
+      )}
+      {kind === 0 && (
+        <button onClick={() => next("hair")} title={t("наступний колір волосся", "next hair colour")}>
+          {sw(pickedLook({ hair: cur.hair }).hair)} {t("волосся", "hair")}
+        </button>
+      )}
+      <button onClick={() => next("skin")} title={t("наступний відтінок", "next shade")}>
+        {sw(hideOf(kind, cur.skin))} {HIDES[kind][ui]}
       </button>
       <button onClick={() => put({ shirt })} title={t("наступний колір одягу", "next clothes colour")}>
         {sw(pickedLook({ shirt: pick?.shirt }).shirt ?? color)} {t("одяг", "clothes")}

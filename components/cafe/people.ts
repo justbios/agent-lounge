@@ -6,6 +6,16 @@ const HAIR = ["#2a1c14", "#6b3b1c", "#d6a446", "#1a1922", "#9c3d24", "#d9d4cc", 
 const SKIN = ["#f2c9a1", "#dba67a", "#b97c52", "#8a5a3a", "#f6d7bb"];
 const PANTS = ["#2f3550", "#3a2f45", "#283a3a", "#40342a"];
 const SHIRTS = ["#e8e4f0", "#3b3f4f", "#d9534f", "#f0a43a", "#f2d24b", "#4caf72", "#3f8fd2", "#8b5cc7", "#e57aa8"];
+/** steel, slate, brass, verdigris, gunmetal */
+const METAL = ["#c3cad6", "#8f9bb0", "#d8bf7a", "#9cc4b4", "#717c90"];
+/** ginger, black, white, grey, brown */
+const FUR = ["#d9893a", "#4a4452", "#ece6da", "#9a9fa8", "#a87850"];
+const ALIEN = ["#8fd16a", "#5fc9b0", "#b49be4", "#78b6ea", "#e3d36c"];
+/** what the skin pick means for each kind: skin, metal, fur, and an alien's own colour */
+const HIDES = [SKIN, METAL, FUR, ALIEN];
+const VISOR = "#1b1924";
+const PINK = "#f29aae";
+const SHINE = "#eaf7ff";
 
 export interface Look {
   hair: string;
@@ -17,29 +27,51 @@ export interface Look {
   pants: string;
   accent: string;
   accentDark: string;
-  /** 0 headphones · 1 long hair · 2 bun · 3 cap */
+  /** 0 headphones · 1 long hair · 2 bun · 3 cap; only people wear them */
   style: number;
+  /** 0 a person · 1 a robot · 2 a cat · 3 an alien */
+  kind: number;
 }
 
 const at = <T,>(list: T[], i: number): T => list[((i % list.length) + list.length) % list.length];
 
-export const LOOK_CHOICES = { style: 4, hair: HAIR.length, skin: SKIN.length, shirt: SHIRTS.length } as const;
+export const LOOK_CHOICES = {
+  kind: HIDES.length,
+  style: 4,
+  hair: HAIR.length,
+  skin: SKIN.length,
+  shirt: SHIRTS.length,
+} as const;
 
 const mod = (i: number, n: number) => ((i % n) + n) % n;
 
 /** The palette indexes {@link lookFor} gives look `i` before anyone picks otherwise. */
 export const lookIndex = (i: number) => ({ style: mod(i, 4), hair: mod(i, HAIR.length), skin: mod(i * 3 + 1, SKIN.length) });
 
-/** What a café owner picked for an agent, as a {@link lookFor} override. */
-export function pickedLook(p: { style?: number; hair?: number; skin?: number; shirt?: number } | undefined): Partial<Look> {
+/** The colour of a skin pick, for a person or for another kind's metal, fur or hide. */
+export const hideOf = (kind: number, skin: number): string => at(at(HIDES, kind), skin);
+
+/**
+ * What a café owner picked for an agent, as a {@link lookFor} override. Another kind than a person reads the skin pick
+ * from its own palette, so it needs the agent's look index `base` when no skin was picked.
+ */
+export function pickedLook(
+  p: { kind?: number; style?: number; hair?: number; skin?: number; shirt?: number } | undefined,
+  base = 0,
+): Partial<Look> {
   if (!p) return {};
   const out: Partial<Look> = {};
+  if (p.kind) {
+    out.kind = p.kind;
+    out.skin = hideOf(p.kind, p.skin ?? lookIndex(base).skin);
+    out.skinDark = shade(out.skin, 0.75);
+  }
   if (p.style != null) out.style = at([0, 1, 2, 3], p.style);
   if (p.hair != null) {
     out.hair = at(HAIR, p.hair);
     out.hairDark = shade(out.hair, 0.7);
   }
-  if (p.skin != null) {
+  if (p.skin != null && !p.kind) {
     out.skin = at(SKIN, p.skin);
     out.skinDark = shade(out.skin, 0.82);
   }
@@ -64,6 +96,7 @@ export function lookFor(i: number, color: string, override: Partial<Look> = {}):
     accent: color,
     accentDark: shade(color, 0.55),
     style: ((i % 4) + 4) % 4,
+    kind: 0,
     ...override,
   };
 }
@@ -77,7 +110,7 @@ export interface Pose {
 
 export type SeatMode = "idle" | "work" | "done" | "alert" | "nap";
 
-export function styleFrontBack(L: number, T: number, k: Look, back: boolean): [Box[], Rect[]] {
+function styleFrontBack(L: number, T: number, k: Look, back: boolean): [Box[], Rect[]] {
   switch (k.style) {
     case 0:
       return [
@@ -93,6 +126,152 @@ export function styleFrontBack(L: number, T: number, k: Look, back: boolean): [B
     default:
       return [[], [[L + 1, T, 8, back ? 3 : 2, k.accent], [L + 1, T + (back ? 3 : 2), 8, 1, k.accentDark]]];
   }
+}
+
+/** A robot's antenna, a cat's ears or an alien's feelers, on top of the head. */
+function crown(L: number, T: number, k: Look, side: boolean): [Box[], Rect[]] {
+  if (k.kind === 1) return [[[L + 4, T - 2, 2, 2]], [[L + 4, T - 2, 2, 1, k.accent], [L + 4, T - 1, 2, 1, k.skinDark]]];
+  if (k.kind === 2) {
+    if (side) return [[[L + 3, T - 2, 2, 2]], [[L + 3, T - 2, 2, 2, k.skin], [L + 4, T - 1, 1, 1, PINK]]];
+    return [
+      [[L + 1, T - 2, 2, 2], [L + 7, T - 2, 2, 2]],
+      [
+        [L + 1, T - 2, 2, 2, k.skin],
+        [L + 7, T - 2, 2, 2, k.skin],
+        [L + 2, T - 1, 1, 1, PINK],
+        [L + 7, T - 1, 1, 1, PINK],
+      ],
+    ];
+  }
+  if (k.kind === 3) {
+    const xs = side ? [L + 5] : [L + 2, L + 7];
+    return [
+      xs.map((x): Box => [x, T - 3, 1, 3]),
+      xs.flatMap((x): Rect[] => [[x, T - 2, 1, 2, k.skinDark], [x, T - 3, 1, 1, k.accent]]),
+    ];
+  }
+  return [[], []];
+}
+
+/**
+ * Everything of a head 8 pixels square at (L + 1, T), or 7 wide from L + 2 seen from the side: face, hair or what a
+ * robot, cat or alien has instead, and a person's hairstyle. Painted after the body, since long hair falls over it.
+ */
+export function head(L: number, T: number, k: Look, view: "front" | "back" | "side"): [Box[], Rect[]] {
+  const light = shade(k.skin, 1.18);
+  let f: Rect[];
+  if (k.kind === 1) {
+    f =
+      view === "side"
+        ? [
+            [L + 2, T, 7, 8, k.skin],
+            [L + 2, T, 7, 1, light],
+            [L + 2, T + 7, 7, 1, k.skinDark],
+            [L + 5, T + 3, 4, 2, VISOR],
+            [L + 7, T + 3, 1, 1, k.accent],
+            [L + 3, T + 3, 2, 2, k.skinDark],
+          ]
+        : view === "back"
+          ? [
+              [L + 1, T, 8, 8, k.skin],
+              [L + 1, T, 8, 1, light],
+              [L + 1, T + 7, 8, 1, k.skinDark],
+              [L + 3, T + 2, 4, 3, k.skinDark],
+              [L + 4, T + 3, 2, 1, k.accent],
+            ]
+          : [
+              [L + 1, T, 8, 8, k.skin],
+              [L + 1, T, 8, 1, light],
+              [L + 1, T + 3, 1, 2, k.skinDark],
+              [L + 8, T + 3, 1, 2, k.skinDark],
+              [L + 2, T + 3, 6, 2, VISOR],
+              [L + 3, T + 3, 1, 1, k.accent],
+              [L + 6, T + 3, 1, 1, k.accent],
+              [L + 3, T + 6, 1, 1, k.skinDark],
+              [L + 5, T + 6, 1, 1, k.skinDark],
+              [L + 1, T + 7, 8, 1, k.skinDark],
+            ];
+  } else if (k.kind === 2) {
+    f =
+      view === "side"
+        ? [
+            [L + 2, T, 7, 8, k.skin],
+            [L + 3, T + 2, 1, 3, k.skinDark],
+            [L + 7, T + 3, 1, 2, LINE],
+            [L + 8, T + 5, 1, 1, PINK],
+            [L + 6, T + 6, 3, 1, light],
+            [L + 2, T + 7, 4, 1, k.skinDark],
+          ]
+        : view === "back"
+          ? [
+              [L + 1, T, 8, 8, k.skin],
+              [L + 3, T + 1, 1, 3, k.skinDark],
+              [L + 6, T + 1, 1, 3, k.skinDark],
+              [L + 1, T + 7, 8, 1, k.skinDark],
+            ]
+          : [
+              [L + 1, T, 8, 8, k.skin],
+              [L + 4, T, 2, 2, k.skinDark],
+              [L + 3, T + 3, 1, 2, LINE],
+              [L + 6, T + 3, 1, 2, LINE],
+              [L + 4, T + 5, 2, 1, PINK],
+              [L + 3, T + 6, 4, 1, light],
+              [L + 2, T + 7, 6, 1, k.skinDark],
+            ];
+  } else if (k.kind === 3) {
+    f =
+      view === "side"
+        ? [
+            [L + 2, T, 7, 8, k.skin],
+            [L + 6, T + 3, 2, 3, LINE],
+            [L + 6, T + 3, 1, 1, SHINE],
+            [L + 5, T + 7, 4, 1, k.skinDark],
+          ]
+        : view === "back"
+          ? [
+              [L + 1, T, 8, 8, k.skin],
+              [L + 1, T + 7, 8, 1, k.skinDark],
+            ]
+          : [
+              [L + 1, T, 8, 8, k.skin],
+              [L + 2, T + 3, 2, 3, LINE],
+              [L + 6, T + 3, 2, 3, LINE],
+              [L + 2, T + 3, 1, 1, SHINE],
+              [L + 6, T + 3, 1, 1, SHINE],
+              [L + 4, T + 6, 2, 1, k.skinDark],
+              [L + 2, T + 7, 6, 1, k.skinDark],
+            ];
+  } else {
+    f =
+      view === "side"
+        ? [
+            [L + 2, T, 7, 8, k.skin],
+            [L + 2, T, 7, 3, k.hair],
+            [L + 2, T + 3, 3, 4, k.hair],
+            [L + 2, T + 6, 3, 1, k.hairDark],
+            [L + 4, T + 4, 1, 2, k.skinDark],
+            [L + 7, T + 4, 1, 2, LINE],
+            [L + 5, T + 7, 4, 1, k.skinDark],
+          ]
+        : view === "back"
+          ? [
+              [L + 1, T, 8, 8, k.hair],
+              [L + 1, T + 7, 8, 1, k.hairDark],
+            ]
+          : [
+              [L + 1, T, 8, 8, k.skin],
+              [L + 1, T, 8, 3, k.hair],
+              [L + 1, T + 3, 1, 2, k.hair],
+              [L + 8, T + 3, 1, 2, k.hair],
+              [L + 3, T + 4, 1, 2, LINE],
+              [L + 6, T + 4, 1, 2, LINE],
+              [L + 2, T + 7, 6, 1, k.skinDark],
+            ];
+    const [es, ef] = view === "side" ? styleSide(L, T, k) : styleFrontBack(L, T, k, view === "back");
+    return [es, [...f, ...ef]];
+  }
+  const [cs, cf] = crown(L, T, k, view === "side");
+  return [cs, [...f, ...cf]];
 }
 
 function styleSide(L: number, T: number, k: Look): [Box[], Rect[]] {
@@ -117,18 +296,7 @@ function frontBack(L: number, T: number, k: Look, step: number, back: boolean, c
     [L + 3, T + 14, 2, 4 - liftL],
     [L + 5, T + 14, 2, 4 - liftR],
   ];
-  const f: Rect[] = back
-    ? [[L + 1, T, 8, 8, k.hair], [L + 1, T + 7, 8, 1, k.hairDark]]
-    : [
-        [L + 1, T, 8, 8, k.skin],
-        [L + 1, T, 8, 3, k.hair],
-        [L + 1, T + 3, 1, 2, k.hair],
-        [L + 8, T + 3, 1, 2, k.hair],
-        [L + 3, T + 4, 1, 2, LINE],
-        [L + 6, T + 4, 1, 2, LINE],
-        [L + 2, T + 7, 6, 1, k.skinDark],
-      ];
-  f.push([L + 1, T + 8, 8, 6, k.shirtDark], [L + 2, T + 8, 6, 5, k.shirt]);
+  const f: Rect[] = [[L + 1, T + 8, 8, 6, k.shirtDark], [L + 2, T + 8, 6, 5, k.shirt]];
   if (!carrying) f.push([L + 1, T + 13 - liftR, 1, 1, k.skin], [L + 8, T + 13 - liftL, 1, 1, k.skin]);
   f.push(
     [L + 3, T + 14, 2, 4 - liftL, k.pants],
@@ -136,20 +304,13 @@ function frontBack(L: number, T: number, k: Look, step: number, back: boolean, c
     [L + 3, T + 17 - liftL, 2, 1, SHOES],
     [L + 5, T + 17 - liftR, 2, 1, SHOES],
   );
-  const [es, ef] = styleFrontBack(L, T, k, back);
-  return [[...sil, ...es], [...f, ...ef]];
+  const [hs, hf] = head(L, T, k, back ? "back" : "front");
+  return [[...sil, ...hs], [...f, ...hf]];
 }
 
 function side(L: number, T: number, k: Look, step: number, carrying: boolean): [Box[], Rect[]] {
   const sil: Box[] = [[L + 2, T, 7, 8], [L + 3, T + 8, 5, 6]];
   const f: Rect[] = [
-    [L + 2, T, 7, 8, k.skin],
-    [L + 2, T, 7, 3, k.hair],
-    [L + 2, T + 3, 3, 4, k.hair],
-    [L + 2, T + 6, 3, 1, k.hairDark],
-    [L + 4, T + 4, 1, 2, k.skinDark],
-    [L + 7, T + 4, 1, 2, LINE],
-    [L + 5, T + 7, 4, 1, k.skinDark],
     [L + 3, T + 8, 5, 6, k.shirt],
     [L + 3, T + 8, 1, 6, k.shirtDark],
   ];
@@ -168,8 +329,8 @@ function side(L: number, T: number, k: Look, step: number, carrying: boolean): [
   const swing = step === 1 ? -1 : step === 2 ? 1 : 0;
   if (carrying) f.push([L + 6, T + 10, 2, 2, k.shirtDark]);
   else f.push([L + 5 + swing, T + 9, 2, 4, k.shirtDark], [L + 5 + swing, T + 13, 2, 1, k.skin]);
-  const [es, ef] = styleSide(L, T, k);
-  return [[...sil, ...es], [...f, ...ef]];
+  const [hs, hf] = head(L, T, k, "side");
+  return [[...sil, ...hs], [...f, ...hf]];
 }
 
 function flipBox(b: Box, L: number): Box {
@@ -232,12 +393,10 @@ export function drawSeated(ctx: Ctx, X: number, headTop: number, k: Look, mode: 
     [L + 9, T + 8, 1, 4, k.shirtDark],
     [L - 1, elbowL, 1, 2, k.shirtDark],
     [L + 10, elbowR, 1, 2, k.shirtDark],
-    [L + 1, T, 8, 8, k.hair],
-    [L + 1, T + 7, 8, 1, k.hairDark],
     [L + 3, T + 8, 4, 1, k.skinDark],
   ];
-  const [es, ef] = styleFrontBack(L, T, k, true);
-  paint(ctx, [...sil, ...es], [...f, ...ef]);
+  const [hs, hf] = head(L, T, k, "back");
+  paint(ctx, [...sil, ...hs], [...f, ...hf]);
   if (mode === "work") {
     const keys = headTop - 2;
     px(ctx, X - 6, keys - (up === 0 ? 1 : 0), 2, 1, k.skin);

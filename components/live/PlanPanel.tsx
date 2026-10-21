@@ -8,6 +8,7 @@ import { Placed, inStock, itemName, itemOf, newPid } from "@/lib/live/interior";
 import { PACKS, Pack, fitPlan, planCode, readPlan, undress, wearPack } from "@/lib/live/plan";
 import { ArrangeHistory } from "@/lib/live/useArrangeHistory";
 import { CafeState } from "@/lib/live/useCafe";
+import type { AgentDef } from "@/lib/types";
 import Code from "../connect/Code";
 import Sheet from "./Sheet";
 
@@ -73,7 +74,7 @@ export default function PlanPanel({
   onClose,
 }: {
   cafe: CafeState;
-  agents: string[];
+  agents: Pick<AgentDef, "id" | "key">[];
   history: ArrangeHistory;
   onMove: (p: Placed) => void;
   onClose: () => void;

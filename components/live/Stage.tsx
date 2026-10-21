@@ -389,7 +389,7 @@ export default function Stage({
           onPick={pick}
           interior={cafe.interior}
           name={cafe.title}
-          onLook={cafe.editable ? (id, look) => void cafe.setLook(id, look) : undefined}
+          onLook={cafe.editable ? (agent, look) => void cafe.setLook(agent, look) : undefined}
           placing={placing}
           onPlacing={cafe.editable ? onPlacing : undefined}
           onPlace={place}

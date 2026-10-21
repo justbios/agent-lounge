@@ -35,7 +35,7 @@ import { useChat } from "@/lib/live/useChat";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
-import { newPid } from "@/lib/live/interior";
+import { newPid, withNames } from "@/lib/live/interior";
 import { REACT_MS } from "@/lib/live/social";
 import { useGames } from "@/lib/live/useGames";
 import { useSocial } from "@/lib/live/useSocial";
@@ -308,7 +308,11 @@ export default function LiveDashboard({
     if (whole) return buildTeamModel(feed.events, team.members, ui);
     return session ? buildLiveModel(feed.events, session.id, roster, ui) : null;
   }, [playing, replay, replayEvents, whole, feed.events, team.members, session, roster, ui]);
-  const model = scene?.model ?? EMPTY[ui];
+  const model = useMemo(() => {
+    const m = scene?.model ?? EMPTY[ui];
+    const agents = withNames(m.agents, looks);
+    return agents === m.agents ? m : { ...m, agents };
+  }, [scene, ui, looks]);
   const lobbyAttn = team.on ? teamAlert(sessions, team.members) : null;
   const teamAttn = whole ? lobbyAttn : null;
   const attn = playing ? null : whole ? teamAttn?.attn : session?.attn;
@@ -501,6 +505,8 @@ export default function LiveDashboard({
       {sheet === "shop" && (
         <ShopPanel
           cafe={cafe}
+          agents={playing ? [] : model.agents}
+          seed={model.seed}
           onClose={() => setSheet(null)}
           onPlace={(item) => {
             setPlacing({ item, pid: newPid() });
@@ -511,7 +517,7 @@ export default function LiveDashboard({
       {sheet === "plan" && cafe.editable && (
         <PlanPanel
           cafe={cafe}
-          agents={model.agents.map((a) => a.id)}
+          agents={model.agents}
           history={arrangeHistory}
           onClose={() => setSheet(null)}
           onMove={(p) => {

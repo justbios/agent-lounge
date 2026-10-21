@@ -7,7 +7,20 @@ import { Two, Ui, tr, useUi } from "@/lib/i18n";
 import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
-import { BRAND, EMPTY_INTERIOR, Interior, ItemId, LookPick, Placed, itemOf, owns, titleFit } from "@/lib/live/interior";
+import type { AgentDef } from "@/lib/types";
+import {
+  BRAND,
+  EMPTY_INTERIOR,
+  Interior,
+  ItemId,
+  LookPick,
+  Placed,
+  agentName,
+  itemOf,
+  lookOf,
+  owns,
+  titleFit,
+} from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
 import { visitAt } from "@/lib/live/visitors";
 import type { Eta } from "@/lib/live/eta";
@@ -135,7 +148,7 @@ export default function CafeScene({
   /** the big line of the sign, when it is not the room's own name */
   name?: string;
   /** lets the agent card change an agent's look */
-  onLook?: (agent: string, pick: LookPick | null) => void;
+  onLook?: (agent: AgentDef, pick: LookPick | null) => void;
   placing?: Placing | null;
   /** picks a standing piece up by dragging it, or drops it back with null */
   onPlacing?: (p: Placing | null) => void;
@@ -220,9 +233,9 @@ export default function CafeScene({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    const faces = agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(looks[a.id])));
-    const props = agents.map((a) => looks[a.id]?.prop);
-    const named = agents.map((a) => ({ ...a, name: looks[a.id]?.name ?? a.name }));
+    const faces = agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(lookOf(looks, a), a.look ?? i)));
+    const props = agents.map((a) => lookOf(looks, a)?.prop);
+    const named = agents.map((a) => ({ ...a, name: agentName(a, lookOf(looks, a)) }));
     const room = buildRoom(lay, agents, model.seed, th, props);
     const pin = (el: HTMLElement | null, p: Point) => {
       if (!el) return;
@@ -284,7 +297,7 @@ export default function CafeScene({
     return () => cancelAnimationFrame(raf);
   }, [model, agents, lay, tl, cat, cat2, goldCat, th, looks]);
 
-  const nameOf = (i: number) => looks[agents[i].id]?.name ?? agents[i].name;
+  const nameOf = (i: number) => agentName(agents[i], lookOf(looks, agents[i]));
   const pointAt = (e: MouseEvent | PointerEvent): Point => {
     const r = e.currentTarget.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * lay.width, y: ((e.clientY - r.top) / r.height) * lay.height };
@@ -449,7 +462,7 @@ export default function CafeScene({
             if (talking.has(i)) return null;
             const ask = alert?.kind === "ask" && alert.agent === i;
             const warn = ask ? undefined : warns?.get(i);
-            const nick = looks[a.id]?.name;
+            const nick = lookOf(looks, a)?.name && nameOf(i);
             return (
               <span
                 key={a.id}
@@ -511,8 +524,8 @@ export default function CafeScene({
               stuck={warns?.get(selIdx)?.long}
               onPick={(i) => setSel(agents[i].id)}
               onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
-              look={looks[agents[selIdx].id]}
-              onLook={onLook && ((pick) => onLook(agents[selIdx].id, pick))}
+              look={lookOf(looks, agents[selIdx])}
+              onLook={onLook && ((pick) => onLook(agents[selIdx], pick))}
             />
           </ScenePop>
         )}

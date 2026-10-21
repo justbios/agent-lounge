@@ -54,6 +54,13 @@ Ship the code together with `supabase/migrations/0023_ask_words.sql`; reconnect 
   чату», «≥» when some of them came without a model), how much context it has used and has left, and the tokens split
   into input, cache write, cache read and output. On Pro or Max this is no bill but a share of the limit. `relay.sh`
   now adds the model's id (`claude-…`) to its token counts; nothing else of the transcript leaves the computer.
+- Names and looks follow the agent, not the desk: they are kept under the agent's type, so a bug-fixer looks the same
+  at any desk and in every chat, and a second one at work wears the same with a «2» after its name. A look kept by
+  desk number before stays until that agent is first dressed again, then moves to it.
+- An agent can be a robot, a cat or an alien besides a person, each with its own shades of metal, fur or hide; robots'
+  eyes and antennas take the agent's colour. The café's «кав'ярня» window has an «Агенти» section to name and dress
+  every agent of the chat at once, with each one drawn beside it. The name shows over the desk, in bubbles, the card,
+  the agent list and the time panel; character packs change only clothes, keeping kind, skin and name.
 
 ## 0.12.0 — not released yet
 

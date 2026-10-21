@@ -246,6 +246,8 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
     seats.push({ type, busy: false, parent: 0 });
     agents.push({
       id: `seat-${i}`,
+      key: `@${type}`,
+      ...(twins ? { twin: twins + 1 } : {}),
       name: twins ? `${type} ${twins + 1}` : type,
       role: en ? "subagent" : "субагент",
       color: hue ?? PALETTE[h % PALETTE.length],

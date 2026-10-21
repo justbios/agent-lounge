@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
-import { Interior } from "@/lib/live/interior";
+import { Interior, lookOf } from "@/lib/live/interior";
 import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
 import { drawFrame } from "./frame";
@@ -51,8 +51,14 @@ export default function MiniCafe({
     const ctx = ref.current?.getContext("2d");
     if (!ctx) return;
     const looks = interior.looks;
-    const faces = model.agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(looks[a.id])));
-    const room = buildRoom(lay, model.agents, model.seed, th, model.agents.map((a) => looks[a.id]?.prop));
+    const faces = model.agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(lookOf(looks, a), a.look ?? i)));
+    const room = buildRoom(
+      lay,
+      model.agents,
+      model.seed,
+      th,
+      model.agents.map((a) => lookOf(looks, a)?.prop),
+    );
     const furniture = standing(lay, interior.placed, decor ?? NO_DECOR);
     const draw = () => {
       const a = alertRef.current;

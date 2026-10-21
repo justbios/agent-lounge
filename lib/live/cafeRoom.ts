@@ -1,3 +1,4 @@
+import type { AgentDef } from "@/lib/types";
 import { CafeSettings, Decor, Earned, Progress, ProgressDay, decorOf, evaluate, localDay } from "./achievements";
 import {
   BEANS_FROM,
@@ -11,6 +12,8 @@ import {
   beansSpent,
   cleanInterior,
   itemOf,
+  lookKey,
+  rekey,
 } from "./interior";
 import { QUEST_BEANS, questsWon } from "./quest";
 
@@ -42,7 +45,8 @@ export interface CafeState {
   /** puts a piece down, or moves the one with the same pid */
   place: (p: Placed) => Promise<boolean>;
   stow: (pid: string) => Promise<boolean>;
-  setLook: (agent: string, pick: LookPick | null) => Promise<boolean>;
+  /** dresses one agent: kept under its own key, dropping what its desk number wore before */
+  setLook: (agent: Pick<AgentDef, "id" | "key">, pick: LookPick | null) => Promise<boolean>;
   /** the neon sign's own line, the second cat's name, the café's name and whether its pet is a dog */
   setNames: (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) => Promise<boolean>;
   /** puts every piece and look as given at once: only pieces the room owns stand, and nothing is bought */
@@ -102,10 +106,10 @@ export function cafeRoom(src: RoomSource): CafeState {
     return fit({ ...interior, placed: [...rest, p] });
   };
   const stow = (pid: string) => fit({ ...interior, placed: interior.placed.filter((q) => q.pid !== pid) });
-  const setLook = (agent: string, pick: LookPick | null) => {
-    const looks = { ...interior.looks };
-    if (pick) looks[agent] = pick;
-    else delete looks[agent];
+  const setLook = (agent: Pick<AgentDef, "id" | "key">, pick: LookPick | null) => {
+    const looks = rekey(interior.looks, [agent]);
+    if (pick) looks[lookKey(agent)] = pick;
+    else delete looks[lookKey(agent)];
     return fit({ ...interior, looks });
   };
   const setNames = (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) =>

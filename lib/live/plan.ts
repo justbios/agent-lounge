@@ -1,5 +1,17 @@
 import type { Two } from "@/lib/i18n";
-import { Interior, ItemId, LookPick, Placed, cleanInterior, decorPid, itemOf, newPid } from "./interior";
+import type { AgentDef } from "@/lib/types";
+import {
+  Interior,
+  ItemId,
+  LookPick,
+  Placed,
+  cleanInterior,
+  decorPid,
+  itemOf,
+  lookKey,
+  newPid,
+  rekey,
+} from "./interior";
 
 /** What the plan editor moves around: where each piece stands and how each agent looks. */
 export type Arrangement = Pick<Interior, "placed" | "looks">;
@@ -8,8 +20,8 @@ export interface Pack {
   id: string;
   name: Two;
   hint: Two;
-  /** handed out to the room's agents in turn; skin stays each agent's own */
-  looks: Omit<LookPick, "skin" | "name">[];
+  /** handed out to the room's agents in turn; what they are, their skin and their names stay their own */
+  looks: Omit<LookPick, "kind" | "skin" | "name">[];
 }
 
 export const PACKS: Pack[] = [
@@ -59,23 +71,34 @@ export const PACKS: Pack[] = [
   },
 ];
 
-/** Dresses the given agents from a pack in turn, keeping the names on their desk plates. */
-export function wearPack(looks: Record<string, LookPick>, agents: string[], pack: Pack): Record<string, LookPick> {
-  const out = { ...looks };
-  agents.forEach((id, i) => {
-    const name = looks[id]?.name;
-    out[id] = { ...pack.looks[i % pack.looks.length], ...(name ? { name } : {}) };
+type Wearer = Pick<AgentDef, "id" | "key">;
+
+/** What an outfit leaves alone: whether the agent is a person, a robot, a cat or an alien, its skin and its name. */
+function kept(p?: LookPick): LookPick {
+  const out: LookPick = {};
+  if (p?.kind != null) out.kind = p.kind;
+  if (p?.skin != null) out.skin = p.skin;
+  if (p?.name) out.name = p.name;
+  return out;
+}
+
+/** Dresses the given agents from a pack in turn; each keeps its kind, skin and the name on its desk plate. */
+export function wearPack(looks: Record<string, LookPick>, agents: Wearer[], pack: Pack): Record<string, LookPick> {
+  const out = rekey(looks, agents);
+  const keys = [...new Set(agents.map(lookKey))];
+  keys.forEach((k, i) => {
+    out[k] = { ...pack.looks[i % pack.looks.length], ...kept(out[k]) };
   });
   return out;
 }
 
-/** Takes the picked looks off the given agents; the names on their desk plates stay. */
-export function undress(looks: Record<string, LookPick>, agents: string[]): Record<string, LookPick> {
-  const out = { ...looks };
-  for (const id of agents) {
-    const name = looks[id]?.name;
-    if (name) out[id] = { name };
-    else delete out[id];
+/** Takes the outfits off the given agents; their kind, skin and desk plate names stay. */
+export function undress(looks: Record<string, LookPick>, agents: Wearer[]): Record<string, LookPick> {
+  const out = rekey(looks, agents);
+  for (const k of new Set(agents.map(lookKey))) {
+    const left = kept(out[k]);
+    if (Object.keys(left).length) out[k] = left;
+    else delete out[k];
   }
   return out;
 }

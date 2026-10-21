@@ -1,4 +1,5 @@
 import type { Ui } from "@/lib/i18n";
+import type { AgentDef } from "@/lib/types";
 import type { Decor } from "./achievements";
 
 /** sill — on a window sill; wall — hangs between the fixtures; floor — stands among people; rug — flat under them; perk — not placed */
@@ -72,6 +73,8 @@ export interface Placed {
 
 /** Indexes into the palettes in people.ts and desk.ts; a missing one keeps the agent's own. */
 export interface LookPick {
+  /** 0 a person · 1 a robot · 2 a cat · 3 an alien */
+  kind?: number;
   style?: number;
   hair?: number;
   skin?: number;
@@ -124,6 +127,7 @@ function cleanLook(l: unknown): LookPick | null {
   if (!l || typeof l !== "object") return null;
   const m = l as Record<string, unknown>;
   const pick: LookPick = {
+    kind: int(m.kind, 1, 3),
     style: int(m.style, 0, 3),
     hair: int(m.hair, 0, 7),
     skin: int(m.skin, 0, 4),
@@ -133,6 +137,42 @@ function cleanLook(l: unknown): LookPick | null {
   };
   for (const k of Object.keys(pick) as (keyof LookPick)[]) if (pick[k] == null) delete pick[k];
   return Object.keys(pick).length ? pick : null;
+}
+
+type Wearer = Pick<AgentDef, "id" | "key">;
+
+/** Where an agent's name and look are kept in the room: under its type, so they follow it from desk to desk. */
+export const lookKey = (a: Wearer): string => a.key ?? a.id;
+
+/** An agent's look: its own, or the one its desk number had before looks followed agents (0.12 and older). */
+export const lookOf = (looks: Record<string, LookPick>, a: Wearer): LookPick | undefined =>
+  looks[lookKey(a)] ?? looks[a.id];
+
+/** Moves the looks these agents still wear by desk number onto the agents themselves. */
+export function rekey(looks: Record<string, LookPick>, agents: Wearer[]): Record<string, LookPick> {
+  const out = { ...looks };
+  for (const a of agents) {
+    const k = lookKey(a);
+    if (k === a.id || !out[a.id]) continue;
+    out[k] ??= out[a.id];
+    delete out[a.id];
+  }
+  return out;
+}
+
+/** An agent's name with the one on its desk plate, if the café gave it one; a second agent of the type gets a 2. */
+export function agentName(a: Pick<AgentDef, "name" | "twin">, pick?: LookPick): string {
+  if (!pick?.name) return a.name;
+  return a.twin ? `${pick.name} ${a.twin}` : pick.name;
+}
+
+/** The agents under the names on their desk plates, for lists outside the scene; the same array when none has one. */
+export function withNames<T extends Pick<AgentDef, "id" | "key" | "name" | "twin">>(
+  agents: T[],
+  looks: Record<string, LookPick>,
+): T[] {
+  if (!agents.some((a) => lookOf(looks, a)?.name)) return agents;
+  return agents.map((a) => ({ ...a, name: agentName(a, lookOf(looks, a)) }));
 }
 
 /** Whatever came back from the room, cut down to what this page knows how to draw. */
