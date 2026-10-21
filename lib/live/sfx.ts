@@ -89,6 +89,8 @@ const SOUNDS = {
     tones: [{ at: 0, dur: 0.3, f: 330, to: 165, wave: "square", vol: 0.1 }],
     noise: [{ at: 0, dur: 0.2, cut: 900, vol: 0.2 }],
   },
+  /** your clock in its last ten seconds, once a second */
+  tick: { tones: [{ at: 0, dur: 0.03, f: 1760, wave: "square", vol: 0.04 }] },
   /** a countdown beat, and the go after it */
   count: { tones: [{ at: 0, dur: 0.08, f: 660, wave: "square", vol: 0.08 }] },
   go: { tones: [{ at: 0, dur: 0.18, f: 1320, wave: "square", vol: 0.09 }] },

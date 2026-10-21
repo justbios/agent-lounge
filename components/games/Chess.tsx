@@ -21,6 +21,7 @@ import { sfx } from "@/lib/live/sfx";
 import { Chess as ChessState } from "@/lib/live/useChess";
 import BoardFrame from "./BoardFrame";
 import Finale, { Mood } from "./Finale";
+import GameClock, { useTimeUp } from "./GameClock";
 import Seat, { BoardSay } from "./Seat";
 import { ChessPiece } from "./Sprite";
 import { Sparks } from "./Sparks";
@@ -107,6 +108,7 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
   const ply = b.moves.length;
   const [opened] = useState(ply);
   const fresh = ply !== opened;
+  const timeUp = useTimeUp(chess.clock, mine);
   const live = !b.winner && !note && b.turn === mine;
   const moves = live ? legal(b) : [];
   const sel = pick?.ply === ply ? pick : null;
@@ -164,23 +166,35 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
     repeat: t("нічия: позиція втретє та сама", "draw: the same position a third time"),
   };
   const status =
-    b.end === "mate"
+    b.end === "time"
       ? b.winner === mine
-        ? t("мат: перемога твоя!", "checkmate: you win!")
-        : t(`мат: ${rival.name} перемагає`, `checkmate: ${rival.name} wins`)
-      : b.end
-        ? ending[b.end]
-        : (note ??
-          (b.turn === mine
-            ? check >= 0
-              ? t("шах! твій хід", "check! your move")
-              : t("твій хід", "your move")
-            : check >= 0
-              ? t(`шах · ходить ${rival.name}`, `check · ${rival.name}’s move`)
-              : t(`ходить ${rival.name}`, `${rival.name}’s move`)));
+        ? t(`у ${rival.name} скінчився час: перемога твоя!`, `${rival.name} ran out of time: you win!`)
+        : t(`твій час скінчився: перемога ${rival.name}`, `you ran out of time: ${rival.name} wins`)
+      : b.end === "mate"
+        ? b.winner === mine
+          ? t("мат: перемога твоя!", "checkmate: you win!")
+          : t(`мат: ${rival.name} перемагає`, `checkmate: ${rival.name} wins`)
+        : b.end
+          ? ending[b.end]
+          : (note ??
+            (b.turn === mine
+              ? check >= 0
+                ? t("шах! твій хід", "check! your move")
+                : t("твій хід", "your move")
+              : check >= 0
+                ? t(`шах · ходить ${rival.name}`, `check · ${rival.name}’s move`)
+                : t(`ходить ${rival.name}`, `${rival.name}’s move`)));
   const end: Mood | null = b.winner ? (b.winner === "draw" ? "draw" : b.winner === mine ? "win" : "lose") : null;
   const mood = end ?? (live ? "go" : null);
-  const verdict = { win: t("Мат! Перемога", "Checkmate! You win"), lose: t("Мат", "Checkmate"), draw: t("Нічия", "Draw") };
+  const verdict =
+    b.end === "time"
+      ? { win: t("Перемога за часом!", "Won on time!"), lose: t("Час скінчився", "Out of time"), draw: "" }
+      : { win: t("Мат! Перемога", "Checkmate! You win"), lose: t("Мат", "Checkmate"), draw: t("Нічия", "Draw") };
+  const clock = (side: Side) =>
+    chess.clock && (
+      <GameClock clock={chess.clock} side={side} turn={b.turn} over={!!b.winner || m.gone} mine={side === mine} />
+    );
+  const waitClock = t("годинник піде після першого ходу білих", "the clocks start after white’s first move");
   const order = Array.from({ length: N * N }, (_, i) => (flip ? N * N - 1 - i : i));
   const promoting = sel?.to != null;
 
@@ -191,6 +205,7 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
         on={!b.winner && b.turn === theirs}
         won={b.winner === theirs}
         mark={<ChessPiece kind="k" white={theirs === "x"} className="seat-piece" />}
+        clock={clock(theirs)}
       >
         <Taken b={b} side={theirs} />
       </Seat>
@@ -257,7 +272,7 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
             </button>
           </div>
         )}
-        {fresh && end && <Finale mood={end} text={verdict[end]} />}
+        {(fresh || timeUp) && end && <Finale mood={end} text={verdict[end]} />}
       </BoardFrame>
       <Seat
         name={m.x.id === self ? m.x.name : m.o.name}
@@ -265,10 +280,11 @@ export default function Chess({ chess, self, note }: { chess: ChessState; self: 
         on={!b.winner && b.turn === mine}
         won={b.winner === mine}
         mark={<ChessPiece kind="k" white={mine === "x"} className="seat-piece" />}
+        clock={clock(mine)}
       >
         <Taken b={b} side={mine} />
       </Seat>
-      <BoardSay text={status} mood={mood} />
+      <BoardSay text={chess.clock && !ply && !note ? `${status} · ${waitClock}` : status} mood={mood} />
       <Moves san={b.san} />
     </div>
   );

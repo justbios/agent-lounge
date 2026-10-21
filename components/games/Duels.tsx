@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { RotateCcw, Timer, Volume2, VolumeX } from "lucide-react";
 import { useTr, useUi } from "@/lib/i18n";
-import { DuelKind, LiveDuel, duelName } from "@/lib/live/duel";
+import { setClockPick, useClockPick } from "@/lib/live/clock";
+import { CLOCKS, DuelKind, LiveDuel, TIMED, duelName } from "@/lib/live/duel";
 import { setSfxOn, unlockSfx, useSfxOn } from "@/lib/live/sfx";
 import { Guest } from "@/lib/live/social";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
@@ -29,6 +30,34 @@ function SoundButton() {
     <button className="btn btn-ic" onClick={() => setSfxOn(!on)} title={label} aria-label={label}>
       {on ? <Volume2 size={14} /> : <VolumeX size={14} />}
     </button>
+  );
+}
+
+/** The clock chess and draughts are offered with: none, or minutes a side. */
+function ClockPick() {
+  const t = useTr();
+  const pick = useClockPick();
+  return (
+    <div
+      className="clock-pick"
+      role="radiogroup"
+      aria-label={t("годинник для шахів і шашок", "clock for chess and checkers")}
+    >
+      <span>
+        <Timer size={13} /> {t("шахи й шашки", "chess and checkers")}
+      </span>
+      {CLOCKS.map((s) => (
+        <button
+          key={s}
+          className={`btn${s === pick ? " on" : ""}`}
+          role="radio"
+          aria-checked={s === pick}
+          onClick={() => setClockPick(s)}
+        >
+          {s ? t(`${s / 60} хв`, `${s / 60} min`) : t("без годинника", "no clock")}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -104,6 +133,7 @@ export default function Duels({
   const ui = useUi();
   const t = useTr();
   const board = useRef<HTMLDivElement>(null);
+  const pick = useClockPick();
   useEffect(() => {
     window.addEventListener("pointerdown", unlockSfx, true);
     window.addEventListener("keydown", unlockSfx, true);
@@ -150,6 +180,8 @@ export default function Duels({
       </div>
     );
   }
+  const gameName = (g: { kind: DuelKind; clock?: number }) =>
+    duelName(g.kind, ui) + (g.clock ? t(` на ${g.clock / 60} хв`, ` on ${g.clock / 60} min`) : "");
   if (!online) {
     return (
       <p className="alerts-hint">
@@ -165,26 +197,38 @@ export default function Duels({
       {duels.waiting ? (
         <div className="ttt-wait">
           {t(
-            `Чекаю, поки ${duels.waiting.to.name} погодиться на ${duelName(duels.waiting.kind, ui)}…`,
-            `Waiting for ${duels.waiting.to.name} to say yes to ${duelName(duels.waiting.kind, ui)}…`,
+            `Чекаю, поки ${duels.waiting.to.name} погодиться на ${gameName(duels.waiting)}…`,
+            `Waiting for ${duels.waiting.to.name} to say yes to ${gameName(duels.waiting)}…`,
           )}{" "}
           <button className="btn" onClick={duels.close}>
             {t("скасувати", "cancel")}
           </button>
         </div>
       ) : guests.length ? (
-        <ul className="duel-guests">
-          {guests.map((g) => (
-            <li key={g.id}>
-              <span>{g.name}</span>
-              {KINDS.map((k) => (
-                <button key={k} className="btn" onClick={() => duels.invite(k, g)}>
-                  {duelName(k, ui)}
-                </button>
-              ))}
-            </li>
-          ))}
-        </ul>
+        <>
+          <ClockPick />
+          <ul className="duel-guests">
+            {guests.map((g) => (
+              <li key={g.id}>
+                <span>{g.name}</span>
+                {KINDS.map((k) => {
+                  const clock = TIMED.includes(k) ? pick : 0;
+                  return (
+                    <button
+                      key={k}
+                      className="btn"
+                      onClick={() => duels.invite(k, g, clock)}
+                      aria-label={clock ? gameName({ kind: k, clock }) : undefined}
+                    >
+                      {duelName(k, ui)}
+                      {clock > 0 && <small className="clock-tag">{clock / 60}′</small>}
+                    </button>
+                  );
+                })}
+              </li>
+            ))}
+          </ul>
+        </>
       ) : (
         <p className="alerts-hint">
           {t(

@@ -12,12 +12,19 @@ the commit `vX.Y.Z`.
   the whole job. `PreToolUse` and `Stop` send the newest such line, and only it, to the café, which counts down from
   it. Before, the time saw only the agents working at that moment, so a pipeline of rounds looked minutes from done
   for hours. Reconnect to get the new hooks.
-- Games for two look and sound better: framed pixel boards, pieces with shading that slide into place, sparks on
-  captures and check, a win or lose finale, a proper air-hockey table, an arcade Pong, chiptune sounds made with Web
-  Audio, and a sound switch next to full screen.
+- Games for two look and sound better: pieces slide into place, captures burst in sparks, a king in check glows red,
+  a win or lose finale, a proper air-hockey table, an arcade Pong, chiptune sounds made with Web Audio, and a sound
+  switch next to full screen. Chess and draughts keep the plain pixel pieces and flat board they came with, now in a
+  frame that has the files and ranks round it and turns gold on your move.
 - Play again: when a game ends, «ще раз» asks the same opponent for another round of it without going back to the
   list. They answer on the board, or in the invite if they closed it; if both press it at once, they land in the same
   game. The invite carries an `again` field that older cafés ignore.
+- Chess and draughts on a clock, as in blitz: pick 1, 2, 3, 5 or 10 minutes a side above the invite buttons. A clock
+  runs only on its side's move, from White's first move on, and whoever runs out first loses. Each screen times its
+  own player and sends each move's cost with the move, so the delay on the way is never charged; a side that has gone
+  quiet is called out 3 seconds past zero by the other screen. The invite and its accept carry `clock`, and a café
+  without clocks leaves it out of its accept, so neither side times that game. A rematch keeps the clock.
+- Fixed: over a finished game whose board was still open, a new invite (not a rematch) never showed.
 
 ## 0.10.0 — not released yet
 

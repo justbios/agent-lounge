@@ -8,18 +8,43 @@ import { sfx } from "@/lib/live/sfx";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
 import BoardFrame from "./BoardFrame";
 import Finale, { Mood } from "./Finale";
+import GameClock, { useTimeUp } from "./GameClock";
 import Seat, { BoardSay } from "./Seat";
 import { Sparks } from "./Sparks";
-import { Sprite } from "./Sprite";
-import { MAN, MAN_BLACK, MAN_KING, MAN_WHITE } from "./sprites";
 import { useNewMoves } from "./useNewMoves";
 import { useSlide } from "./useSlide";
 
 /** a hop of a slide takes this long, so a piece taken on the way goes when the jumper passes it */
 const HOP_MS = 130;
 
+const disc = (r: number) =>
+  Array.from({ length: 11 }, (_, y) => {
+    const dy = y - 5;
+    return dy * dy > r * r ? null : { y, x: Math.round(5.5 - Math.sqrt(r * r - dy * dy)) };
+  }).filter((v) => v !== null);
+const OUTER = disc(5.5);
+const INNER = disc(4.5);
+
 function Man({ white, king, className = "man" }: { white: boolean; king: boolean; className?: string }) {
-  return <Sprite rows={king ? MAN_KING : MAN} palette={white ? MAN_WHITE : MAN_BLACK} className={className} />;
+  const [fill, rim] = white ? ["#f6f1e4", "#c9bfa8"] : ["#463c62", "#2a2340"];
+  return (
+    <svg className={className} viewBox="0 0 11 11" shapeRendering="crispEdges" aria-hidden>
+      {OUTER.map((r) => (
+        <rect key={`o${r.y}`} x={r.x} y={r.y} width={11 - 2 * r.x} height={1} fill="#07050d" />
+      ))}
+      {INNER.map((r) => (
+        <rect key={`i${r.y}`} x={r.x} y={r.y} width={11 - 2 * r.x} height={1} fill={r.y > 7 ? rim : fill} />
+      ))}
+      {king && (
+        <g fill="#d9a21b">
+          <rect x={3} y={6} width={5} height={1} />
+          <rect x={3} y={4} width={1} height={2} />
+          <rect x={5} y={3} width={1} height={3} />
+          <rect x={7} y={4} width={1} height={2} />
+        </g>
+      )}
+    </svg>
+  );
 }
 
 const kings = (b: ChkBoard, s: Side) => b.cells.filter((p) => owner(p) === s && isKing(p)).length;
@@ -63,6 +88,8 @@ export default function Checkers({ chk, self, note }: { chk: CheckersState; self
   const ply = b.moves.length;
   const [opened] = useState(ply);
   const fresh = ply !== opened;
+  const timeUp = useTimeUp(chk.clock, mine);
+  const out = chk.clock?.out;
   useSlide(grid, ply, last.length ? [last] : [], flip);
 
   useNewMoves(b, ply, (now, before, soon) => {
@@ -99,19 +126,30 @@ export default function Checkers({ chk, self, note }: { chk: CheckersState; self
   const status =
     b.winner === "draw"
       ? t("нічия: 15 ходів самими дамками", "draw: 15 moves with only kings")
-      : b.winner
-        ? b.winner === mine
-          ? t("перемога твоя!", "you win!")
-          : t(`перемога: ${rival.name}`, `${rival.name} wins`)
-        : (note ??
-          (b.turn === mine
-            ? path.length > 1
-              ? t("бий далі", "keep jumping")
-              : t("твій хід", "your move")
-            : t(`ходить ${rival.name}`, `${rival.name}’s move`)));
+      : out
+        ? out === mine
+          ? t(`твій час скінчився: перемога ${rival.name}`, `you ran out of time: ${rival.name} wins`)
+          : t(`у ${rival.name} скінчився час: перемога твоя!`, `${rival.name} ran out of time: you win!`)
+        : b.winner
+          ? b.winner === mine
+            ? t("перемога твоя!", "you win!")
+            : t(`перемога: ${rival.name}`, `${rival.name} wins`)
+          : (note ??
+            (b.turn === mine
+              ? path.length > 1
+                ? t("бий далі", "keep jumping")
+                : t("твій хід", "your move")
+              : t(`ходить ${rival.name}`, `${rival.name}’s move`)));
   const end: Mood | null = b.winner ? (b.winner === "draw" ? "draw" : b.winner === mine ? "win" : "lose") : null;
   const mood = end ?? (live ? "go" : null);
-  const verdict = { win: t("Перемога!", "You win!"), lose: t("Поразка", "You lose"), draw: t("Нічия", "Draw") };
+  const verdict = out
+    ? { win: t("Перемога за часом!", "Won on time!"), lose: t("Час скінчився", "Out of time"), draw: "" }
+    : { win: t("Перемога!", "You win!"), lose: t("Поразка", "You lose"), draw: t("Нічия", "Draw") };
+  const clock = (side: Side) =>
+    chk.clock && (
+      <GameClock clock={chk.clock} side={side} turn={b.turn} over={!!b.winner || m.gone} mine={side === mine} />
+    );
+  const waitClock = t("годинник піде після першого ходу білих", "the clocks start after white’s first move");
   const order = Array.from({ length: N * N }, (_, i) => (flip ? N * N - 1 - i : i));
 
   return (
@@ -121,6 +159,7 @@ export default function Checkers({ chk, self, note }: { chk: CheckersState; self
         on={!b.winner && b.turn === theirs}
         won={b.winner === theirs}
         mark={<Man white={theirs === "x"} king={false} className="seat-man" />}
+        clock={clock(theirs)}
       >
         <Took b={b} side={theirs} />
       </Seat>
@@ -175,9 +214,7 @@ export default function Checkers({ chk, self, note }: { chk: CheckersState; self
             );
           })}
         </div>
-        {fresh && end && (
-          <Finale mood={end} text={verdict[end]} />
-        )}
+        {(fresh || timeUp) && end && <Finale mood={end} text={verdict[end]} />}
       </BoardFrame>
       <Seat
         name={m.x.id === self ? m.x.name : m.o.name}
@@ -185,10 +222,11 @@ export default function Checkers({ chk, self, note }: { chk: CheckersState; self
         on={!b.winner && b.turn === mine}
         won={b.winner === mine}
         mark={<Man white={mine === "x"} king={false} className="seat-man" />}
+        clock={clock(mine)}
       >
         <Took b={b} side={mine} />
       </Seat>
-      <BoardSay text={status} mood={mood} />
+      <BoardSay text={chk.clock && !ply && !note ? `${status} · ${waitClock}` : status} mood={mood} />
     </div>
   );
 }

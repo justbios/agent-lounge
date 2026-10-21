@@ -10,6 +10,7 @@ export default function Seat({
   on,
   won,
   mark,
+  clock,
   children,
 }: {
   name: string;
@@ -18,6 +19,8 @@ export default function Seat({
   on: boolean;
   won?: boolean;
   mark: ReactNode;
+  /** their clock, in a game on one; it lights up in place of the to-move tag */
+  clock?: ReactNode;
   /** what they have taken */
   children?: ReactNode;
 }) {
@@ -30,8 +33,9 @@ export default function Seat({
         {you && <em>{t("ти", "you")}</em>}
       </span>
       <span className="seat-took">{children}</span>
-      {on && <span className="seat-turn">{t("ходить", "to move")}</span>}
+      {on && !clock && <span className="seat-turn">{t("ходить", "to move")}</span>}
       {won && <span className="seat-turn">{t("перемога", "winner")}</span>}
+      {clock}
     </div>
   );
 }

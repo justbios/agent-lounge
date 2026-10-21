@@ -7,8 +7,11 @@ export type Kind = "k" | "q" | "r" | "b" | "n" | "p";
 export type Promo = "q" | "r" | "b" | "n";
 /** from, to, and the promotion when a pawn reaches the last rank */
 export type Move = [from: number, to: number, promo?: Promo];
-/** checkmate, stalemate, fifty quiet moves, too little left to mate, or the same position three times */
-export type End = "mate" | "stalemate" | "fifty" | "material" | "repeat";
+/**
+ * checkmate, stalemate, fifty quiet moves, too little left to mate, or the same position three times; or a clock run
+ * out, which only the clock sets
+ */
+export type End = "mate" | "stalemate" | "fifty" | "material" | "repeat" | "time";
 
 export interface ChessBoard {
   id: string;
