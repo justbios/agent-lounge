@@ -20,6 +20,7 @@ import { buildTeamModel, memberOf, teamAlert } from "@/lib/live/teamModel";
 import { Replay, makeReplay, replayAt } from "@/lib/live/replay";
 import { useAlerts } from "@/lib/live/useAlerts";
 import { useAsks } from "@/lib/live/useAsks";
+import { useLimitResets } from "@/lib/live/useLimitResets";
 import { useAccess } from "@/lib/live/access";
 import { settledAsks } from "@/lib/live/asks";
 import { awayEmpty, awaySummary, dismissAway, useAway } from "@/lib/live/away";
@@ -58,7 +59,7 @@ import GamesPanel from "./live/GamesPanel";
 import House, { ACTIVE_MS } from "./live/House";
 import InviteToast from "./live/InviteToast";
 import TurnToast from "./live/TurnToast";
-import { LimitsMini } from "./live/Limits";
+import { LimitToast, LimitsMini } from "./live/Limits";
 import Presence from "./live/Presence";
 import SceneMenu from "./live/SceneMenu";
 import RecapPanel from "./live/RecapPanel";
@@ -353,6 +354,7 @@ export default function LiveDashboard({
     .map((r) => ({ ...r, seat: model.agents.findIndex((a) => a.id === r.agent) }))
     .filter((r) => r.seat >= 0);
   const myLimits = limits.find((l) => l.member === (team.me ?? "")) ?? limits[0] ?? null;
+  const [limitReset, dismissReset] = useLimitResets(viewing ? null : myLimits, push.state === "on");
   const staleHidden = useStaleHidden();
   const stale = useMemo(() => (viewing ? null : staleVersion(feed.events, team.me)), [viewing, feed.events, team.me]);
 
@@ -534,6 +536,16 @@ export default function LiveDashboard({
             setSheet("myAch");
           }}
           onDismiss={rooms.dismiss}
+        />
+      )}
+      {limitReset && !rooms.fresh.length && (
+        <LimitToast
+          reset={limitReset}
+          onOpen={() => {
+            dismissReset();
+            setRecapOpen(true);
+          }}
+          onDismiss={dismissReset}
         />
       )}
 

@@ -32,6 +32,15 @@ Ship the code together with `supabase/migrations/0023_ask_words.sql`; reconnect 
   answered; two notes up for an answer, two down for a turn that broke off.
 - Fixed: the English café showed what Claude waits on in Ukrainian, and a turn that broke off on the limit or an error
   was flagged as a green «your turn»; it is red now.
+- When your limits run out: each gauge carries a faint stretch up to where the window stands at its reset at this pace,
+  red when it runs out first, and the day recap says it in words («у темпі останньої години закінчиться о 16:40, за
+  1 год до скидання» or «вистачить до скидання, буде близько 64%»). The 5-hour window goes by the last hour of
+  snapshots and says nothing while Claude rests; the week goes by its average since it began. Everything comes from
+  the snapshots the status line already sends; `SubagentStop` now sends them too, so a long pipeline stays fresh.
+- A ping when a limit window starts over, if it was at least 70% full or Claude had run into it: a green toast in the
+  café, a four-note chime with the sound on, and a notification with desktop notifications or push on. It comes only
+  while a café tab is open, which shows the notification itself: nothing reaches the server at that moment, so a push
+  to a closed phone would need a scheduled job.
 
 ## 0.12.0 — not released yet
 

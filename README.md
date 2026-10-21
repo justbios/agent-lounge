@@ -16,7 +16,8 @@ whole team from `.claude/agents` has a desk, even before it's called.
   rounds it hasn't started yet included; the café counts down from there. Click it for each agent's time left, from
   the steps on its task list or how long its jobs usually take. `RELAY_CHECKIN=0` turns the questions off.
 - **Pings:** a sound and a phone push when Claude asks for permission or finishes its answer.
-- **Tokens and limits:** tokens per agent and chat, and your 5-hour and weekly subscription limits.
+- **Tokens and limits:** tokens per agent and chat, and your 5-hour and weekly subscription limits, with when they
+  run out at your pace and a ping when they reset.
 - **Teams:** several people connect their Claude to one café, each on their own floor.
 - **For the waiting:** a daily recap, achievements, furniture you earn with work, and mini-games with whoever is watching.
 
