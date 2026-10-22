@@ -56,13 +56,28 @@ export async function signWith(secret: string, message: string): Promise<string>
   return hex(await crypto.subtle.sign("HMAC", k, bytes(message)));
 }
 
+/** Files a computer's answer key under its id, and gives the id back. */
+async function file(secret: string): Promise<string> {
+  const kid = await kidOf(secret);
+  save({ ...(keys ?? load()), [kid]: secret });
+  return kid;
+}
+
 /** A pairing link /#pair=<key> files the key and leaves the address bar at once, before anything else reads it. */
 function takeFromHash() {
   const m = PAIR.exec(location.hash);
   if (!m) return;
   history.replaceState(null, "", location.pathname + location.search);
-  const secret = m[1];
-  void kidOf(secret).then((kid) => save({ ...(keys ?? load()), [kid]: secret }));
+  void file(m[1]);
+}
+
+/**
+ * A pairing link pasted by hand: a home-screen app on iPhone keeps its own storage and opens no links, so this is how
+ * it gets a computer's key. The key's id, or null when the text holds no pairing link.
+ */
+export async function pairFrom(text: string): Promise<string | null> {
+  const m = PAIR.exec(text.trim());
+  return m ? file(m[1]) : null;
 }
 
 function snapshot(): Record<string, string> {

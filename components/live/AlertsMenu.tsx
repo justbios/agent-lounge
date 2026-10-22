@@ -8,6 +8,7 @@ import { chime, unlockChime } from "@/lib/live/chime";
 import { setAlertPrefs, useAlertPrefs } from "@/lib/live/useAlerts";
 import { Asks } from "@/lib/live/useAsks";
 import { PushControl } from "@/lib/live/usePush";
+import PairPaste from "./PairPaste";
 
 function PushSection({ push }: { push: PushControl }) {
   const t = useTr();
@@ -97,10 +98,10 @@ function AwaySection({ asks }: { asks: Asks }) {
       )
     : tr(
         ui,
-        "Цей браузер ще не спарено з жодним комп'ютером: на комп'ютері запусти /agent-lounge:away pair і відкрий " +
-          "посилання тут.",
-        "This browser isn't paired with any computer yet: on the computer, run /agent-lounge:away pair and open the " +
-          "link here.",
+        "Цей браузер ще не спарено з жодним комп'ютером: на комп'ютері запусти /agent-lounge:away pair у Claude Code " +
+          "або sh ~/.config/relay/relay.sh pair у терміналі й відкрий посилання тут.",
+        "This browser isn't paired with any computer yet: on the computer, run /agent-lounge:away pair in Claude " +
+          "Code or sh ~/.config/relay/relay.sh pair in a terminal, and open the link here.",
       );
   return (
     <>
@@ -124,6 +125,7 @@ function AwaySection({ asks }: { asks: Asks }) {
         </span>
       </label>
       <p className="alerts-hint">{paired}</p>
+      <PairPaste />
     </>
   );
 }

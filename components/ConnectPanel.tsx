@@ -262,6 +262,19 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
                 "apart from Safari.",
             )}
           </p>
+          <p className="step-p">
+            {t(
+              "Щоб відповідати Claude з телефона, спари його з цим комп'ютером: у терміналі запусти ",
+              "To answer Claude from the phone, pair it with this computer: in a terminal, run ",
+            )}
+            <code>sh ~/.config/relay/relay.sh pair</code>
+            {t(
+              " і відкрий посилання на телефоні там само, де кафе. У застосунку з іконки посилання не відкриється: " +
+                "встав його в «сповіщення», у поле під «Я не за комп'ютером».",
+              " and open the link on the phone where the café is. A home-screen app won't open it: paste it in " +
+                "“notifications”, in the field under “I'm away”.",
+            )}
+          </p>
         </div>
       </div>
 

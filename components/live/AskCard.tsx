@@ -5,6 +5,7 @@ import { ShieldQuestion } from "lucide-react";
 import { Two, Ui, useTr, useUi } from "@/lib/i18n";
 import { Ask, ASK_MS, AskQuestion, OWN_MAX, recommended } from "@/lib/live/asks";
 import { Asks } from "@/lib/live/useAsks";
+import PairPaste from "./PairPaste";
 
 const clock = (t: number, ui: Ui) =>
   new Date(t).toLocaleTimeString(ui === "en" ? "en-GB" : "uk-UA", { hour: "2-digit", minute: "2-digit" });
@@ -176,13 +177,16 @@ function AskRow({
       )}
       {body?.tool === "ExitPlanMode" && <pre className="ask-plan">{body.input.plan}</pre>}
       {!asks.canAnswer(a) ? (
-        <p className="ask-note">
-          {t(
-            "Цей браузер не спарено з комп'ютером, який питає, тож відповісти звідси не можна. На тому комп'ютері запусти",
-            "This browser isn't paired with the computer that's asking, so you can't answer from here. On that computer, run",
-          )}{" "}
-          <code>/agent-lounge:away pair</code> {t("і відкрий посилання тут.", "and open the link here.")}
-        </p>
+        <div className="ask-unpaired">
+          <p className="ask-note">
+            {t(
+              "Цей браузер не спарено з комп'ютером, який питає, тож відповісти звідси не можна. На тому комп'ютері запусти",
+              "This browser isn't paired with the computer that's asking, so you can't answer from here. On that computer, run",
+            )}{" "}
+            <code>sh ~/.config/relay/relay.sh pair</code> {t("і відкрий посилання тут.", "and open the link here.")}
+          </p>
+          <PairPaste />
+        </div>
       ) : body?.tool === "AskUserQuestion" ? (
         <Questions questions={body.input.questions} onReply={(answers) => asks.reply(a, answers)} />
       ) : (

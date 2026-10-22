@@ -1681,6 +1681,18 @@ body {
   font-size: 12px;
   color: #ffb4b4;
 }
+/* the pairing link pasted by hand: in the alerts menu and on an ask this browser can't answer yet */
+.pair-paste-ok {
+  font-size: 12px;
+  color: #8ee6a8;
+}
+.alerts-pop .pair-paste {
+  margin-top: 8px;
+}
+.ask-unpaired .pair-paste {
+  margin: 0;
+  padding: 0 16px 12px;
+}
 @media (max-width: 640px) {
   .bar-r {
     margin-left: 0;

@@ -4,6 +4,12 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.14.0 — not released yet
+
+- A home-screen app on iPhone can be paired too: it opens no links and keeps its own storage, so the pairing link
+  from `relay.sh pair` can now be pasted in «сповіщення» under «Я не за комп'ютером», or right on a request this
+  browser can't answer yet. The connect page's phone step says how to pair.
+
 ## 0.13.0 — not released yet
 
 Ship the code together with `supabase/migrations/0023_ask_words.sql`; reconnect to get `relay.sh` 8 and its hooks.
