@@ -57,9 +57,33 @@ body {
   border-radius: 12px;
   display: grid;
   place-items: center;
-  color: #0a0a12;
-  background: linear-gradient(135deg, #8b6dff, #22d3ee);
+  flex: none;
+  border: 2px solid #4a36aa;
+  background: #110d20;
   box-shadow: 0 0 24px -6px rgba(124, 92, 255, 0.7);
+}
+/* Claude reports here: a lit dot and the word, so it reads at a glance */
+.btn.conn-on {
+  gap: 6px;
+  border-color: rgba(74, 222, 128, 0.55);
+  color: #4ade80;
+}
+.conn-dot {
+  width: 7px;
+  height: 7px;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+  animation: conn-pulse 2.4s ease-in-out infinite;
+}
+@keyframes conn-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conn-dot {
+    animation: none;
+  }
 }
 .brand-name {
   font-size: 18px;
@@ -3453,6 +3477,20 @@ body {
   border-color: var(--border-2);
   color: var(--text);
 }
+.ac-dress {
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
+.ac-dress button.on {
+  border-color: #ff8a2a;
+  background: rgba(255, 138, 42, 0.16);
+  color: var(--text);
+}
+.ac-dress-hint {
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
 .ac-sw {
   width: 9px;
   height: 9px;
@@ -4589,61 +4627,97 @@ body {
   height: min(60vh, 480px, calc(100vw - 52px));
   aspect-ratio: 1;
 }
-.duel-guests {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 12.5px;
+/* the games to pick from as tiles, then who to play with and the invite */
+.gtiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
 }
-.duel-guests li {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+.gtile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 8px;
+  row-gap: 2px;
+  padding: 9px 10px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s;
 }
-.duel-guests li > span {
-  min-width: 90px;
-  font-weight: 600;
+.gtile:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-2);
 }
-/* for two or for three; in a game for three, the two guests picked and the games three can play */
-.duel-mode {
-  display: inline-flex;
-  gap: 6px;
-  margin-bottom: 10px;
-  font-size: 12.5px;
-}
-.duel-mode .btn[aria-checked="true"] {
+.gtile.on {
   border-color: #ffd25a;
   background: #1d1a14;
-  color: #ffd25a;
 }
-.duel-party .alerts-hint {
-  margin: 0 0 8px;
+.gtile-ic {
+  grid-row: 1 / 4;
+  font-size: 22px;
+  line-height: 1;
 }
-.party-pick {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+.gtile b {
+  font-size: 13px;
+}
+.gtile b::first-letter {
+  text-transform: uppercase;
+}
+.gtile small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+}
+.gtile-n {
+  color: #ff7aa8;
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+.gwho {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-2);
+  border-radius: 10px;
+}
+.gwho .alerts-hint {
+  margin: 0;
+}
+.gwho .clock-pick {
+  margin-bottom: 0;
+}
+.gwho-ttl {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.gchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gchip {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
 }
-.party-pick input {
-  width: 15px;
-  height: 15px;
-  accent-color: #ff7aa8;
+.gchip.on {
+  border-color: #ff7aa8;
+  background: rgba(255, 122, 168, 0.16);
 }
-.party-pick:has(input:disabled) {
-  opacity: 0.5;
-  cursor: default;
-}
-.party-go {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
+.ggo {
+  align-self: flex-start;
 }
 /* the clock chess and draughts are offered with, and its minutes on their invite buttons */
 .clock-pick {
@@ -4792,6 +4866,14 @@ body {
   font-size: 12px;
   font-weight: 700;
   color: #e8b830;
+}
+.shop-item.halloween {
+  border-color: rgba(255, 138, 42, 0.55);
+  background: linear-gradient(135deg, rgba(255, 138, 42, 0.14), rgba(155, 93, 229, 0.08) 60%), var(--panel-2);
+}
+.shop-rare-hd.halloween {
+  margin: 0;
+  color: #ff8a2a;
 }
 .shop-item canvas {
   flex: none;
@@ -5556,9 +5638,6 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
-.games-help p {
-  margin: 0 0 4px;
-}
 .dendy {
   display: grid;
   grid-template-columns: minmax(240px, 320px) 1fr;
@@ -5762,10 +5841,22 @@ body {
   margin: 0 0 2px;
 }
 .dendy-credits {
-  margin: 0;
-  padding-left: 18px;
+  margin: 8px 0 0;
   font-size: 11.5px;
   color: var(--muted);
+}
+.dendy-credits summary {
+  cursor: pointer;
+}
+.dendy-credits ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+.dendy-keys {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
 }
 .dendy-credits a {
   color: inherit;

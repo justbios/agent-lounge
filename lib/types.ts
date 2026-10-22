@@ -68,6 +68,8 @@ export interface AgentDef {
   key?: string;
   /** live only: the second or third agent of one type working at once */
   twin?: number;
+  /** live only: in the lobby, the teammate this desk stands for */
+  member?: string;
   /** live only: the context over time, shown as the coffee pot on the desk */
   pot?: PotLevel[];
   /** live only: the context window's size, as the status line said or guessed from how much was used */

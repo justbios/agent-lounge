@@ -4,6 +4,7 @@ import { CSSProperties, useState } from "react";
 import { THEMES, THEME_IDS, ThemeId, themeOf, themeText } from "@/components/cafe/theme";
 import { Ui, useTr, useUi } from "@/lib/i18n";
 import { achText, openThemes, themeKey } from "@/lib/live/achievements";
+import { useHalloween } from "@/lib/live/season";
 import { CafeState } from "@/lib/live/useCafe";
 
 function heading(cafe: CafeState, ui: Ui): string {
@@ -35,6 +36,7 @@ export default function ThemePicker({ cafe }: { cafe: CafeState }) {
   const [busy, setBusy] = useState<ThemeId | null>(null);
   const [bad, setBad] = useState(false);
   const open = openThemes(cafe.earned);
+  const halloween = useHalloween();
   const pick = async (id: ThemeId) => {
     if (id === current || busy) return;
     setBusy(id);
@@ -46,6 +48,20 @@ export default function ThemePicker({ cafe }: { cafe: CafeState }) {
   return (
     <div className="theme-pick">
       <span className="theme-pick-ttl">{heading(cafe, ui)}</span>
+      {halloween.week && (
+        <label className="alerts-row">
+          <input type="checkbox" checked={halloween.on} onChange={halloween.toggle} />
+          <span>
+            <b>{t("🎃 Хелловінський тиждень, до 1 листопада", "🎃 Halloween week, until 1 November")}</b>
+            <small>
+              {t(
+                "за вікном кажани й гарбузи, кіт чорний, гості в костюмах; вимкнеш, і видно тему нижче. Лише в тебе.",
+                "bats and pumpkins outside, a black cat, guests in costume; off shows the theme below. Only for you.",
+              )}
+            </small>
+          </span>
+        </label>
+      )}
       <div className="theme-grid" role="radiogroup" aria-label={t("тема кафе", "café theme")}>
         {THEME_IDS.map((id) => {
           const key = open.has(id) || id === current ? null : themeKey(id);

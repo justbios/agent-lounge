@@ -35,12 +35,12 @@ import { useChat } from "@/lib/live/useChat";
 import { LiveFeed } from "@/lib/live/useLiveFeed";
 import { usePush } from "@/lib/live/usePush";
 import { useRecap } from "@/lib/live/useRecap";
-import { newPid, withNames } from "@/lib/live/interior";
+import { dressKey, newPid, wardrobeOf, withNames, wornBy } from "@/lib/live/interior";
 import { REACT_MS } from "@/lib/live/social";
 import { useGames } from "@/lib/live/useGames";
 import { useSocial } from "@/lib/live/useSocial";
 import { latestLimits, tokenRate } from "@/lib/live/usage";
-import { Placing, SceneAlert, SceneWarn } from "./cafe/CafeScene";
+import { Dressing, Placing, SceneAlert, SceneWarn } from "./cafe/CafeScene";
 import { themeOf } from "./cafe/theme";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
@@ -283,7 +283,8 @@ export default function LiveDashboard({
   const whoseTip = cafe.whose ? `: ${cafe.kind === "mine" ? t("твої", "yours") : cafe.whose}` : "";
   const lookOf = (m: string | null) => {
     const r = rooms.roomOf(m);
-    return { theme: themeOf(r.settings.theme), decor: r.decor, interior: r.interior };
+    const dress = rooms.common.interior.dress;
+    return { theme: themeOf(r.settings.theme), decor: r.decor, interior: r.interior, dress, member: m ?? "" };
   };
   const scenes = useHouseScenes(
     feed.events,
@@ -313,6 +314,21 @@ export default function LiveDashboard({
     const agents = withNames(m.agents, looks);
     return agents === m.agents ? m : { ...m, agents };
   }, [scene, ui, looks]);
+  // costumes are kept in the lobby, so anyone in the café can dress anyone's agent and everyone sees it
+  const wardrobe = useMemo(
+    () => wardrobeOf([rooms.common.interior, rooms.mine?.interior]),
+    [rooms.common.interior, rooms.mine?.interior],
+  );
+  const wearer = session ? memberOf(session) : "";
+  const keeper = rooms.common;
+  const dress = useMemo<Dressing>(
+    () => ({
+      worn: wornBy(keeper.interior.dress, wearer, model.agents),
+      owned: wardrobe,
+      set: keeper.editable ? (i, c) => void keeper.dress(dressKey(wearer, model.agents[i]), c) : undefined,
+    }),
+    [keeper, wearer, model.agents, wardrobe],
+  );
   const lobbyAttn = team.on ? teamAlert(sessions, team.members) : null;
   const teamAttn = whole ? lobbyAttn : null;
   const attn = playing ? null : whole ? teamAttn?.attn : session?.attn;
@@ -683,6 +699,7 @@ export default function LiveDashboard({
           reactions={reactions}
           onReact={(i, emoji) => social.react(sceneId, model.agents[i].id, emoji)}
           cafe={cafe}
+          dress={dress}
           sound={sound}
           empty={!session && <EmptyCafe viewing={viewing} unplugged={unplugged} offline={offline} cloud={cloud} pill={pill} />}
           below={

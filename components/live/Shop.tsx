@@ -13,6 +13,7 @@ import {
   inStock,
   itemName,
 } from "@/lib/live/interior";
+import { useHalloween } from "@/lib/live/season";
 import { CafeState } from "@/lib/live/useCafe";
 import { drawItem } from "../cafe/furniture";
 import { plural } from "./format";
@@ -23,9 +24,11 @@ const PAD = 2;
 const WHERE: Record<ItemPlace, Two> = {
   sill: { uk: "на підвіконня", en: "for the windowsill" },
   wall: { uk: "на стіну", en: "for the wall" },
+  ceiling: { uk: "під стелю", en: "for the ceiling" },
   floor: { uk: "на підлогу", en: "for the floor" },
   rug: { uk: "на підлогу, під ноги", en: "for the floor, underfoot" },
   perk: { uk: "один на кафе", en: "one per café" },
+  costume: { uk: "вдягнути будь-якому агенту", en: "for any agent to wear" },
 };
 
 function Preview({ it }: { it: ItemDef }) {
@@ -105,6 +108,7 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
       : cafe.kind === "lobby"
         ? t("команда", "The team")
         : t("власник кафе", "The café owner");
+  const week = useHalloween().week;
   const r = BEAN_RULES;
   const since = new Date(BEANS_FROM).toLocaleString(locale(ui), {
     day: "numeric",
@@ -122,20 +126,21 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
 
   const row = (it: ItemDef) => {
     const have = stock.get(it.id) ?? 0;
-    const perk = it.place === "perk";
+    const perk = it.place === "perk" || it.place === "costume";
     const got = (perk || !!it.rare) && cafe.interior.owned.includes(it.id);
-    const where = perk ? t(`один на ${per}`, `one per ${per}`) : WHERE[it.place][ui];
+    const sell = !got && (!it.season || week);
+    const where = it.place === "perk" ? t(`один на ${per}`, `one per ${per}`) : WHERE[it.place][ui];
     return (
-      <li key={it.id} className={`shop-item ${it.rare ? "rare" : ""}`}>
+      <li key={it.id} className={`shop-item ${it.rare ? "rare" : ""} ${it.season ?? ""}`}>
         <Preview it={it} />
         <div className="shop-body">
           <b>{itemName(it, ui)}</b>
           <span className="muted-sm">
             {where} · ☕ {it.price.toLocaleString(locale(ui))}
           </span>
-          {cafe.editable && (!got || (!perk && have > 0)) && (
+          {cafe.editable && (sell || (!perk && have > 0)) && (
             <div className="shop-acts">
-              {!got && (
+              {sell && (
                 <button
                   className="btn"
                   disabled={cafe.beans.left < it.price || busy != null}
@@ -170,13 +175,21 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
               onSave={(cat2Name) => cafe.setNames({ cat2Name })}
             />
           )}
-          {got && (!cafe.editable || (!perk && have === 0)) && (
+          {got && it.wear && (
+            <span className="muted-sm">
+              {t("клацни будь-якого агента, щоб перевдягти", "click any agent to dress it up")}
+            </span>
+          )}
+          {got && !it.wear && (!cafe.editable || (!perk && have === 0)) && (
             <span className="muted-sm">{t(`уже в ${here}`, `already in ${here}`)}</span>
           )}
         </div>
       </li>
     );
   };
+
+  const spooky = SHOP.filter((it) => it.season && !it.wear && (week || cafe.interior.owned.includes(it.id)));
+  const suits = SHOP.filter((it) => it.wear && (week || cafe.interior.owned.includes(it.id)));
 
   return (
     <section className="shop">
@@ -204,7 +217,31 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
         </p>
       )}
       {bad && <p className="key-paste-bad">{t("Не вдалося купити, спробуй ще раз.", "Couldn't buy it, try again.")}</p>}
-      <ul className="shop-grid">{SHOP.filter((it) => !it.rare).map(row)}</ul>
+      {spooky.length > 0 && (
+        <>
+          <h3 className="shop-rare-hd halloween">
+            {week
+              ? t(
+                  "🎃 Хелловін: продається до 1 листопада, а куплене лишається",
+                  "🎃 Halloween: on sale until 1 November, and it stays",
+                )
+              : t("🎃 Хелловін", "🎃 Halloween")}
+          </h3>
+          <ul className="shop-grid">{spooky.map(row)}</ul>
+        </>
+      )}
+      {suits.length > 0 && (
+        <>
+          <h3 className="shop-rare-hd halloween">
+            {t(
+              `👻 Костюми: по одному на ${per}, а вдягнути можна будь-якого агента, і чужого теж`,
+              `👻 Costumes: one per ${per}, for any agent to wear, someone else's too`,
+            )}
+          </h3>
+          <ul className="shop-grid">{suits.map(row)}</ul>
+        </>
+      )}
+      <ul className="shop-grid">{SHOP.filter((it) => !it.rare && !it.season).map(row)}</ul>
       <h3 className="shop-rare-hd">{t(`✦ Рідкісне: по одному на ${per}`, `✦ Rare: one per ${per}`)}</h3>
       <ul className="shop-grid">{SHOP.filter((it) => it.rare).map(row)}</ul>
     </section>

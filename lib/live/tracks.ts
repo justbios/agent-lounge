@@ -1,7 +1,7 @@
 import type { Ui } from "@/lib/i18n";
 import type { Kit } from "./music";
 
-export type TrackId = "lofi" | "rain" | "chip" | "jazz" | "synth" | "field" | "keys";
+export type TrackId = "lofi" | "rain" | "chip" | "jazz" | "synth" | "field" | "spooky" | "keys";
 
 export interface Track {
   id: Exclude<TrackId, "keys">;
@@ -9,7 +9,7 @@ export interface Track {
   /** the lowpass over the whole band: lower is warmer and more muffled */
   warmth: number;
   /** a steady sound under the music */
-  bed?: "rain";
+  bed?: "rain" | "wind";
   /** schedules bar `n`, four beats from `t`, `beat` seconds each */
   bar: (k: Kit, n: number, t: number, beat: number) => void;
 }
@@ -22,6 +22,8 @@ export interface TrackInfo {
   nameEn: string;
   mood: string;
   moodEn: string;
+  /** in the jukebox only in that week of the year (`lib/live/season.ts`) */
+  season?: "halloween";
 }
 
 /** The jukebox's records, in the order it shows them. «Лише клавіатури» plays no music, only the typing. */
@@ -38,6 +40,15 @@ export const TRACKS: TrackInfo[] = [
     nameEn: "Dawn Over the Fields",
     mood: "арфа й флейта, повільно",
     moodEn: "harp and flute, slowly",
+  },
+  {
+    id: "spooky",
+    icon: "🎃",
+    name: "Танець скелетів",
+    nameEn: "Skeleton Dance",
+    mood: "музична скринька, годинник і вітер",
+    moodEn: "a music box, a clock and the wind",
+    season: "halloween",
   },
   {
     id: "keys",
@@ -123,6 +134,30 @@ const FIELD_FLUTE: [number, number, number][][] = [
   [[79, 0, 2], [76, 2, 2]],
   [[76, 0, 1], [74, 1, 1], [73, 2, 2]],
   [[74, 0, 4]],
+];
+
+/** D minor over a bass that falls by half steps, then on through B flat to A */
+const SPOOKY = [
+  [50, 53, 57],
+  [49, 53, 57],
+  [48, 53, 57],
+  [47, 50, 53],
+  [46, 50, 53],
+  [45, 49, 52],
+  [50, 53, 57],
+  [45, 49, 55],
+];
+const SPOOKY_BASS = [38, 37, 36, 35, 34, 33, 38, 33];
+/** the music box's eight bars, one per chord: [note, beat it starts on, beats it lasts] */
+const SPOOKY_BOX: [number, number, number][][] = [
+  [[74, 0, 1], [77, 1, 1], [81, 2, 2]],
+  [[81, 0, 2], [76, 2, 1], [77, 3, 1]],
+  [[74, 0, 3], [72, 3, 1]],
+  [[71, 0, 2], [74, 2, 1], [77, 3, 1]],
+  [[77, 0, 2], [74, 2, 1], [70, 3, 1]],
+  [[73, 0, 2], [76, 2, 1], [79, 3, 1]],
+  [[81, 0, 1], [77, 1, 1], [74, 2, 2]],
+  [[73, 0, 3], [69, 3, 1]],
 ];
 
 const PLAY: Record<Track["id"], Track> = {
@@ -220,6 +255,27 @@ const PLAY: Record<Track["id"], Track> = {
       } else if (Math.random() < 0.5) {
         k.note(pick(c.slice(1)) + 12, t + b * (1 + Math.floor(Math.random() * 2)), b * 1.8, 0.04, "sine");
       }
+    },
+  },
+  spooky: {
+    id: "spooky",
+    bpm: 84,
+    warmth: 1900,
+    bed: "wind",
+    bar: (k, n, t, b) => {
+      const c = SPOOKY[n % 8];
+      k.note(SPOOKY_BASS[n % 8], t, b * 0.5, 0.2, "sine");
+      k.note(SPOOKY_BASS[n % 8], t + b * 2, b * 0.5, 0.15, "sine");
+      for (const at of [1, 3]) c.forEach((m) => k.note(m, t + at * b, b * 0.35, 0.025, "square"));
+      SPOOKY_BOX[n % 8].forEach(([m, at, len]) => {
+        k.note(m, t + at * b, len * b * 0.9, 0.05);
+        k.note(m + 12, t + at * b, len * b * 0.6, 0.015, "sine");
+      });
+      for (let i = 0; i < 4; i++) {
+        if (i % 2) k.snare(t + i * b, 0.035, 0.03);
+        else k.hat(t + i * b, 0.04, 0.025);
+      }
+      if (n % 4 === 3) k.kick(t + b * 3.5, 0.18);
     },
   },
 };

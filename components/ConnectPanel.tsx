@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Radio, ArrowLeft, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw, Puzzle } from "lucide-react";
+import { ArrowLeft, TerminalSquare, ShieldCheck, Sparkles, Smartphone, RefreshCw, Puzzle } from "lucide-react";
+import BrandCup from "./BrandCup";
 import {
   HOOK_URL,
   KEY_HEADER,
@@ -439,7 +440,7 @@ export default function ConnectPanel() {
 
       <div className="connect-head">
         <span className="brand-badge">
-          <Radio size={20} />
+          <BrandCup />
         </span>
         <div>
           <h1>{t("Підключи свій Claude", "Connect your Claude")}</h1>

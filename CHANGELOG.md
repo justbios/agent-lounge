@@ -4,6 +4,32 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.15.0 — not released yet
+
+No database change: the costumes are kept in the lobby's own room settings.
+
+- Halloween week, 25 October to 1 November (`lib/live/season.ts`): an orange moon, bats and a hill of gravestones and
+  pumpkins outside every window, whatever the café's theme; a black cat with glowing eyes instead of the ginger one;
+  guests at the bar and the courier in costumes; and «Танець скелетів» on the jukebox, with the wind behind it. Each
+  viewer can switch it off in the café's settings or with a click on the window, and turn it back on the same way.
+- The shop sells Halloween pieces until 1 November, and what was bought stays: a jack-o'-lantern for the windowsill,
+  a cobweb with a spider and a garland of bats for the ceiling, a bubbling cauldron for the floor.
+- Costumes: a witch's hat, a pumpkin head, a ghost's sheet, a vampire's cape and devil's horns with a tail. Each is one
+  per room; once bought, anyone with a key can put it on any agent from its card, in the lobby, in their own room or
+  in a teammate's, and everyone sees it, the agent's owner too. They are kept in the lobby under the teammate and the
+  agent (`dressKey` in `lib/live/interior.ts`), so a costume follows the agent into every room and onto the house's
+  floors.
+- The disco ball hangs from the ceiling now, anywhere up high and in front of the windows and the sign. It used to
+  go on the wall between the fixtures, where a small café has room for it in one narrow slot under a sconce, and
+  the bar said to click on the floor. Wall pieces now say to click on the wall, and a piece on a windowsill or in
+  front of a window opens its own menu on a click instead of changing the view outside.
+- Games for two and three are picked as tiles now: each game with its sign, a few words on how it is won and how many
+  can play. Pick a game, then one person, or two for cables and sumo, and send the invite; chess and checkers ask for
+  the clock right there. The long «Як грати» at the bottom of the games is gone; the Dendy's keys are one line under
+  its screen, and who made its games folds away under it.
+- The top bar shows the pixel cup of the app's icon instead of a radio, and a green, lit «підключено» once Claude
+  reports to the café, where there was a bare plug.
+
 ## 0.14.0 — not released yet
 
 No database change. Everyone in a café should reload it: an open tab from before can't play air hockey, ping-pong or

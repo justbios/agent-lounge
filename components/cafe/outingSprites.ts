@@ -1,5 +1,6 @@
 import { drawCupSteam } from "./ambient";
 import { Outing } from "./outing";
+import { drawCostumeLounging } from "./halloween";
 import { Look, drawPerson, head } from "./people";
 import { Box, Ctx, LINE, Rect, paint, px } from "./pixel";
 
@@ -24,6 +25,7 @@ function drawLounging(ctx: Ctx, x: number, B: number, k: Look) {
   ];
   const [hs, hf] = head(L, T, k, "front");
   paint(ctx, [...sil, ...hs], [...f, ...hf]);
+  if (k.costume) drawCostumeLounging(ctx, k.costume, x, T);
 }
 
 function drawChat(ctx: Ctx, x: number, top: number, t: number) {

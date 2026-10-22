@@ -10,11 +10,11 @@ import { Chess } from "@/lib/live/useChess";
 import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Four } from "@/lib/live/useFour";
+import { NES_GAMES } from "@/lib/live/nesGames";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import CatchCups from "../games/CatchCups";
 import Dendy from "../games/Dendy";
 import Duels from "../games/Duels";
-import GamesHelp from "../games/GamesHelp";
 
 const TOP = 5;
 const BOARDS: DuelKind[] = ["chess", "checkers", "hockey", "sumo", "four", "ttt", "pong", "cables"];
@@ -99,8 +99,36 @@ export default function GamesPanel({
           </button>
         </div>
 
+        {!scores.canRecord && (
+          <p className="alerts-hint">
+            {t(
+              "За посиланням для перегляду грати можна, але рахунок не пишеться.",
+              "On a view-only link you can play, but scores are not kept.",
+            )}
+          </p>
+        )}
+
         <Section title={t("Денді", "NES")}>
           <Dendy />
+          {NES_GAMES.length > 0 && (
+            <details className="dendy-credits">
+              <summary>{t("хто зробив ці ігри", "who made these games")}</summary>
+              <ul>
+                {NES_GAMES.map((g) => (
+                  <li key={g.id}>
+                    {g.title}: {g.author},{" "}
+                    <a href={g.licenseUrl} target="_blank" rel="noreferrer">
+                      {g.license}
+                    </a>
+                    ,{" "}
+                    <a href={g.source} target="_blank" rel="noreferrer">
+                      {t("вихідний код", "source code")}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </Section>
 
         <div className="games-row">
@@ -140,8 +168,6 @@ export default function GamesPanel({
             <Leaders rows={scores.rows} game="bets" by="wins" me={me} />
           </Section>
         )}
-
-        <GamesHelp canRecord={scores.canRecord} />
       </div>
     </div>
   );

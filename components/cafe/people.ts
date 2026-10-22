@@ -1,4 +1,5 @@
 import { Dir } from "@/lib/cafe/layout";
+import { Costume, drawCostume, drawCostumeSeated } from "./halloween";
 import { Box, Ctx, LINE, Rect, paint, px, shade } from "./pixel";
 
 const SHOES = "#2b2433";
@@ -31,6 +32,8 @@ export interface Look {
   style: number;
   /** 0 a person · 1 a robot · 2 a cat · 3 an alien */
   kind: number;
+  /** worn over all of it, wherever it is drawn */
+  costume?: Costume | null;
 }
 
 const at = <T,>(list: T[], i: number): T => list[((i % list.length) + list.length) % list.length];
@@ -360,12 +363,14 @@ export function drawPerson(ctx: Ctx, x: number, feetY: number, k: Look, pose: Po
     const [sil, f] = side(L, T, k, pose.step, pose.carrying);
     const left = pose.dir === "left";
     paint(ctx, left ? sil.map((b) => flipBox(b, L)) : sil, left ? f.map((r) => flipRect(r, L)) : f);
+    if (k.costume) drawCostume(ctx, k.costume, x, feetY, pose.dir, pose.step);
     if (pose.carrying) drawPacket(ctx, left ? L - 1 : L + 5, T + 9, k.accent);
     return;
   }
   const back = pose.dir === "up";
   const [sil, f] = frontBack(L, T, k, pose.step, back, pose.carrying);
   paint(ctx, sil, f);
+  if (k.costume) drawCostume(ctx, k.costume, x, feetY, pose.dir, pose.step);
   if (pose.carrying && !back) {
     drawPacket(ctx, L + 2, T + 9, k.accent);
     px(ctx, L + 1, T + 11, 1, 1, k.skin);
@@ -397,6 +402,7 @@ export function drawSeated(ctx: Ctx, X: number, headTop: number, k: Look, mode: 
   ];
   const [hs, hf] = head(L, T, k, "back");
   paint(ctx, [...sil, ...hs], [...f, ...hf]);
+  if (k.costume) drawCostumeSeated(ctx, k.costume, X, T);
   if (mode === "work") {
     const keys = headTop - 2;
     px(ctx, X - 6, keys - (up === 0 ? 1 : 0), 2, 1, k.skin);

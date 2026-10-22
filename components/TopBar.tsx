@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Radio, Plug } from "lucide-react";
+import { Plug } from "lucide-react";
 import { useTr } from "@/lib/i18n";
 import { FeedStatus } from "@/lib/live/useLiveFeed";
+import BrandCup from "./BrandCup";
 import SharePanel from "./live/SharePanel";
 import SpeechPick from "./live/SpeechPick";
 
@@ -26,7 +27,7 @@ export default function TopBar({
     <header className="header">
       <div className="brand">
         <span className="brand-badge">
-          <Radio size={20} />
+          <BrandCup />
         </span>
         <div>
           <div className="brand-name">Agent Lounge</div>
@@ -37,8 +38,17 @@ export default function TopBar({
         <SpeechPick />
         <SharePanel />
         {connected ? (
-          <Link className="btn btn-ic" href="/connect" title={t("Claude підключено. Ще один комп'ютер чи оновлення: тут", "Claude is connected. Another computer or an update: here")}>
+          <Link
+            className="btn conn-on"
+            href="/connect"
+            title={t(
+              "Claude підключено. Ще один комп'ютер чи оновлення: тут",
+              "Claude is connected. Another computer or an update: here",
+            )}
+          >
+            <span className="conn-dot" aria-hidden />
             <Plug size={14} />
+            <span className="conn-txt">{t("підключено", "connected")}</span>
           </Link>
         ) : (
           <Link className="btn" href="/connect">

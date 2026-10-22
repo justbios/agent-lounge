@@ -10,6 +10,7 @@ import { Point } from "@/lib/layout";
 import type { AgentDef } from "@/lib/types";
 import {
   BRAND,
+  Costume,
   EMPTY_INTERIOR,
   Interior,
   ItemId,
@@ -25,7 +26,7 @@ import { Guest } from "@/lib/live/social";
 import { visitAt } from "@/lib/live/visitors";
 import type { Eta } from "@/lib/live/eta";
 import { AgentCard, ScenePop } from "./AgentCard";
-import { Cat, DOG } from "./cat";
+import { BLACK_CAT, Cat, DOG } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
 import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
@@ -49,11 +50,12 @@ import {
   onCat,
 } from "./sceneParts";
 import { BeanGains, BeanSack, ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
-import { THEMES, Theme } from "./theme";
+import { HALLOWEEN, THEMES, Theme } from "./theme";
 import { GOLD_COAT, visitorFrame, visitorSeat } from "./visitor";
 import VisitorTag from "./VisitorTag";
 import { fmtTokens } from "../live/tokens";
 import type { Gain } from "@/lib/live/useBeanGains";
+import { useHalloween } from "@/lib/live/season";
 
 export type { Anchor, FixturePick, Placing, SceneAlert, SceneWarn } from "./sceneParts";
 
@@ -83,6 +85,14 @@ const sceneLabel = (ui: Ui, dog: boolean) =>
     : "Піксельне інтернет-кафе: агенти працюють за комп'ютерами й передають одне одному роботу. " +
       `Клікни агента, ${dog ? "песика" : "кота"}, дошку, автомат, вікно чи двері.`;
 
+/** The costumes in a scene: what each desk's agent wears, what there is to put on, and how to change it. */
+export interface Dressing {
+  worn: (Costume | null)[];
+  owned: Costume[];
+  /** absent for someone only watching */
+  set?: (agent: number, costume: Costume | null) => void;
+}
+
 interface Drag {
   s: Standing;
   x: number;
@@ -109,6 +119,7 @@ export default function CafeScene({
   interior = EMPTY_INTERIOR,
   name,
   onLook,
+  dress,
   placing,
   onPlacing,
   onPlace,
@@ -149,6 +160,7 @@ export default function CafeScene({
   name?: string;
   /** lets the agent card change an agent's look */
   onLook?: (agent: AgentDef, pick: LookPick | null) => void;
+  dress?: Dressing;
   placing?: Placing | null;
   /** picks a standing piece up by dragging it, or drops it back with null */
   onPlacing?: (p: Placing | null) => void;
@@ -177,6 +189,7 @@ export default function CafeScene({
   const alertRef = useRef(alert);
   const decorRef = useRef(decor);
   const looks = interior.looks;
+  const worn = dress?.worn;
   const sign = owns(interior, "neon") ? interior.sign : undefined;
   const hasCat2 = owns(interior, "cat2");
   const cat2Name = hasCat2 ? interior.cat2Name : undefined;
@@ -187,16 +200,17 @@ export default function CafeScene({
   const agents = model.agents;
   const lay = useMemo(() => cafeLayout(agents.length, model.seed), [agents.length, model.seed]);
   const dog = interior.pet === "dog";
+  const halloween = useHalloween().on;
   const cat = useMemo(
-    () => (dog ? new Cat(lay, model.seed, DOG, "dog") : new Cat(lay, model.seed)),
-    [dog, lay, model.seed],
+    () => (dog ? new Cat(lay, model.seed, DOG, "dog") : new Cat(lay, model.seed, halloween ? BLACK_CAT : undefined)),
+    [dog, lay, model.seed, halloween],
   );
   const cat2 = useMemo(() => (hasCat2 ? new Cat(lay, model.seed + 101, CAT2) : null), [hasCat2, lay, model.seed]);
   const goldCat = useMemo(() => new Cat(lay, 777, GOLD_COAT), [lay]);
   const visitorsRef = useRef(visitors);
   const tl = useMemo(() => buildTimeline(model), [model]);
   const phase = usePhase();
-  const th = useMemo(() => themeAt(theme, phase), [theme, phase]);
+  const th = useMemo(() => themeAt(halloween ? HALLOWEEN : theme, phase), [theme, phase, halloween]);
   const views = agents.map((_, i) => agentView(model, tl, lay, i, clock));
   const working = views.some((v) => v.screen === "work" || v.walker);
   const closed = !!asleep && phase === "night" && alert?.kind !== "ask" && !working;
@@ -233,7 +247,10 @@ export default function CafeScene({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    const faces = agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(lookOf(looks, a), a.look ?? i)));
+    const faces = agents.map((a, i) => ({
+      ...lookFor(a.look ?? i, a.color, pickedLook(lookOf(looks, a), a.look ?? i)),
+      costume: worn?.[i] ?? null,
+    }));
     const props = agents.map((a) => lookOf(looks, a)?.prop);
     const named = agents.map((a) => ({ ...a, name: agentName(a, lookOf(looks, a)) }));
     const room = buildRoom(lay, agents, model.seed, th, props);
@@ -295,7 +312,7 @@ export default function CafeScene({
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [model, agents, lay, tl, cat, cat2, goldCat, th, looks]);
+  }, [model, agents, lay, tl, cat, cat2, goldCat, th, looks, worn]);
 
   const nameOf = (i: number) => agentName(agents[i], lookOf(looks, agents[i]));
   const pointAt = (e: MouseEvent | PointerEvent): Point => {
@@ -313,9 +330,14 @@ export default function CafeScene({
     const base = { item: it.id, w: it.w, h: it.h };
     return s ? { ...base, ...s, ok: true } : { ...base, cx: p.x, bottom: p.y + it.h / 2, ok: false };
   };
-  const pieceAt = (p: Point) => (onFurniture && !hitAt(p) ? standingAt(shown, p) : null);
+  /** someone in front of a piece takes the click; a window or the board behind it doesn't */
+  const blocked = (p: Point) => {
+    const h = hitAt(p);
+    return h?.kind === "agent" || h?.kind === "cat";
+  };
+  const pieceAt = (p: Point) => (onFurniture && !blocked(p) ? standingAt(shown, p) : null);
   const machineAt = (p: Point) => {
-    const s = onMachine && !hitAt(p) ? standingAt(shown, p) : null;
+    const s = onMachine && !blocked(p) ? standingAt(shown, p) : null;
     return s && MACHINES.includes(s.item) ? s : null;
   };
 
@@ -348,7 +370,7 @@ export default function CafeScene({
       el.title = (m.item === "arcade" ? ARCADE_HINT : JUKE_HINT)[onPlacing ? 1 : 0][ui];
       return;
     }
-    if (!h && pieceAt(p)) {
+    if (pieceAt(p)) {
       el.style.cursor = onPlacing ? "grab" : "pointer";
       el.title = PIECE_HINT[ui];
       return;
@@ -526,6 +548,9 @@ export default function CafeScene({
               onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
               look={lookOf(looks, agents[selIdx])}
               onLook={onLook && ((pick) => onLook(agents[selIdx], pick))}
+              costume={worn?.[selIdx] ?? null}
+              wardrobe={dress?.owned}
+              onDress={dress?.set && ((c) => dress.set?.(selIdx, c))}
             />
           </ScenePop>
         )}

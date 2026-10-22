@@ -43,6 +43,14 @@ const TWO: Key[] = [
   [191, 2, "SELECT", "/"],
 ];
 
+/** The keys of one player as a short line under the screen: the four to move, then each button. */
+function keysLine(list: Key[], p: Players): string {
+  const own = list.filter((k) => k[1] === p);
+  const name = (b: Btn) => (b === "START" ? "Start" : b === "SELECT" ? "Select" : b);
+  const move = [0, 2, 1, 3].map((i) => own[i][3]).join("");
+  return [move, ...own.slice(4).map((k) => `${k[3]} ${name(k[2])}`)].join(" · ");
+}
+
 const FAILS = {
   big: { uk: "Файл завеликий для гри з Денді.", en: "This file is too big for an NES game." },
   notnes: { uk: "Це не файл гри для Денді: потрібен .nes.", en: "This is not an NES game file: it needs to be .nes." },
@@ -267,6 +275,12 @@ export default function Dendy() {
             <div className="dendy-screen dendy-off">{t("встав картридж", "insert a cartridge")}</div>
           )}
         </div>
+        <p className="dendy-keys">
+          {players === 2
+            ? `1: ${keysLine(TWO, 1)}  ·  2: ${keysLine(TWO, 2)}`
+            : keysLine(ONE, 1)}
+          {t(" · геймпад теж", " · a gamepad works too")}
+        </p>
       </div>
     </div>
   );

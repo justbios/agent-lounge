@@ -35,6 +35,8 @@ interface Box {
 const overlap = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const boxOf = (it: { w: number; h: number }, s: Spot): Box => ({ x: s.cx - it.w / 2, y: s.bottom - it.h, w: it.w, h: it.h });
 const layerOf = (it: ItemDef): Layer => (it.place === "perk" ? "floor" : it.place);
+/** up on the wall: a poster hangs on it between the fixtures, a piece from the ceiling hangs in front of them */
+const high = (layer: Layer) => layer === "wall" || layer === "ceiling";
 
 const floorMemo = new WeakMap<CafeLayout, Box[]>();
 const wallMemo = new Map<number, Box[]>();
@@ -80,9 +82,9 @@ function fits(lay: CafeLayout, it: ItemDef, s: Spot, others: Standing[]): boolea
     if (s.bottom < WALL_H + 4 || s.bottom > lay.height - 4) return false;
     if (floorBlocks(lay).some((o) => overlap(o, b))) return false;
   }
-  if (layer === "wall") {
+  if (high(layer)) {
     if (b.y < WALL_TOP || s.bottom > WALL_LOW) return false;
-    if (wallBlocks(lay.width).some((o) => overlap(o, b))) return false;
+    if (layer === "wall" && wallBlocks(lay.width).some((o) => overlap(o, b))) return false;
   }
   return !others.some((o) => o.layer === layer && overlap(boxOf(o, o), b));
 }
@@ -105,7 +107,7 @@ export function spotAt(lay: CafeLayout, it: ItemDef, p: Point, others: Standing[
     if (!w) return null;
     const half = Math.ceil(it.w / 2) + 1;
     s = { cx: Math.max(w.x + half, Math.min(w.x + w.w - half, Math.round(p.x))), bottom: SILL_Y };
-  } else if (layer === "wall") {
+  } else if (high(layer)) {
     const bottom = Math.max(WALL_TOP + it.h, Math.min(WALL_LOW, Math.round(p.y + it.h / 2)));
     s = { cx: Math.round(p.x), bottom };
   } else s = { cx: Math.round(p.x / 2) * 2, bottom: Math.round((p.y + it.h / 2) / 2) * 2 };
@@ -120,7 +122,7 @@ function settle(lay: CafeLayout, it: ItemDef, want: Spot, others: Standing[]): S
     const near = sillSpots(lay, it).sort((a, b) => Math.abs(a.cx - want.cx) - Math.abs(b.cx - want.cx));
     return near.find((s) => fits(lay, it, s, others)) ?? null;
   }
-  if (layer === "wall") {
+  if (high(layer)) {
     for (let d = 2; d <= lay.width; d += 2) {
       for (const cx of [want.cx - d, want.cx + d]) if (fits(lay, it, { cx, bottom: want.bottom }, others)) return { cx, bottom: want.bottom };
     }
@@ -176,7 +178,7 @@ export const toPlaced = (lay: CafeLayout, pid: string, item: ItemId, s: Spot): P
   y: s.bottom,
 });
 
-const PICK_ORDER: Layer[] = ["floor", "sill", "wall", "rug"];
+const PICK_ORDER: Layer[] = ["floor", "ceiling", "sill", "wall", "rug"];
 
 /** The piece under a point, topmost first, for picking it up again. */
 export function standingAt(list: Standing[], p: Point): Standing | null {

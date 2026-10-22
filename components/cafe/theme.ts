@@ -6,7 +6,7 @@ export type ThemeId = "cafe" | "space" | "forest" | "winter";
 export type Phase = "dawn" | "day" | "dusk" | "night";
 
 export interface Theme {
-  id: ThemeId;
+  id: ThemeId | "halloween";
   /** Ukrainian; {@link themeText} gives the name and hint in the viewer's language */
   name: string;
   nameEn: string;
@@ -27,9 +27,9 @@ export interface Theme {
   sillShadow: string;
   sky: string[];
   stars: string;
-  skyline: "city" | "planet" | "pines";
+  skyline: "city" | "planet" | "pines" | "spooky";
   snowCaps: boolean;
-  weather: "rain" | "drift" | "fireflies" | "snow";
+  weather: "rain" | "drift" | "fireflies" | "snow" | "bats";
   weatherColor: string;
   board: [string, string, string];
   lamp: [string, string, string];
@@ -41,7 +41,10 @@ export interface Theme {
   light?: Phase;
 }
 
-export const THEMES: Record<ThemeId, Theme> = {
+/** A theme a café can pick and keep. */
+export type PickedTheme = Theme & { id: ThemeId };
+
+export const THEMES: Record<ThemeId, PickedTheme> = {
   cafe: {
     id: "cafe",
     name: "Нічне кафе",
@@ -174,7 +177,44 @@ export const THEMES: Record<ThemeId, Theme> = {
 
 export const THEME_IDS = Object.keys(THEMES) as ThemeId[];
 
-export function themeOf(id: string | null | undefined): Theme {
+/** The Halloween week's view: not one to pick, it shows over any theme while the week lasts (`lib/live/season.ts`). */
+export const HALLOWEEN: Theme = {
+  id: "halloween",
+  name: "Хелловін",
+  nameEn: "Halloween",
+  hint: "помаранчевий місяць, кажани й гарбузи на пагорбі",
+  hintEn: "an orange moon, bats and pumpkins on the hill",
+  wall: "#2a1a33",
+  wallLine: "#33203f",
+  pattern: "boards",
+  rail: "#5a3a4a",
+  wainscot: "#36222e",
+  wainscotLines: ["#2a1924", "#46303c"],
+  baseboard: "#1a0f18",
+  planks: ["#3b2c2a", "#382927", "#3f2f2c", "#352725"],
+  plankLine: "#2e211f",
+  plankGap: "#2a1e1c",
+  frame: "#4e3a5a",
+  sill: "#8a5a6a",
+  sillShadow: "#1e1220",
+  sky: ["#24103a", "#33154c", "#46195a", "#64225c", "#8a3048"],
+  stars: "#ffe8c0",
+  skyline: "spooky",
+  snowCaps: false,
+  weather: "bats",
+  weatherColor: "#08040c",
+  board: ["#6b4a35", "#1e2a24", "#aebdb3"],
+  lamp: ["#ffb35a", "#c8742e", "#ffd9a0"],
+  lampGlow: "#ff8a2a",
+  windowGlow: "#ff7a2a",
+  dim: "rgba(14,4,20,0.32)",
+  warm: "#ffb070",
+};
+
+/** Open space and the Halloween hill keep their own sky by day; elsewhere the daylight replaces it. */
+export const keepsSky = (th: Theme) => th.skyline === "planet" || th.skyline === "spooky";
+
+export function themeOf(id: string | null | undefined): PickedTheme {
   return THEMES[id as ThemeId] ?? THEMES.cafe;
 }
 

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { Phase, Theme } from "./theme";
+import { Phase, Theme, keepsSky } from "./theme";
 
 const SKIES: Record<Exclude<Phase, "night">, string[]> = {
   dawn: ["#2c2b5c", "#57407a", "#a65f7e", "#e8907a", "#ffc994"],
@@ -24,7 +24,7 @@ const scaleAlpha = (rgba: string, k: number) =>
 /** The theme as it looks at this hour: the sky in the windows and how dark the room is. Open space has no day. */
 export function themeAt(th: Theme, phase: Phase): Theme {
   if (phase === "night") return th;
-  const sky = th.skyline === "planet" ? th.sky : SKIES[phase];
+  const sky = keepsSky(th) ? th.sky : SKIES[phase];
   return { ...th, sky, light: phase, dim: scaleAlpha(th.dim, DIM[phase]) };
 }
 

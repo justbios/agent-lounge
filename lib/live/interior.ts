@@ -2,8 +2,15 @@ import type { Ui } from "@/lib/i18n";
 import type { AgentDef } from "@/lib/types";
 import type { Decor } from "./achievements";
 
-/** sill — on a window sill; wall — hangs between the fixtures; floor — stands among people; rug — flat under them; perk — not placed */
-export type ItemPlace = "sill" | "wall" | "floor" | "rug" | "perk";
+/**
+ * sill — on a window sill; wall — hangs between the fixtures; ceiling — hangs from it, in front of them; floor — stands
+ * among people; rug — flat under them; perk — not placed; costume — worn by an agent
+ */
+export type ItemPlace = "sill" | "wall" | "ceiling" | "floor" | "rug" | "perk" | "costume";
+
+/** What an agent can wear over its look: a witch's hat, a pumpkin head, a sheet, a vampire's cape or devil's horns. */
+export type Costume = "hat" | "pumpkin" | "ghost" | "vampire" | "devil";
+export const COSTUMES: readonly Costume[] = ["hat", "pumpkin", "ghost", "vampire", "devil"];
 
 export const ITEMS = [
   { id: "candle", name: "свічка", nameEn: "candle", price: 60, place: "sill", w: 5, h: 9 },
@@ -24,9 +31,18 @@ export const ITEMS = [
   { id: "neon", name: "неонова вивіска зі своїм написом", nameEn: "neon sign with your own text", price: 500, place: "perk", w: 22, h: 10 },
   { id: "cat2", name: "другий кіт", nameEn: "second cat", price: 700, place: "perk", w: 14, h: 11 },
   { id: "goldcat", name: "золотий кіт-манекі", nameEn: "golden lucky cat", price: 1500, place: "sill", w: 7, h: 11, rare: true },
-  { id: "disco", name: "диско-куля", nameEn: "disco ball", price: 2000, place: "wall", w: 11, h: 13, rare: true },
+  { id: "disco", name: "диско-куля", nameEn: "disco ball", price: 2000, place: "ceiling", w: 11, h: 13, rare: true },
   { id: "piano", name: "піаніно", nameEn: "piano", price: 3000, place: "floor", w: 24, h: 22, rare: true },
   { id: "fireplace", name: "камін", nameEn: "fireplace", price: 4500, place: "floor", w: 24, h: 24, rare: true },
+  { id: "pumpkin", name: "гарбуз-ліхтар", nameEn: "jack-o'-lantern", price: 100, place: "sill", w: 9, h: 9, season: "halloween" },
+  { id: "cobweb", name: "павутина з павуком", nameEn: "cobweb with a spider", price: 80, place: "ceiling", w: 15, h: 6, season: "halloween" },
+  { id: "bats", name: "гірлянда з кажанів", nameEn: "bat garland", price: 120, place: "ceiling", w: 31, h: 10, season: "halloween" },
+  { id: "cauldron", name: "котел із зіллям", nameEn: "bubbling cauldron", price: 260, place: "floor", w: 16, h: 13, season: "halloween" },
+  { id: "witchHat", name: "капелюх відьми", nameEn: "witch's hat", price: 150, place: "costume", w: 12, h: 26, season: "halloween", wear: "hat" },
+  { id: "pumpkinHead", name: "голова-гарбуз", nameEn: "pumpkin head", price: 200, place: "costume", w: 12, h: 26, season: "halloween", wear: "pumpkin" },
+  { id: "ghostSheet", name: "простирадло привида", nameEn: "ghost sheet", price: 250, place: "costume", w: 12, h: 26, season: "halloween", wear: "ghost" },
+  { id: "vampireCape", name: "плащ вампіра", nameEn: "vampire cape", price: 300, place: "costume", w: 14, h: 26, season: "halloween", wear: "vampire" },
+  { id: "devilHorns", name: "ріжки й хвіст чорта", nameEn: "devil horns and tail", price: 300, place: "costume", w: 14, h: 26, season: "halloween", wear: "devil" },
 ] as const;
 
 /** Earned decor that can be moved like bought furniture; it starts where it always stood. */
@@ -51,6 +67,10 @@ export interface ItemDef {
   decor?: Decor;
   /** one per café, for a few days of work */
   rare?: boolean;
+  /** sold only in that week of the year (`lib/live/season.ts`); once bought it stays */
+  season?: "halloween";
+  /** a costume: one per room, and anyone in the café can put it on any agent */
+  wear?: Costume;
 }
 
 const BY_ID = new Map<string, ItemDef>([...ITEMS, ...DECOR_PIECES].map((i) => [i.id, i]));
@@ -100,12 +120,15 @@ export interface Interior {
   title?: string;
   /** the café keeps a dog instead of the ginger cat */
   pet?: "dog";
+  /** kept in the lobby: who wears which costume, under {@link dressKey}, in every room of the café */
+  dress?: Record<string, Costume>;
 }
 
 export const EMPTY_INTERIOR: Interior = { owned: [], placed: [], looks: {} };
 
 const MAX_OWNED = 80;
 const MAX_LOOKS = 64;
+const MAX_DRESS = 64;
 export const SIGN_MAX = 18;
 export const TITLE_MAX = 20;
 /** What the sign's big line says when the café has no name of its own. */
@@ -163,6 +186,23 @@ export function rekey(looks: Record<string, LookPick>, agents: Wearer[]): Record
   return out;
 }
 
+/**
+ * Where an agent's costume is kept in the lobby: the teammate whose chat it works in, then its own key; a teammate's
+ * desk in the lobby is just the teammate.
+ */
+export const dressKey = (member: string, a: Wearer & Pick<AgentDef, "member">): string =>
+  a.member != null ? `${a.member}/` : `${member}/${lookKey(a)}`;
+
+/** What each agent in a chat of `member` wears, by desk. */
+export const wornBy = (dress: Interior["dress"], member: string, agents: (Wearer & Pick<AgentDef, "member">)[]) =>
+  agents.map((a) => dress?.[dressKey(member, a)] ?? null);
+
+/** The costumes these rooms bought: anyone who can dress agents may use any of them. */
+export function wardrobeOf(rooms: (Interior | null | undefined)[]): Costume[] {
+  const ids = new Set(rooms.flatMap((r) => r?.owned ?? []));
+  return COSTUMES.filter((c) => SHOP.some((i) => i.wear === c && ids.has(i.id)));
+}
+
 /** An agent's name with the one on its desk plate, if the café gave it one; a second agent of the type gets a 2. */
 export function agentName(a: Pick<AgentDef, "name" | "twin">, pick?: LookPick): string {
   if (!pick?.name) return a.name;
@@ -193,7 +233,7 @@ export function cleanInterior(v: unknown): Interior {
     const y = int(q?.y, 0, 800);
     const it = q?.item ? itemOf(q.item) : undefined;
     if (!q || !it || typeof q.pid !== "string" || q.pid.length > 16 || x == null || y == null) continue;
-    if (it.place === "perk" || placed.some((r) => r.pid === q.pid)) continue;
+    if (it.place === "perk" || it.place === "costume" || placed.some((r) => r.pid === q.pid)) continue;
     if (it.decor) {
       if (q.pid !== decorPid(it.id)) continue;
     } else {
@@ -224,6 +264,12 @@ export function cleanInterior(v: unknown): Interior {
   if (cat2Name) out.cat2Name = cat2Name;
   if (title) out.title = title;
   if (o.pet === "dog") out.pet = "dog";
+  const dress: Record<string, Costume> = {};
+  const worn = o.dress && typeof o.dress === "object" ? Object.entries(o.dress as Record<string, unknown>) : [];
+  for (const [k, c] of worn.slice(0, MAX_DRESS)) {
+    if (k.length <= 120 && COSTUMES.includes(c as Costume)) dress[k] = c as Costume;
+  }
+  if (Object.keys(dress).length) out.dress = dress;
   return out;
 }
 

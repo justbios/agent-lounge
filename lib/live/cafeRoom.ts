@@ -4,6 +4,7 @@ import {
   BEANS_FROM,
   BEAN_ERA,
   BeanWork,
+  Costume,
   Interior,
   ItemId,
   LookPick,
@@ -51,6 +52,8 @@ export interface CafeState {
   setNames: (patch: Pick<Interior, "sign" | "cat2Name" | "title" | "pet">) => Promise<boolean>;
   /** puts every piece and look as given at once: only pieces the room owns stand, and nothing is bought */
   arrange: (next: Pick<Interior, "placed" | "looks">) => Promise<boolean>;
+  /** puts a costume on whoever {@link dressKey} names, or takes it off; kept in the lobby for every room */
+  dress: (who: string, costume: Costume | null) => Promise<boolean>;
 }
 
 export interface RoomSource {
@@ -96,7 +99,7 @@ export function cafeRoom(src: RoomSource): CafeState {
   const fit = (next: Interior) => save({ interior: next });
   const buy = async (item: ItemId) => {
     const it = itemOf(item);
-    const one = it?.place === "perk" || it?.rare;
+    const one = it?.place === "perk" || it?.place === "costume" || it?.rare;
     if (!it || !editable || beans.left < it.price || (one && interior.owned.includes(item))) return false;
     const paid = [...(interior.paid ?? []), item];
     return fit({ ...interior, owned: [...interior.owned, item], paid, era: BEAN_ERA });
@@ -116,6 +119,12 @@ export function cafeRoom(src: RoomSource): CafeState {
     fit(cleanInterior({ ...interior, ...patch }));
   const arrange = (next: Pick<Interior, "placed" | "looks">) =>
     fit(cleanInterior({ ...interior, placed: next.placed, looks: next.looks }));
+  const dress = (who: string, costume: Costume | null) => {
+    const worn = { ...interior.dress };
+    if (costume) worn[who] = costume;
+    else delete worn[who];
+    return fit(cleanInterior({ ...interior, dress: worn }));
+  };
 
   return {
     kind,
@@ -136,5 +145,6 @@ export function cafeRoom(src: RoomSource): CafeState {
     setLook,
     setNames,
     arrange,
+    dress,
   };
 }

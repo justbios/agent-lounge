@@ -7,12 +7,16 @@ export interface Coat {
   fur: string;
   dark: string;
   belly: string;
+  /** a cat's eye, dark unless it shines */
+  eye?: string;
 }
 
 export type PetKind = "cat" | "dog";
 
 const GINGER: Coat = { fur: "#e8913a", dark: "#b8642a", belly: "#f6d7a8" };
 export const DOG: Coat = { fur: "#e6d5b8", dark: "#8a5a34", belly: "#fff6e6" };
+/** The café cat in the Halloween week. */
+export const BLACK_CAT: Coat = { fur: "#2a2430", dark: "#16121c", belly: "#3d3446", eye: "#ffd25a" };
 const PET_MS = 3800;
 const BED_CHANCE = 0.3;
 const HEART = [[1, 0], [3, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [1, 2], [2, 2], [3, 2], [2, 3]];
@@ -125,6 +129,14 @@ export class Cat {
     return { x: this.x, y: this.y };
   }
 
+  /** The middle of a shining eye, for its glow in the dark; null for a dog, a dark eye, or one shut in a nap. */
+  get eye(): Point | null {
+    if (!this.coat.eye || this.kind === "dog" || this.mode === "nap") return null;
+    const X = Math.round(this.x);
+    const Y = Math.round(this.y) - (this.bedAt && this.mode !== "walk" ? 2 : 0);
+    return { x: (this.dir === "left" ? X - 6 : X + 5) + 0.5, y: Y + (this.mode === "sit" ? -7 : -6) + 0.5 };
+  }
+
   private drawHearts(ctx: Ctx, nowMs: number) {
     const age = nowMs - this.petAt;
     if (age < 0 || age > PET_MS) return;
@@ -209,7 +221,7 @@ export class Cat {
     else {
       P(3, hy - 1, 1, 2, FUR);
       P(5, hy - 1, 1, 2, FUR);
-      P(5, hy + 2, 1, 1, LINE);
+      P(5, hy + 2, 1, 1, this.coat.eye ?? LINE);
       const swish = Math.round(Math.sin(t * (walking ? 6 : 2.4)) * 1.5);
       P(-6, (sit ? -4 : -5) + swish, 2, 1, FUR_DARK);
       P(-7, (sit ? -5 : -6) + swish, 1, 2, FUR_DARK);

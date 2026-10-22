@@ -40,6 +40,7 @@ export function buildTeamModel(events: LiveEvent[], members: string[], ui: Ui): 
   const colors = memberColors(members);
   const agents: AgentDef[] = members.map((m, i) => ({
     id: `member-${i}`,
+    member: m,
     name: memberName(m, ui),
     role: en ? "teammate" : "учасник команди",
     color: colors[i],

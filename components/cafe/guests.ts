@@ -1,5 +1,6 @@
 import type { Ui } from "@/lib/i18n";
 import { Guest } from "@/lib/live/social";
+import { COSTUMES } from "./halloween";
 import { Look, drawSeated, lookFor } from "./people";
 import { Ctx } from "./pixel";
 import { BAR_SEATS } from "./room";
@@ -38,10 +39,11 @@ export const barOverflow = (guests: Guest[]) => Math.max(0, guests.length - BAR_
 
 export const guestTag = (s: GuestSeat) => s.tag;
 
-/** Guests sit with their backs to the room, now and then leaning in to sip. */
-export function drawGuests(ctx: Ctx, seats: GuestSeat[], t: number) {
+/** Guests sit with their backs to the room, now and then leaning in to sip; in the Halloween week, in costume. */
+export function drawGuests(ctx: Ctx, seats: GuestSeat[], t: number, dressed = false) {
   for (const s of seats) {
     const sip = (t + s.x * 0.37 + s.y * 0.11) % 9 < 1.2;
-    drawSeated(ctx, s.x, s.y - 11, s.look, sip ? "done" : "idle", 0);
+    const look = dressed ? { ...s.look, costume: COSTUMES[hashOf(s.id) % COSTUMES.length] } : s.look;
+    drawSeated(ctx, s.x, s.y - 11, look, sip ? "done" : "idle", 0);
   }
 }

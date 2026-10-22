@@ -2,6 +2,7 @@ import { Point } from "@/lib/layout";
 import { CafeLayout, Dir, WALK_PX_PER_MS, pathLength, pointAt, route } from "@/lib/cafe/layout";
 import { Visit, VisitorKind } from "@/lib/live/visitors";
 import { Cat, Coat } from "./cat";
+import { Costume } from "./halloween";
 import { Look, drawPerson, drawSeated, lookFor } from "./people";
 import { Ctx, LINE, glow, px } from "./pixel";
 import { BAR_SEATS, doorOf } from "./room";
@@ -67,8 +68,8 @@ function sparkle(ctx: Ctx, x: number, y: number, t: number, color: string, n = 3
   }
 }
 
-/** The visitor itself: a courier with a pizza, the gold cat, or a shimmering agent. */
-export function drawVisitor(ctx: Ctx, v: VisitorFrame, t: number, cat: Cat | null) {
+/** The visitor itself: a courier with a pizza, in `costume` if one is given, the gold cat, or a shimmering agent. */
+export function drawVisitor(ctx: Ctx, v: VisitorFrame, t: number, cat: Cat | null, costume: Costume | null = null) {
   const step = v.walking ? (Math.floor(t * 8) % 2) + 1 : 0;
   if (v.kind === "goldcat") {
     if (!cat) return;
@@ -78,7 +79,7 @@ export function drawVisitor(ctx: Ctx, v: VisitorFrame, t: number, cat: Cat | nul
     sparkle(ctx, v.x, (v.walking ? v.y : v.seat.y) - 6, t, "#fffbe0");
     return;
   }
-  const look = v.kind === "shiny" ? lookFor(5, SHINY[Math.floor(t * 3) % SHINY.length]) : COURIER;
+  const look = v.kind === "shiny" ? lookFor(5, SHINY[Math.floor(t * 3) % SHINY.length]) : { ...COURIER, costume };
   const headTop = v.seat.y - 11;
   if (v.kind === "shiny") {
     glow(ctx, v.x, v.walking ? v.y - 9 : headTop + 6, 16, SHINY[Math.floor(t * 2) % SHINY.length], 0.24);

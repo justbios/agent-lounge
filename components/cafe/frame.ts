@@ -8,11 +8,12 @@ import { drawPot, potAt } from "./desk";
 import { drawFlights } from "./flight";
 import { drawItem, itemLight } from "./furniture";
 import { GuestSeat, drawGuests } from "./guests";
+import { COSTUMES } from "./halloween";
 import { Pastime, REST_MS, drawPastime, drawZzz, pastimeOf } from "./idle";
 import { Outing, planLeisure, spotsOf } from "./outing";
 import { drawOuting } from "./outingSprites";
 import { Look, SeatMode, drawChair, drawPacket, drawPerson, drawSeated } from "./people";
-import { Ctx, LINE, paint, px, rand, shade } from "./pixel";
+import { Ctx, LINE, glow, paint, px, rand, shade } from "./pixel";
 import { Standing } from "./placement";
 import { VisitorFrame, drawVisitor } from "./visitor";
 import { Theme } from "./theme";
@@ -238,12 +239,15 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   ctx.drawImage(f.room, 0, 0);
   drawAmbient(ctx, t, lay.width, f.theme);
   drawBar(ctx, t, decor.has("goldMachine"), !f.closed);
-  if (f.guests) drawGuests(ctx, f.guests, t);
+  // the Halloween view brings the costumes: each guest has their own, the courier a new one every day
+  const dressed = f.theme?.id === "halloween";
+  const costume = dressed ? COSTUMES[new Date().getDate() % COSTUMES.length] : null;
+  if (f.guests) drawGuests(ctx, f.guests, t, dressed);
   const v = f.visitor;
-  if (v && !v.walking) drawVisitor(ctx, v, t, f.visitorCat ?? null);
+  if (v && !v.walking) drawVisitor(ctx, v, t, f.visitorCat ?? null, costume);
   drawDecor(ctx, lay, decor, t);
   const furniture = f.furniture ?? [];
-  for (const layer of ["rug", "wall", "sill"] as const) {
+  for (const layer of ["rug", "wall", "sill", "ceiling"] as const) {
     furniture.forEach((s) => s.layer === layer && drawItem(ctx, s.item, s.w, s.cx, s.bottom, t));
   }
 
@@ -265,15 +269,17 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
   if (cat) sprites.push({ y: cat.footY, draw: () => cat.draw(ctx, t, decor.has("crown")) });
   const cat2 = f.cat2;
   if (cat2) sprites.push({ y: cat2.footY, draw: () => cat2.draw(ctx, t, false) });
-  if (v?.walking) sprites.push({ y: v.y, draw: () => drawVisitor(ctx, v, t, f.visitorCat ?? null) });
+  if (v?.walking) sprites.push({ y: v.y, draw: () => drawVisitor(ctx, v, t, f.visitorCat ?? null, costume) });
   furniture.forEach((s) => s.layer === "floor" && sprites.push({ y: s.bottom, draw: () => drawItem(ctx, s.item, s.w, s.cx, s.bottom, t) }));
   sprites.sort((a, b) => a.y - b.y).forEach((s) => s.draw());
 
   drawLights(ctx, lay, views, model.agents.map((a) => a.color), t, f.theme, f.closed);
   drawDecorLights(ctx, lay, decor, t);
-  if (furniture.length) {
+  const eye = f.cat?.eye;
+  if (furniture.length || eye) {
     ctx.globalCompositeOperation = "lighter";
     furniture.forEach((s) => itemLight(ctx, s.item, s.cx, s.bottom, t));
+    if (eye) glow(ctx, eye.x, eye.y, 3, "#ffd25a", 0.5);
     ctx.globalCompositeOperation = "source-over";
   }
   stations.forEach((s, i) => s.pastime === "nap" && drawZzz(ctx, lay.desks[i].x, lay.desks[i].top + 20, t, i));

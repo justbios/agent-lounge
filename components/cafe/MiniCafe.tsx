@@ -4,14 +4,15 @@ import { useEffect, useMemo, useRef } from "react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { agentView, buildTimeline } from "@/lib/cafe/timeline";
-import { Interior, lookOf } from "@/lib/live/interior";
+import { Interior, lookOf, wornBy } from "@/lib/live/interior";
+import { useHalloween } from "@/lib/live/season";
 import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
 import { drawFrame } from "./frame";
 import { lookFor, pickedLook } from "./people";
 import { standing } from "./placement";
 import { buildRoom } from "./room";
-import { Theme } from "./theme";
+import { HALLOWEEN, Theme } from "./theme";
 
 const FRAME_MS = 125;
 const NO_DECOR: DecorSet = new Set();
@@ -23,6 +24,8 @@ export default function MiniCafe({
   theme,
   decor,
   interior,
+  dress,
+  member = "",
   alert,
   asleep,
 }: {
@@ -32,6 +35,9 @@ export default function MiniCafe({
   theme: Theme;
   decor?: DecorSet;
   interior: Interior;
+  /** the lobby's costumes, and the teammate whose chat this is */
+  dress?: Interior["dress"];
+  member?: string;
   alert?: { agent: number; kind: "ask" | "done" } | null;
   /** the whole café has been quiet for an hour: only then does the night close it */
   asleep?: boolean;
@@ -41,7 +47,8 @@ export default function MiniCafe({
   const lay = useMemo(() => cafeLayout(model.agents.length, model.seed), [model.agents.length, model.seed]);
   const tl = useMemo(() => buildTimeline(model), [model]);
   const phase = usePhase();
-  const th = useMemo(() => themeAt(theme, phase), [theme, phase]);
+  const halloween = useHalloween().on;
+  const th = useMemo(() => themeAt(halloween ? HALLOWEEN : theme, phase), [theme, phase, halloween]);
 
   useEffect(() => {
     alertRef.current = alert;
@@ -51,7 +58,11 @@ export default function MiniCafe({
     const ctx = ref.current?.getContext("2d");
     if (!ctx) return;
     const looks = interior.looks;
-    const faces = model.agents.map((a, i) => lookFor(a.look ?? i, a.color, pickedLook(lookOf(looks, a), a.look ?? i)));
+    const worn = wornBy(dress, member, model.agents);
+    const faces = model.agents.map((a, i) => ({
+      ...lookFor(a.look ?? i, a.color, pickedLook(lookOf(looks, a), a.look ?? i)),
+      costume: worn[i],
+    }));
     const room = buildRoom(
       lay,
       model.agents,
@@ -85,7 +96,7 @@ export default function MiniCafe({
     draw();
     const id = setInterval(draw, FRAME_MS);
     return () => clearInterval(id);
-  }, [model, lay, tl, origin, th, phase, decor, interior, asleep]);
+  }, [model, lay, tl, origin, th, phase, decor, interior, dress, member, asleep]);
 
   return <canvas ref={ref} width={lay.width} height={lay.height} aria-hidden />;
 }

@@ -20,6 +20,9 @@ interface Look {
   theme: Theme;
   decor?: DecorSet;
   interior: Interior;
+  /** the costumes, kept in the lobby, and the teammate whose chat this is */
+  dress?: Interior["dress"];
+  member?: string;
 }
 
 const FLAG_ERR = (err: string, ui: Ui) =>

@@ -99,15 +99,30 @@ export function startMusic(
   };
 
   let bed: AudioBufferSourceNode | null = null;
-  if (track?.bed === "rain") {
+  let gust: OscillatorNode | null = null;
+  if (track?.bed) {
     bed = ac.createBufferSource();
     bed.buffer = hiss;
     bed.loop = true;
     const f = ac.createBiquadFilter();
-    f.type = "lowpass";
-    f.frequency.value = 1100;
     const g = ac.createGain();
-    g.gain.value = 0.09;
+    if (track.bed === "rain") {
+      f.type = "lowpass";
+      f.frequency.value = 1100;
+      g.gain.value = 0.09;
+    } else {
+      // the wind: a narrow band of noise that rises and falls every dozen seconds
+      f.type = "bandpass";
+      f.frequency.value = 420;
+      f.Q.value = 1.2;
+      g.gain.value = 0.07;
+      gust = ac.createOscillator();
+      gust.frequency.value = 0.08;
+      const depth = ac.createGain();
+      depth.gain.value = 260;
+      gust.connect(depth).connect(f.frequency);
+      gust.start();
+    }
     bed.connect(f).connect(g).connect(master);
     bed.start();
   }
@@ -146,6 +161,7 @@ export function startMusic(
       clearInterval(id);
       out.gain.setTargetAtTime(0, ac.currentTime, 0.1);
       bed?.stop(ac.currentTime + 0.5);
+      gust?.stop(ac.currentTime + 0.5);
     },
   };
 }

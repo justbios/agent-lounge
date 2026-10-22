@@ -5,7 +5,8 @@ import { X } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
 import { AgentView } from "@/lib/cafe/timeline";
 import { Two, Ui, enPlural, tr, useTr, useUi } from "@/lib/i18n";
-import { LookPick, NAME_MAX } from "@/lib/live/interior";
+import { COSTUMES, Costume, LookPick, NAME_MAX } from "@/lib/live/interior";
+import { useHalloween } from "@/lib/live/season";
 import { Eta, etaDetail } from "@/lib/live/eta";
 import { fmtCost, modelName } from "@/lib/live/price";
 import { REACTIONS } from "@/lib/live/social";
@@ -115,6 +116,64 @@ function NickField({ value, color, onSave }: { value?: string; color: string; on
         onBlur={save}
       />
     </form>
+  );
+}
+
+const COSTUME_NAMES: Record<Costume, Two> = {
+  hat: { uk: "🧙 відьма", en: "🧙 witch" },
+  pumpkin: { uk: "🎃 гарбуз", en: "🎃 pumpkin" },
+  ghost: { uk: "👻 привид", en: "👻 ghost" },
+  vampire: { uk: "🧛 вампір", en: "🧛 vampire" },
+  devil: { uk: "😈 чорт", en: "😈 devil" },
+};
+
+/** Puts a costume from the café's wardrobe on this agent, anyone's agent: everyone in the café sees it. */
+function DressRow({
+  costume,
+  wardrobe,
+  onDress,
+}: {
+  costume: Costume | null;
+  wardrobe: Costume[];
+  onDress: (c: Costume | null) => void;
+}) {
+  const ui = useUi();
+  const t = useTr();
+  const week = useHalloween().week;
+  if (!wardrobe.length && !costume) {
+    if (!week) return null;
+    return (
+      <p className="ac-dress-hint muted-sm">
+        {t(
+          "👻 Перевдягнути агента в привида чи гарбуза: костюми в магазині, до 1 листопада",
+          "👻 Dress this agent up as a ghost or a pumpkin: costumes are in the shop until 1 November",
+        )}
+      </p>
+    );
+  }
+  return (
+    <div
+      className="ac-look ac-dress"
+      role="group"
+      aria-label={t("костюм", "costume")}
+      title={t("усі в кафе побачать, і господар теж", "everyone in the café sees it, the owner too")}
+    >
+      {COSTUMES.filter((c) => wardrobe.includes(c) || c === costume).map((c) => (
+        <button
+          key={c}
+          className={c === costume ? "on" : undefined}
+          aria-pressed={c === costume}
+          onClick={() => onDress(c === costume ? null : c)}
+        >
+          {COSTUME_NAMES[c][ui]}
+        </button>
+      ))}
+      {costume && (
+        <button onClick={() => onDress(null)} title={t("зняти костюм", "take the costume off")}>
+          {t("зняти", "take off")}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -270,6 +329,9 @@ export function AgentCard({
   onReact,
   look,
   onLook,
+  costume,
+  wardrobe,
+  onDress,
   stuck,
   onPick,
 }: {
@@ -290,6 +352,11 @@ export function AgentCard({
   look?: LookPick;
   /** lets the café owner change how this agent looks */
   onLook?: (pick: LookPick | null) => void;
+  costume?: Costume | null;
+  /** the costumes there are to put on */
+  wardrobe?: Costume[];
+  /** lets anyone in the café dress this agent up */
+  onDress?: (c: Costume | null) => void;
 }) {
   const a = model.agents[agent];
   const notes = model.notes[agent].filter((n) => n.ts <= clock);
@@ -434,6 +501,7 @@ export function AgentCard({
           onLook={onLook}
         />
       )}
+      {onDress && <DressRow costume={costume ?? null} wardrobe={wardrobe ?? []} onDress={onDress} />}
     </div>
   );
 }

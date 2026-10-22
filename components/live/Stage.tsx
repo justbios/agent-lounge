@@ -13,16 +13,17 @@ import {
   X,
 } from "lucide-react";
 import { CafeModel } from "@/lib/cafe/model";
-import { useTr, useUi } from "@/lib/i18n";
+import { Two, useTr, useUi } from "@/lib/i18n";
 import { openTracks } from "@/lib/live/achievements";
 import type { Eta } from "@/lib/live/eta";
-import { ItemId, Placed, itemName, itemOf } from "@/lib/live/interior";
+import { ItemId, ItemPlace, Placed, itemName, itemOf } from "@/lib/live/interior";
+import { useHalloween } from "@/lib/live/season";
 import { Guest } from "@/lib/live/social";
 import { Gain } from "@/lib/live/useBeanGains";
 import { CafeState } from "@/lib/live/useCafe";
 import { CafeSound } from "@/lib/live/useCafeSound";
 import { ScenePop } from "../cafe/AgentCard";
-import CafeScene, { Anchor, FixturePick, Placing, SceneAlert, SceneWarn } from "../cafe/CafeScene";
+import CafeScene, { Anchor, Dressing, FixturePick, Placing, SceneAlert, SceneWarn } from "../cafe/CafeScene";
 import { SeatReaction } from "../cafe/SceneSocial";
 import { THEMES, THEME_IDS, themeOf, themeText } from "../cafe/theme";
 import DoorInvite from "./DoorInvite";
@@ -66,12 +67,24 @@ function Drawer({
   );
 }
 
+/** Where to click to put a piece down, by where it goes. */
+const PUT_WHERE: Record<ItemPlace, Two> = {
+  sill: { uk: "клацни на підвіконні", en: "click on the windowsill" },
+  wall: { uk: "клацни на вільному місці стіни", en: "click a free spot on the wall" },
+  ceiling: { uk: "клацни вгорі, де повісити", en: "click up high where it should hang" },
+  floor: { uk: "клацни на вільному місці підлоги", en: "click a free spot on the floor" },
+  rug: { uk: "клацни на вільному місці підлоги", en: "click a free spot on the floor" },
+  perk: { uk: "клацни на вільному місці підлоги", en: "click a free spot on the floor" },
+  costume: { uk: "клацни агента", en: "click an agent" },
+};
+
 function PlacingBar({ placing, onCancel }: { placing: Placing; onCancel: () => void }) {
   const ui = useUi();
   const t = useTr();
   const it = itemOf(placing.item);
   const name = it ? itemName(it, ui) : "";
-  const sill = it?.place === "sill";
+  const place = it?.place ?? "floor";
+  const hang = place === "wall" || place === "ceiling";
   const cancel = useEffectEvent(onCancel);
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && cancel();
@@ -81,15 +94,10 @@ function PlacingBar({ placing, onCancel }: { placing: Placing; onCancel: () => v
   return (
     <div className="placing-bar" role="status">
       <span>
-        {ui === "en" ? (
-          <>
-            Place “{name}”: {sill ? "click on the windowsill" : "click a free spot on the floor"}
-          </>
-        ) : (
-          <>
-            {sill ? "Постав" : "Став"} «{name}»: {sill ? "клацни на підвіконні" : "клацни на вільному місці підлоги"}
-          </>
-        )}
+        {ui === "en"
+          ? `${hang ? "Hang" : "Place"} “${name}”`
+          : `${hang ? "Повісь" : place === "sill" ? "Постав" : "Став"} «${name}»`}
+        : {PUT_WHERE[place][ui]}
       </span>
       <button className="btn" onClick={onCancel}>
         {t("скасувати", "cancel")}
@@ -141,6 +149,7 @@ export default function Stage({
   reactions,
   onReact,
   cafe,
+  dress,
   sound,
   empty,
   below,
@@ -179,6 +188,8 @@ export default function Stage({
   reactions: SeatReaction[];
   onReact: (agent: number, emoji: string) => void;
   cafe: CafeState;
+  /** costumes on anyone's agents, kept in the lobby */
+  dress?: Dressing;
   sound: CafeSound;
   empty?: ReactNode;
   /** under the scene: the open bets */
@@ -208,6 +219,7 @@ export default function Stage({
   const [drawer, setDrawer] = useState<Side | null>(null);
   const [full, toggleFull] = useFullscreen();
   const theme = themeOf(cafe.settings.theme);
+  const halloween = useHalloween();
 
   const note = (anchor: Anchor, text: string) => {
     const id = Date.now();
@@ -215,6 +227,17 @@ export default function Stage({
     setTimeout(() => setPop((p) => (p?.kind === "note" && p.id === id ? null : p)), 2400);
   };
   const nextTheme = async (anchor: Anchor) => {
+    // in the Halloween week a window switches the week's view off or on, for this viewer alone
+    if (halloween.week) {
+      halloween.toggle();
+      const back = themeText(theme, ui).name.toLowerCase();
+      return note(
+        anchor,
+        halloween.on
+          ? t(`за вікном: ${back}; ще клацання, і знову Хелловін`, `outside: ${back}; click again for Halloween`)
+          : t("за вікном Хелловін, до 1 листопада", "Halloween outside, until 1 November"),
+      );
+    }
     const keeper = cafe.kind === "theirs" ? cafe.whose : t("власник кафе", "the café owner");
     if (!cafe.editable) return note(anchor, t(`вид за вікном змінює ${keeper}`, `${keeper} picks the view outside`));
     const next = THEME_IDS[(THEME_IDS.indexOf(theme.id) + 1) % THEME_IDS.length];
@@ -390,6 +413,7 @@ export default function Stage({
           interior={cafe.interior}
           name={cafe.title}
           onLook={cafe.editable ? (agent, look) => void cafe.setLook(agent, look) : undefined}
+          dress={dress}
           placing={placing}
           onPlacing={cafe.editable ? onPlacing : undefined}
           onPlace={place}

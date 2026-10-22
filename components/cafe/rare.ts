@@ -26,7 +26,7 @@ function goldcat(ctx: Ctx, L: number, B: number, t: number) {
 
 function disco(ctx: Ctx, L: number, B: number, t: number) {
   const k = Math.floor(t * 4);
-  px(ctx, L + 5, B - 13, 1, 2, "#8a8f9c");
+  px(ctx, L + 5, 0, 1, B - 11, "#8a8f9c");
   px(ctx, L + 3, B - 11, 5, 1, LINE);
   px(ctx, L + 2, B - 10, 7, 1, LINE);
   px(ctx, L + 1, B - 9, 9, 6, LINE);

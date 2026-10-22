@@ -3,7 +3,7 @@ import { AgentView } from "@/lib/cafe/timeline";
 import { drawPerson, lookFor } from "./people";
 import { Ctx, LINE, glow, px, rand } from "./pixel";
 import { Fixtures, fixtures } from "./room";
-import { THEMES, Theme } from "./theme";
+import { THEMES, Theme, keepsSky } from "./theme";
 import { drawWeather } from "./windows";
 
 const BARISTA = lookFor(9, "#e9e2cf", {
@@ -104,7 +104,7 @@ export function drawLights(
   glow(ctx, sx, sy, 74, "#ff4fa3", 0.16 * flick * sign);
   glow(ctx, sx, sy - 3, 44, "#5ce1ff", 0.1 * flick * sign);
   if (!closed) for (const x of SCONCES) glow(ctx, x, 13, 34, th.lampGlow, 0.22);
-  const lit = th.skyline !== "planet" && th.light && th.light !== "night" ? WINDOW_LIGHT[th.light] : null;
+  const lit = !keepsSky(th) && th.light && th.light !== "night" ? WINDOW_LIGHT[th.light] : null;
   const [wc, wa] = lit ?? [th.windowGlow, 0.06];
   for (const w of WINDOWS) glow(ctx, w.x + w.w / 2, 20, 40, wc, wa);
   glow(ctx, VENDING.x + 12, VENDING.y + 22, 36, "#59d8ff", 0.15);

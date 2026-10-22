@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Keyboard, Link2, Music, Pause, Play } from "lucide-react";
 import { Two, Ui, tr, useTr, useUi } from "@/lib/i18n";
 import { achText, trackKey } from "@/lib/live/achievements";
+import { useHalloween } from "@/lib/live/season";
 import { TRACKS, TrackId, trackInfo, trackText } from "@/lib/live/tracks";
 import { LINKED, LinkedRecord, linkedOf, parseTune, sameTune, tuneName, tuneSyncs } from "@/lib/live/tune";
 import { CafeSound } from "@/lib/live/useCafeSound";
@@ -129,10 +130,14 @@ function LinkedRow({ sound, r }: { sound: CafeSound; r: LinkedRecord }) {
 }
 
 /** The jukebox's records: a click plays one, a click on the playing one pauses it. */
-/** `open`: the records this room's achievements let it put on; one already playing can always be heard. */
+/**
+ * `open`: the records this room's achievements let it put on; one already playing can always be heard. A record for a
+ * week of the year shows only that week.
+ */
 export function JukeboxList({ sound, open }: { sound: CafeSound; open?: Set<TrackId> }) {
   const ui = useUi();
   const t = useTr();
+  const week = useHalloween().week;
   return (
     <div className="juke">
       {sound.shared && (
@@ -150,7 +155,7 @@ export function JukeboxList({ sound, open }: { sound: CafeSound; open?: Set<Trac
       )}
       <ul className="juke-list">
         <TuneRow sound={sound} />
-        {TRACKS.map((rec) => {
+        {TRACKS.filter((rec) => !rec.season || week || sound.track === rec.id).map((rec) => {
           const picked = !sound.tune && sound.track === rec.id;
           const playing = sound.on && picked;
           const key = open && !open.has(rec.id) && !picked ? trackKey(rec.id) : null;

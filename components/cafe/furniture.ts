@@ -1,5 +1,7 @@
-import { ItemId } from "@/lib/live/interior";
+import { Costume, ItemId } from "@/lib/live/interior";
 import { drawAquarium, drawArcade, drawOwl } from "./decor";
+import { HALLOWEEN_DRAW, halloweenLight } from "./halloween";
+import { drawPerson, lookFor } from "./people";
 import { Ctx, LINE, glow, px, shade } from "./pixel";
 import { RARE_DRAW, rareLight } from "./rare";
 import { drawPlant } from "./room";
@@ -252,6 +254,12 @@ export function sittingCat(ctx: Ctx, L: number, B: number, fur: string, dark: st
 
 export const CAT2 = { fur: "#9aa0ad", dark: "#5f6370", belly: "#e3e6ee" } as const;
 
+/** A costume as the shop shows it: on someone facing out. */
+const worn =
+  (costume: Costume, w: number): Draw =>
+  (ctx, L, B) =>
+    drawPerson(ctx, L + w / 2, B, { ...lookFor(1, "#6b7a99"), costume }, { dir: "down", step: 0, carrying: false });
+
 const DRAW: Record<ItemId, Draw> = {
   candle,
   cactus,
@@ -275,6 +283,12 @@ const DRAW: Record<ItemId, Draw> = {
   plant: (ctx, L, B) => drawPlant(ctx, L + 7, B),
   owl: (ctx, L, B, t) => drawOwl(ctx, t, L, B),
   ...RARE_DRAW,
+  ...HALLOWEEN_DRAW,
+  witchHat: worn("hat", 12),
+  pumpkinHead: worn("pumpkin", 12),
+  ghostSheet: worn("ghost", 12),
+  vampireCape: worn("vampire", 14),
+  devilHorns: worn("devil", 14),
 };
 
 /** One piece of furniture with its foot in the middle of `cx` at `bottom`. */
@@ -284,7 +298,7 @@ export function drawItem(ctx: Ctx, id: ItemId, w: number, cx: number, bottom: nu
 
 /** The light the warm pieces give off, drawn after the room is dimmed. */
 export function itemLight(ctx: Ctx, id: ItemId, cx: number, bottom: number, t: number) {
-  if (rareLight(ctx, id, cx, bottom, t)) return;
+  if (rareLight(ctx, id, cx, bottom, t) || halloweenLight(ctx, id, cx, bottom, t)) return;
   if (id === "candle") glow(ctx, cx, bottom - 9, 7, "#ffb15e", 0.16 + (Math.floor(t * 7) % 3) * 0.02);
   else if (id === "lamp") glow(ctx, cx, bottom - 20, 18, "#ffd9a0", 0.16);
   else if (id === "jukebox") glow(ctx, cx, bottom - 16, 16, JUKE[Math.floor(t * 2) % 4], 0.12);
