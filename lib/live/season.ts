@@ -4,10 +4,10 @@ import { useSyncExternalStore } from "react";
 
 const KEY = "relay.halloween";
 
-/** The Halloween week: 25 October to 1 November, by the clock of whoever is looking. */
+/** The Halloween week, from 22 October this year to 1 November, by the clock of whoever is looking. */
 export function halloweenAt(d: Date): boolean {
   const day = d.getDate();
-  return (d.getMonth() === 9 && day >= 25) || (d.getMonth() === 10 && day === 1);
+  return (d.getMonth() === 9 && day >= 22) || (d.getMonth() === 10 && day === 1);
 }
 
 /** A dev build takes `?halloween=1` or `?halloween=0` on the address, to see the week on any day or not at all. */

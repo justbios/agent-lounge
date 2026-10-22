@@ -8,7 +8,7 @@ the commit `vX.Y.Z`.
 
 No database change: the costumes are kept in the lobby's own room settings.
 
-- Halloween week, 25 October to 1 November (`lib/live/season.ts`): an orange moon, bats and a hill of gravestones and
+- Halloween week, 22 October to 1 November (`lib/live/season.ts`): an orange moon, bats and a hill of gravestones and
   pumpkins outside every window, whatever the café's theme; a black cat with glowing eyes instead of the ginger one;
   guests at the bar and the courier in costumes; and «Танець скелетів» on the jukebox, with the wind behind it. Each
   viewer can switch it off in the café's settings or with a click on the window, and turn it back on the same way.
