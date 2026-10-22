@@ -12,20 +12,18 @@ import { Duels as DuelsState } from "@/lib/live/useDuels";
 import { Four } from "@/lib/live/useFour";
 import { NES_GAMES } from "@/lib/live/nesGames";
 import { Ttt } from "@/lib/live/useTicTacToe";
-import CatchCups from "../games/CatchCups";
 import Dendy from "../games/Dendy";
 import Duels from "../games/Duels";
 
 const TOP = 5;
 const BOARDS: DuelKind[] = ["chess", "checkers", "hockey", "sumo", "four", "ttt", "pong", "cables"];
 
-const played = (rows: ScoreRow[], game: Game, by: "wins" | "best") =>
-  rows.filter((r) => r.game === game && (by === "best" ? r.best > 0 : r.played > 0));
+const played = (rows: ScoreRow[], game: Game) => rows.filter((r) => r.game === game && r.played > 0);
 
-function Leaders({ rows, game, by, me }: { rows: ScoreRow[]; game: Game; by: "wins" | "best"; me: string }) {
+function Leaders({ rows, game, me }: { rows: ScoreRow[]; game: Game; me: string }) {
   const t = useTr();
-  const list = played(rows, game, by)
-    .sort((a, b) => (by === "best" ? b.best - a.best : b.wins - a.wins || a.played - b.played))
+  const list = played(rows, game)
+    .sort((a, b) => b.wins - a.wins || a.played - b.played)
     .slice(0, TOP);
   if (!list.length) return null;
   return (
@@ -34,7 +32,7 @@ function Leaders({ rows, game, by, me }: { rows: ScoreRow[]; game: Game; by: "wi
         <li key={r.player} className={r.player === me ? "me" : ""}>
           <span className="ld-n">{i + 1}</span>
           <span className="ld-who">{r.player}</span>
-          <b>{by === "best" ? r.best : t(`${r.wins} з ${r.played}`, `${r.wins} of ${r.played}`)}</b>
+          <b>{t(`${r.wins} з ${r.played}`, `${r.wins} of ${r.played}`)}</b>
         </li>
       ))}
     </ol>
@@ -87,7 +85,6 @@ export default function GamesPanel({
     document.addEventListener("keydown", esc);
     return () => document.removeEventListener("keydown", esc);
   }, []);
-  const best = scores.rows.find((r) => r.game === "cups" && r.player === me)?.best ?? 0;
 
   return (
     <div className="recap-backdrop" onClick={shut}>
@@ -131,41 +128,34 @@ export default function GamesPanel({
           )}
         </Section>
 
-        <div className="games-row">
-          <Section title={t("Удвох і втрьох", "For two or three")}>
-            <Duels
-              duels={duels}
-              ttt={ttt}
-              chk={chk}
-              chess={chess}
-              four={four}
-              guests={guests}
-              room={room}
-              online={online}
-              onEnd={(kind, win) => {
-                scores.record(me, kind, win);
-                if (duels.match) duels.finish(duels.match.id);
-              }}
-            />
-            <div className="leaders-2">
-              {BOARDS.filter((k) => played(scores.rows, k, "wins").length > 0).map((k) => (
-                <div key={k}>
-                  <div className="muted-sm">{duelName(k, ui)}</div>
-                  <Leaders rows={scores.rows} game={k} by="wins" me={me} />
-                </div>
-              ))}
-            </div>
-          </Section>
+        <Section title={t("Удвох і втрьох", "For two or three")}>
+          <Duels
+            duels={duels}
+            ttt={ttt}
+            chk={chk}
+            chess={chess}
+            four={four}
+            guests={guests}
+            room={room}
+            online={online}
+            onEnd={(kind, win) => {
+              scores.record(me, kind, win);
+              if (duels.match) duels.finish(duels.match.id);
+            }}
+          />
+          <div className="leaders-2">
+            {BOARDS.filter((k) => played(scores.rows, k).length > 0).map((k) => (
+              <div key={k}>
+                <div className="muted-sm">{duelName(k, ui)}</div>
+                <Leaders rows={scores.rows} game={k} me={me} />
+              </div>
+            ))}
+          </div>
+        </Section>
 
-          <Section title={t("Лови чашки", "Catch the Cups")}>
-            <CatchCups best={best} onFinish={(n) => scores.record(me, "cups", false, n)} />
-            <Leaders rows={scores.rows} game="cups" by="best" me={me} />
-          </Section>
-        </div>
-
-        {played(scores.rows, "bets", "wins").length > 0 && (
+        {played(scores.rows, "bets").length > 0 && (
           <Section title={t("Ставки", "Bets")}>
-            <Leaders rows={scores.rows} game="bets" by="wins" me={me} />
+            <Leaders rows={scores.rows} game="bets" me={me} />
           </Section>
         )}
       </div>

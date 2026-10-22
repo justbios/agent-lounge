@@ -27,6 +27,8 @@ No database change: the costumes are kept in the lobby's own room settings.
   can play. Pick a game, then one person, or two for cables and sumo, and send the invite; chess and checkers ask for
   the clock right there. The long «Як грати» at the bottom of the games is gone; the Dendy's keys are one line under
   its screen, and who made its games folds away under it.
+- «Лови чашки» is gone from the games: the games for two and three take the whole width. Its old scores stay in the
+  database and are no longer shown.
 - The top bar shows the pixel cup of the app's icon instead of a radio, and a green, lit «підключено» once Claude
   reports to the café, where there was a bare plug.
 
