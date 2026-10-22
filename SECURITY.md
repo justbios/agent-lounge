@@ -88,3 +88,7 @@ permission prompts, questions and plans. The parts and their trust:
 - On a shared computer, another local user may see the answer key in the process list for the moment `openssl`
   checks a signature.
 - The server can withhold or delay an answer (then the terminal asks after 10 minutes); it cannot forge one.
+- Air hockey, ping-pong, cables and sumo link the players' browsers directly over WebRTC (STUN at Cloudflare and
+  Google, no relay server), so, as in any video call, each player's browser learns the others' public IP address. The
+  offers that set the link up ride the café's public broadcast channel under the game's id, which anyone in that room
+  who knows the id could read; when no direct link comes up, the moves go through that channel too.

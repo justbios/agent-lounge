@@ -5,11 +5,12 @@ import { useBets } from "./useBets";
 import { useCheckers } from "./useCheckers";
 import { useChess } from "./useChess";
 import { useDuels } from "./useDuels";
+import { useFour } from "./useFour";
 import { useScores } from "./useScores";
 import { Social } from "./useSocial";
 import { useTicTacToe } from "./useTicTacToe";
 
-/** The café's games in one place: the scoreboard, «Ставки» on the chat on screen, and the two-player games. */
+/** The café's games in one place: the scoreboard, «Ставки» on the chat on screen, and the games for two or three. */
 export function useGames({
   social,
   cloud,
@@ -38,5 +39,6 @@ export function useGames({
   const ttt = useTicTacToe(duels, social, scores);
   const chk = useCheckers(duels, social, scores);
   const chess = useChess(duels, social, scores);
-  return { scores, bets, duels, ttt, chk, chess };
+  const four = useFour(duels, social, scores);
+  return { scores, bets, duels, ttt, chk, chess, four };
 }

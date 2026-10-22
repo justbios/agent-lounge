@@ -16,6 +16,7 @@ export default function InviteToast({ duels, open, onPlay }: { duels: Duels; ope
   const i = duels.invites.at(-1);
   const m = duels.match;
   if (!i || (m && !m.over && !m.gone) || (open && i === duels.again)) return null;
+  const third = i.party?.find((p) => p.id !== duels.self);
   return (
     <div className="invite-toast" role="alert">
       <Gamepad2 size={15} />
@@ -24,6 +25,7 @@ export default function InviteToast({ duels, open, onPlay }: { duels: Duels; ope
         {i.again
           ? t(`хоче ще раз у ${duelName(i.kind, ui)}`, `wants another game of ${duelName(i.kind, ui)}`)
           : t(`кличе в ${duelName(i.kind, ui)}`, `wants to play ${duelName(i.kind, ui)}`)}
+        {third && t(` утрьох, з ${third.name}`, ` for three, with ${third.name}`)}
         {i.clock ? t(`, по ${i.clock / 60} хв на кожного`, `, ${i.clock / 60} min each`) : ""}
       </span>
       <button

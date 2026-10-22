@@ -6,6 +6,24 @@ the commit `vX.Y.Z`.
 
 ## 0.14.0 — not released yet
 
+No database change. Everyone in a café should reload it: an open tab from before can't play air hockey, ping-pong or
+cables with a new one.
+
+- Real-time games without the lag. Air hockey, ping-pong and cables play as rollback, the way fighting games are played
+  online: your own mallet, paddle or turn shows at once, and the others' moves are guessed from their last one until
+  they arrive, then quietly put right. Before, every turn in cables waited 300 ms and the puck was handed from screen to
+  screen, so hits landed late. Every screen plays the same game from the same inputs (`lib/live/rollback.ts`,
+  `lib/live/netplay.ts`), compares a checksum with the others every second and takes over the first player's game if
+  it ever drifts.
+- The players' browsers link up directly over WebRTC when the network lets them (`lib/live/gameLink.ts`): a few ms on
+  one network instead of 50–250 ms through the server. Otherwise the moves go through the server as before. The corner
+  of the field says which, and how many ms away the others are.
+- Games for three: «удвох / утрьох» in the lobby, tick two guests and pick cables or sumo; the game starts once both
+  said yes, and whoever invited asks for another round. Cables for three come out of three walls.
+- New: sumo for two or three on an ice floe that melts as the round goes on. Steer with the mouse, a finger or the
+  keys, dash with a click, a tap or space, and push the others into the sea; the last one on the floe takes the round.
+- New: four in a row for two, turn by turn like tic-tac-toe, each disc falling down its column.
+- A dev build takes `?lag=ms,jitter,loss` on the address to play the games over a made-up bad line.
 - A home-screen app on iPhone can be paired too: it opens no links and keeps its own storage, so the pairing link
   from `relay.sh pair` can now be pasted in «сповіщення» under «Я не за комп'ютером», or right on a request this
   browser can't answer yet. The connect page's phone step says how to pair.

@@ -4,6 +4,7 @@ import { Two, useTr, useUi } from "@/lib/i18n";
 import { WIN_AT as CABLES_AT } from "@/lib/live/cables";
 import { WIN_AT as HOCKEY_AT } from "@/lib/live/hockey";
 import { WIN_AT } from "@/lib/live/pong";
+import { WIN_AT as SUMO_AT } from "@/lib/live/sumo";
 import { NES_GAMES } from "@/lib/live/nesGames";
 
 const LINES: Two[] = [
@@ -29,13 +30,30 @@ const LINES: Two[] = [
   },
   {
     uk:
-      "Удвох: шахи, шашки, аерохокей, хрестики-нулики, пінг-понг або кабелі з кимось, хто зараз теж у кафе. " +
-      "Біля імені натисни гру, і людина отримає запрошення. На дошках підсвічено останній хід суперника; " +
-      "коли ігри закрито, а партія чекає на твій хід, зверху з'являється плашка.",
+      "Удвох: шахи, шашки, аерохокей, сумо, чотири в ряд, хрестики-нулики, пінг-понг або кабелі з кимось, хто " +
+      "зараз теж у кафе. Біля імені натисни гру, і людина отримає запрошення. На дошках підсвічено останній хід " +
+      "суперника; коли ігри закрито, а партія чекає на твій хід, зверху з'являється плашка.",
     en:
-      "For two: chess, checkers, air hockey, tic-tac-toe, ping-pong or cables with someone else in the café right " +
-      "now. Press a game next to their name and they get an invite. The boards light up the other side's last move, " +
-      "and while the games are closed and a game waits on your move, a note shows at the top.",
+      "For two: chess, checkers, air hockey, sumo, four in a row, tic-tac-toe, ping-pong or cables with someone else " +
+      "in the café right now. Press a game next to their name and they get an invite. The boards light up the other " +
+      "side's last move, and while the games are closed and a game waits on your move, a note shows at the top.",
+  },
+  {
+    uk:
+      "Утрьох: перемкни на «утрьох», познач двох і обери кабелі чи сумо. Гра почнеться, щойно обоє погодяться; " +
+      "ще раз кличе той, хто запросив.",
+    en:
+      "For three: switch to “for three”, tick two people and pick cables or sumo. The game starts once both say yes; " +
+      "whoever invited asks for another round.",
+  },
+  {
+    uk:
+      "Аерохокей, пінг-понг, кабелі й сумо йдуть напряму між браузерами, а якщо мережа не пускає, то через сервер. " +
+      "Свої рухи видно одразу, без чекання; у куті поля написано, як іде зв'язок і скільки мілісекунд до суперника.",
+    en:
+      "Air hockey, ping-pong, cables and sumo go straight between the browsers, or through the server when the " +
+      "network won't let them. Your own moves show at once, with no wait; the corner of the field says how the link " +
+      "goes and how many milliseconds away the others are.",
   },
   {
     uk:
@@ -75,11 +93,31 @@ const LINES: Two[] = [
   },
   {
     uk:
-      `Кабелі: кожен тягне свій кабель підлогою кафе. Повертай стрілками, WASD або проведи пальцем по полю. ` +
-      `Хто врізався в стіну чи в кабель, свій або чужий, програв раунд; гра до ${CABLES_AT} виграних раундів.`,
+      `Кабелі, удвох чи втрьох: кожен тягне свій кабель підлогою кафе. Повертай стрілками, WASD або проведи ` +
+      `пальцем по полю. Хто врізався в стіну чи в кабель, свій або чужий, вибув з раунду; раунд бере останній, ` +
+      `гра до ${CABLES_AT} виграних раундів.`,
     en:
-      `Cables: each of you drags a cable across the café floor. Turn with the arrows, WASD or a swipe on the field. ` +
-      `Whoever hits a wall or a cable, theirs or the other one, loses the round; first to ${CABLES_AT} rounds wins.`,
+      `Cables, for two or three: each of you drags a cable across the café floor. Turn with the arrows, WASD or a ` +
+      `swipe on the field. Whoever hits a wall or a cable, theirs or another, is out of the round; the last one ` +
+      `left takes it, first to ${CABLES_AT} rounds wins.`,
+  },
+  {
+    uk:
+      `Сумо, удвох чи втрьох: виштовхни інших з крижини у воду. Веди свій диск мишкою, пальцем, стрілками або WASD; ` +
+      `клік, дотик чи пробіл — ривок, і кільце навколо тебе показує, коли він знову готовий. Крижина з часом тане. ` +
+      `Раунд бере останній на ній, гра до ${SUMO_AT} раундів.`,
+    en:
+      `Sumo, for two or three: push the others off the ice floe into the sea. Steer your puck with the mouse, a ` +
+      `finger, the arrows or WASD; a click, a tap or space is a dash, and the ring round you shows when it is ready ` +
+      `again. The floe melts as the round goes on. The last one on it takes the round, first to ${SUMO_AT} wins.`,
+  },
+  {
+    uk:
+      "Чотири в ряд: по черзі кидайте фішки в стовпчики; хто перший складе чотири підряд по горизонталі, " +
+      "вертикалі чи навскіс, той виграв. Хто запросив, ходить першим.",
+    en:
+      "Four in a row: take turns dropping discs into the columns; whoever first lines up four across, down or " +
+      "diagonally wins. Whoever sent the invite goes first.",
   },
   {
     uk: "Лови чашки: бариста кидає чашки, ти ловиш тацею мишкою, пальцем або стрілками. Золота чашка дає три.",

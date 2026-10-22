@@ -1,8 +1,8 @@
 "use client";
 
 import { CSSProperties, ReactNode, RefObject } from "react";
-import { useTr } from "@/lib/i18n";
-import { FONT, MINE, THEIRS } from "./fx";
+import { tr, uiNow, useTr } from "@/lib/i18n";
+import { FONT, MINE, THEIRS, THIRD } from "./fx";
 
 /** How a match ended, for the card over the table. */
 export interface Final {
@@ -32,7 +32,16 @@ export function PixelNum({ n }: { n: number }) {
   );
 }
 
-/** The scoreboard over an arcade game for two: you on the left in yellow, the other player on the right in blue. */
+/** The second other player in a game for three, on the scoreboard in pink. */
+export interface HudThird {
+  name: string;
+  score: number;
+}
+
+/**
+ * The scoreboard over an arcade game: you on the left in yellow, the other player on the right in blue, and in a
+ * game for three the third one after them in pink.
+ */
 export function ArcadeHud({
   rival,
   winAt,
@@ -40,6 +49,8 @@ export function ArcadeHud({
   theirs,
   mineRef,
   theirsRef,
+  third,
+  thirdRef,
 }: {
   rival: string;
   winAt: number;
@@ -47,6 +58,8 @@ export function ArcadeHud({
   theirs: number;
   mineRef: RefObject<HTMLElement | null>;
   theirsRef: RefObject<HTMLElement | null>;
+  third?: HudThird;
+  thirdRef?: RefObject<HTMLElement | null>;
 }) {
   const t = useTr();
   return (
@@ -66,26 +79,49 @@ export function ArcadeHud({
           <PixelNum n={theirs} />
         </b>
       </span>
+      {third && (
+        <span className="arc-p them" style={{ "--c": THIRD } as CSSProperties}>
+          <i aria-hidden />
+          <span className="arc-name">{third.name}</span>
+          <b ref={thirdRef}>
+            <PixelNum n={third.score} />
+          </b>
+        </span>
+      )}
     </div>
   );
 }
 
-/** The table, the big words that pop up over it and, once the match is over, the result on top. */
+/** How a game reaches the other players, for the corner of the table: straight or through the server, and how fast. */
+export function lineSay(link: { direct: boolean; rtt: number }): string {
+  const ms = Math.round(link.rtt);
+  return link.direct
+    ? tr(uiNow(), `напряму · ${ms} мс`, `direct · ${ms} ms`)
+    : tr(uiNow(), `через сервер · ${ms} мс`, `via server · ${ms} ms`);
+}
+
+/**
+ * The table, the big words that pop up over it and, once the match is over, the result on top. `lineRef` is the
+ * corner a real-time game writes its line to the other players in.
+ */
 export function ArcadeScreen({
   popRef,
   final,
   rival,
+  lineRef,
   children,
 }: {
   popRef: RefObject<HTMLDivElement | null>;
   final: Final | null;
   rival: string;
+  lineRef?: RefObject<HTMLSpanElement | null>;
   children: ReactNode;
 }) {
   const t = useTr();
   return (
     <div className="arc-screen">
       {children}
+      {lineRef && <span className="arc-line" ref={lineRef} />}
       <div className="arc-pop" ref={popRef} aria-hidden />
       {final && (
         <div className={`arc-end ${final.win ? "win" : "lose"}`}>

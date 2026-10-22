@@ -14,6 +14,8 @@ export type Ctx = CanvasRenderingContext2D;
 
 export const MINE = "#ffd25a";
 export const THEIRS = "#8fb3ff";
+/** the second other player, in a game for three */
+export const THIRD = "#ff7aa8";
 export const INK = "#07050d";
 
 /** most device pixels one game unit gets; past it the browser scales the canvas up, which stays sharp pixelated */

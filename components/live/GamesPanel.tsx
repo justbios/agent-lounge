@@ -9,6 +9,7 @@ import { Checkers } from "@/lib/live/useCheckers";
 import { Chess } from "@/lib/live/useChess";
 import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
+import { Four } from "@/lib/live/useFour";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import CatchCups from "../games/CatchCups";
 import Dendy from "../games/Dendy";
@@ -16,7 +17,7 @@ import Duels from "../games/Duels";
 import GamesHelp from "../games/GamesHelp";
 
 const TOP = 5;
-const BOARDS: DuelKind[] = ["chess", "checkers", "hockey", "ttt", "pong", "cables"];
+const BOARDS: DuelKind[] = ["chess", "checkers", "hockey", "sumo", "four", "ttt", "pong", "cables"];
 
 const played = (rows: ScoreRow[], game: Game, by: "wins" | "best") =>
   rows.filter((r) => r.game === game && (by === "best" ? r.best > 0 : r.played > 0));
@@ -55,6 +56,7 @@ export default function GamesPanel({
   ttt,
   chk,
   chess,
+  four,
   guests,
   room,
   online,
@@ -66,6 +68,7 @@ export default function GamesPanel({
   ttt: Ttt;
   chk: Checkers;
   chess: Chess;
+  four: Four;
   guests: Guest[];
   room: string | null;
   online: boolean;
@@ -101,12 +104,13 @@ export default function GamesPanel({
         </Section>
 
         <div className="games-row">
-          <Section title={t("Удвох", "For two")}>
+          <Section title={t("Удвох і втрьох", "For two or three")}>
             <Duels
               duels={duels}
               ttt={ttt}
               chk={chk}
               chess={chess}
+              four={four}
               guests={guests}
               room={room}
               online={online}

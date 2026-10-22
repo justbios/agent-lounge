@@ -1,25 +1,31 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RotateCcw, Timer, Volume2, VolumeX } from "lucide-react";
 import { useTr, useUi } from "@/lib/i18n";
 import { setClockPick, useClockPick } from "@/lib/live/clock";
-import { CLOCKS, DuelKind, LiveDuel, TIMED, duelName } from "@/lib/live/duel";
+import { CLOCKS, DuelKind, LiveDuel, Match, PARTY, TIMED, duelName, playersOf } from "@/lib/live/duel";
 import { setSfxOn, unlockSfx, useSfxOn } from "@/lib/live/sfx";
 import { Guest } from "@/lib/live/social";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
 import { Chess as ChessState } from "@/lib/live/useChess";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
+import { Four as FourState } from "@/lib/live/useFour";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import Cables from "./Cables";
 import Checkers from "./Checkers";
 import Chess from "./Chess";
+import Four from "./Four";
 import FullscreenButton from "./FullscreenButton";
 import Hockey from "./Hockey";
 import Pong from "./Pong";
+import Sumo from "./Sumo";
 import TicTacToe from "./TicTacToe";
 
-const KINDS: DuelKind[] = ["chess", "checkers", "hockey", "ttt", "pong", "cables"];
+const KINDS: DuelKind[] = ["chess", "checkers", "hockey", "sumo", "four", "ttt", "pong", "cables"];
+
+/** Everyone else at a match. */
+const othersOf = (m: Match, self: string) => playersOf(m).filter((p) => p.id !== self);
 
 /** The games' sounds on and off, for this browser. */
 function SoundButton() {
@@ -68,14 +74,16 @@ function ClockPick() {
 function Rematch({ duels }: { duels: DuelsState }) {
   const t = useTr();
   const m = duels.match!;
-  const rival = m.x.id === duels.self ? m.o : m.x;
+  const rivals = othersOf(m, duels.self)
+    .map((p) => p.name)
+    .join(t(" і ", " and "));
   if (duels.away) return null;
   const ask = duels.again;
   if (ask) {
     return (
       <div className="rematch" role="alert">
         <span>
-          <b>{rival.name}</b> {t("хоче ще раз", "wants another game")}
+          <b>{ask.from.name}</b> {t("хоче ще раз", "wants another game")}
         </span>
         <button className="btn ask-yes" onClick={() => duels.accept(ask)}>
           {t("грати", "play")}
@@ -89,22 +97,27 @@ function Rematch({ duels }: { duels: DuelsState }) {
   if (duels.waiting?.again === m.id) {
     return (
       <div className="rematch">
-        <span>{t(`Чекаю, поки ${rival.name} погодиться…`, `Waiting for ${rival.name} to say yes…`)}</span>
+        <span>
+          {m.z
+            ? t(`Чекаю, поки ${rivals} погодяться…`, `Waiting for ${rivals} to say yes…`)
+            : t(`Чекаю, поки ${rivals} погодиться…`, `Waiting for ${rivals} to say yes…`)}
+        </span>
         <button className="btn" onClick={duels.cancel}>
           {t("скасувати", "cancel")}
         </button>
       </div>
     );
   }
+  // a game for three is asked again by whoever asked for it the first time
+  if (m.z && m.x.id !== duels.self) return null;
+  const no = duels.declined && othersOf(m, duels.self).some((p) => p.name === duels.declined) ? duels.declined : null;
   return (
     <>
       <button className="btn ask-yes" onClick={duels.rematch}>
         <RotateCcw size={13} />
         {t("ще раз", "play again")}
       </button>
-      {duels.declined === rival.name && (
-        <span className="rematch-no">{t(`${rival.name} зараз не хоче`, `${rival.name} doesn't want to now`)}</span>
-      )}
+      {no && <span className="rematch-no">{t(`${no} зараз не хоче`, `${no} doesn't want to now`)}</span>}
     </>
   );
 }
@@ -115,6 +128,7 @@ export default function Duels({
   ttt,
   chk,
   chess,
+  four,
   guests,
   room,
   online,
@@ -124,6 +138,7 @@ export default function Duels({
   ttt: Ttt;
   chk: CheckersState;
   chess: ChessState;
+  four: FourState;
   guests: Guest[];
   room: string | null;
   online: boolean;
@@ -134,6 +149,8 @@ export default function Duels({
   const t = useTr();
   const board = useRef<HTMLDivElement>(null);
   const pick = useClockPick();
+  const [three, setThree] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
   useEffect(() => {
     window.addEventListener("pointerdown", unlockSfx, true);
     window.addEventListener("keydown", unlockSfx, true);
@@ -144,13 +161,13 @@ export default function Duels({
   }, []);
   const m = duels.match;
   if (m) {
-    const rival = m.x.id === duels.self ? m.o : m.x;
+    const gone = m.left ?? othersOf(m, duels.self)[0].name;
     const note = m.over
       ? null
       : m.gone
-        ? t(`${rival.name}: гру закрито`, `${rival.name} closed the game`)
+        ? t(`${gone}: гру закрито`, `${gone} closed the game`)
         : duels.away
-          ? t(`${rival.name} більше не в кафе`, `${rival.name} left the café`)
+          ? t(`${duels.away} більше не в кафе`, `${duels.away} left the café`)
           : null;
     return (
       <div className="duel">
@@ -161,6 +178,10 @@ export default function Duels({
             <Checkers key={m.id} chk={chk} self={duels.self} note={note} />
           ) : m.kind === "chess" ? (
             <Chess key={m.id} chess={chess} self={duels.self} note={note} />
+          ) : m.kind === "four" ? (
+            <Four key={m.id} four={four} self={duels.self} note={note} />
+          ) : m.kind === "sumo" ? (
+            <Sumo key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("sumo", w)} />
           ) : m.kind === "cables" ? (
             <Cables key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("cables", w)} />
           ) : m.kind === "hockey" ? (
@@ -186,48 +207,113 @@ export default function Duels({
     return (
       <p className="alerts-hint">
         {t(
-          "Удвох грають з кимось, хто теж відкрив це кафе. Це працює в хмарному режимі.",
-          "Games for two are played with someone else who opened this café. They work in cloud mode.",
+          "Удвох і втрьох грають з тими, хто теж відкрив це кафе. Це працює в хмарному режимі.",
+          "Games for two or three are played with others who opened this café. They work in cloud mode.",
         )}
       </p>
     );
   }
+  const party = guests.filter((g) => picked.includes(g.id));
+  const w = duels.waiting;
+  const waitFor = w?.party
+    ? w.party
+        .filter((g) => !w.yes?.includes(g.id))
+        .map((g) => g.name)
+        .join(t(" і ", " and "))
+    : w?.to.name;
+  const ready = w?.party?.filter((g) => w.yes?.includes(g.id)).map((g) => g.name) ?? [];
   return (
     <div className="ttt-lobby">
-      {duels.waiting ? (
+      {w ? (
         <div className="ttt-wait">
-          {t(
-            `Чекаю, поки ${duels.waiting.to.name} погодиться на ${gameName(duels.waiting)}…`,
-            `Waiting for ${duels.waiting.to.name} to say yes to ${gameName(duels.waiting)}…`,
-          )}{" "}
+          {w.party && !ready.length
+            ? t(
+                `Чекаю, поки ${waitFor} погодяться на ${gameName(w)} утрьох…`,
+                `Waiting for ${waitFor} to say yes to ${gameName(w)} for three…`,
+              )
+            : t(
+                `Чекаю, поки ${waitFor} погодиться на ${gameName(w)}…`,
+                `Waiting for ${waitFor} to say yes to ${gameName(w)}…`,
+              )}
+          {ready.length > 0 && <small> {t(`${ready.join(", ")} уже з тобою`, `${ready.join(", ")} is in`)}</small>}{" "}
           <button className="btn" onClick={duels.close}>
             {t("скасувати", "cancel")}
           </button>
         </div>
       ) : guests.length ? (
         <>
-          <ClockPick />
-          <ul className="duel-guests">
-            {guests.map((g) => (
-              <li key={g.id}>
-                <span>{g.name}</span>
-                {KINDS.map((k) => {
-                  const clock = TIMED.includes(k) ? pick : 0;
+          {guests.length >= 2 && (
+            <div className="duel-mode" role="radiogroup" aria-label={t("скільки гравців", "how many players")}>
+              {[false, true].map((v) => (
+                <button
+                  key={String(v)}
+                  className={`btn${three === v ? " on" : ""}`}
+                  role="radio"
+                  aria-checked={three === v}
+                  onClick={() => setThree(v)}
+                >
+                  {v ? t("утрьох", "for three") : t("удвох", "for two")}
+                </button>
+              ))}
+            </div>
+          )}
+          {three && guests.length >= 2 ? (
+            <div className="duel-party">
+              <p className="alerts-hint">{t("Обери двох, з ким грати:", "Pick the two to play with:")}</p>
+              <ul className="duel-guests">
+                {guests.map((g) => {
+                  const on = picked.includes(g.id);
                   return (
-                    <button
-                      key={k}
-                      className="btn"
-                      onClick={() => duels.invite(k, g, clock)}
-                      aria-label={clock ? gameName({ kind: k, clock }) : undefined}
-                    >
-                      {duelName(k, ui)}
-                      {clock > 0 && <small className="clock-tag">{clock / 60}′</small>}
-                    </button>
+                    <li key={g.id}>
+                      <label className="party-pick">
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          disabled={!on && party.length >= 2}
+                          onChange={() =>
+                            setPicked((list) => (on ? list.filter((x) => x !== g.id) : [...list, g.id].slice(-2)))
+                          }
+                        />
+                        <span>{g.name}</span>
+                      </label>
+                    </li>
                   );
                 })}
-              </li>
-            ))}
-          </ul>
+              </ul>
+              <div className="party-go">
+                {PARTY.map((k) => (
+                  <button key={k} className="btn" disabled={party.length !== 2} onClick={() => duels.invite(k, party)}>
+                    {duelName(k, ui)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <>
+              <ClockPick />
+              <ul className="duel-guests">
+                {guests.map((g) => (
+                  <li key={g.id}>
+                    <span>{g.name}</span>
+                    {KINDS.map((k) => {
+                      const clock = TIMED.includes(k) ? pick : 0;
+                      return (
+                        <button
+                          key={k}
+                          className="btn"
+                          onClick={() => duels.invite(k, g, clock)}
+                          aria-label={clock ? gameName({ kind: k, clock }) : undefined}
+                        >
+                          {duelName(k, ui)}
+                          {clock > 0 && <small className="clock-tag">{clock / 60}′</small>}
+                        </button>
+                      );
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       ) : (
         <p className="alerts-hint">

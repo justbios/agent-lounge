@@ -144,7 +144,26 @@ export const MARKS = {
 
 export const WHITE = { "#": "#07050d", w: "#f6f1e4", s: "#c2b69c" };
 export const BLACK = { "#": "#07050d", w: "#463c62", s: "#2a2340" };
+/** A disc for four in a row: lit at the top left, in shadow at the bottom right; coloured like the noughts and crosses. */
+export const DISC = [
+  "...wwww...",
+  ".wwhhwwww.",
+  ".whhwwwwws",
+  "wwhwwwwwws",
+  "whwwwwwwws",
+  "wwwwwwwwss",
+  "wwwwwwwwss",
+  ".wwwwwwss.",
+  ".swwwssss.",
+  "...ssss...",
+];
+
 export const MARK_COLORS = {
   x: { w: "#ffb07a", s: "#e0743c" },
   o: { w: "#7cc0f2", s: "#3f86c4" },
+} as const;
+
+export const DISC_COLORS = {
+  x: { ...MARK_COLORS.x, h: "#ffe2c4" },
+  o: { ...MARK_COLORS.o, h: "#d6eeff" },
 } as const;

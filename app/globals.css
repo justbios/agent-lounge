@@ -3723,6 +3723,93 @@ body {
   }
 }
 
+/* Four in a row: seven columns of dark slots in a navy frame; a disc falls down its column and lands with a hop. */
+.bgame.four-game {
+  width: min(340px, 86vw);
+}
+.four-board {
+  position: relative;
+  padding: 8px;
+  border: 2px solid #07050d;
+  background: #1b2f63;
+  box-shadow:
+    3px 3px 0 var(--px-drop),
+    inset 2px 2px 0 rgba(255, 255, 255, 0.12),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.4);
+}
+.four-board.go {
+  border-color: #ffd25a;
+}
+.four-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  overflow: hidden;
+}
+.four-col {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.four-col:enabled {
+  cursor: pointer;
+}
+.four-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  background: #0a0f1f;
+  box-shadow:
+    inset 2px 2px 0 rgba(0, 0, 0, 0.55),
+    inset -1px -1px 0 rgba(255, 255, 255, 0.08);
+}
+.four-col:enabled:hover .four-cell,
+.four-col:focus-visible .four-cell {
+  background-color: #121b38;
+}
+.four-cell .disc {
+  width: 84%;
+  height: 84%;
+  filter: drop-shadow(1px 1px 0 #07050d);
+}
+.four-cell .ghost {
+  opacity: 0;
+}
+.four-col:enabled:hover .ghost,
+.four-col:focus-visible .ghost {
+  opacity: 0.35;
+}
+.four-cell.last .disc {
+  animation: four-drop calc(110ms + var(--row) * 45ms) ease-in both;
+}
+.four-cell.win {
+  background-color: #16301f;
+}
+.four-cell.win .disc {
+  animation: four-win 900ms steps(2, end) 400ms infinite;
+}
+.four-cell.dim .disc {
+  opacity: 0.35;
+}
+@keyframes four-drop {
+  from {
+    transform: translateY(calc(var(--row) * -122%));
+  }
+  80% {
+    transform: translateY(0);
+  }
+  90% {
+    transform: translateY(-12%);
+  }
+}
+@keyframes four-win {
+  50% {
+    filter: drop-shadow(1px 1px 0 #07050d) brightness(1.4);
+  }
+}
+
 /* Chess and draughts squares: maple and walnut; the latest move stays lit. */
 .chess-grid,
 .chk-grid {
@@ -4247,6 +4334,8 @@ body {
   .gclock.on.low,
   .board-say.win,
   .ttt-grid .last .mark,
+  .four-cell.last .disc,
+  .four-cell.win .disc,
   .chess-grid .chk::before,
   .chess-grid .sel .piece,
   .chk-grid .pick .man,
@@ -4379,6 +4468,15 @@ body {
   content: "";
   pointer-events: none;
 }
+.arc-line {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  color: rgba(233, 242, 234, 0.5);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
 .arc-pop {
   position: absolute;
   left: 50%;
@@ -4482,6 +4580,15 @@ body {
   height: min(64vh, 560px, calc((100vw - 52px) * 160 / 100));
   aspect-ratio: 100 / 160;
 }
+/* sumo's floe is round: a square screen, as tall as it fits */
+.pong.sumo .arc-screen {
+  align-self: center;
+}
+.pong.sumo canvas {
+  width: auto;
+  height: min(60vh, 480px, calc(100vw - 52px));
+  aspect-ratio: 1;
+}
 .duel-guests {
   display: flex;
   flex-direction: column;
@@ -4500,6 +4607,43 @@ body {
 .duel-guests li > span {
   min-width: 90px;
   font-weight: 600;
+}
+/* for two or for three; in a game for three, the two guests picked and the games three can play */
+.duel-mode {
+  display: inline-flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+}
+.duel-mode .btn[aria-checked="true"] {
+  border-color: #ffd25a;
+  background: #1d1a14;
+  color: #ffd25a;
+}
+.duel-party .alerts-hint {
+  margin: 0 0 8px;
+}
+.party-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.party-pick input {
+  width: 15px;
+  height: 15px;
+  accent-color: #ff7aa8;
+}
+.party-pick:has(input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+.party-go {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
 }
 /* the clock chess and draughts are offered with, and its minutes on their invite buttons */
 .clock-pick {
@@ -5480,10 +5624,12 @@ body {
 .duel-board:fullscreen .pong {
   max-width: min(100%, calc((100dvh - 150px) * 1.6));
 }
-.duel-board:fullscreen .pong.hockey {
+.duel-board:fullscreen .pong.hockey,
+.duel-board:fullscreen .pong.sumo {
   max-width: none;
 }
-.duel-board:fullscreen .pong.hockey canvas {
+.duel-board:fullscreen .pong.hockey canvas,
+.duel-board:fullscreen .pong.sumo canvas {
   height: calc(100dvh - 150px);
 }
 .duel-board:fullscreen .bgame {

@@ -1,7 +1,7 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 /** Broadcast events the café's social channel carries; anything else on it is ignored. */
-export const BUS_EVENTS = ["react", "bet", "duel", "ttt", "chk", "chess", "chat", "juke"] as const;
+export const BUS_EVENTS = ["react", "bet", "duel", "ttt", "chk", "chess", "four", "chat", "juke"] as const;
 export type BusEvent = (typeof BUS_EVENTS)[number];
 
 type Listener = (payload: unknown, mine: boolean) => void;

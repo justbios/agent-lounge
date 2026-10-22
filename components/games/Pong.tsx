@@ -3,41 +3,31 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { tr, uiNow, useTr } from "@/lib/i18n";
 import { Match, Side, sideOf } from "@/lib/live/duel";
+import { GameLink, devLag } from "@/lib/live/gameLink";
+import { Netplay } from "@/lib/live/netplay";
 import {
-  Ball,
   FACE,
+  FIRST_STEPS,
   GAP,
   H,
   PAD_H,
   PAD_W,
-  PongMsg,
   R,
+  STEP_MS,
   W,
   WIN_AT,
-  atFace,
-  bounce,
   clampPad,
-  cleanPong,
-  covers,
-  fly,
-  flyFor,
-  gone,
-  heading,
-  reflect,
-  serve,
+  padAt,
+  pongRules,
+  seedOf,
 } from "@/lib/live/pong";
 import { sfx } from "@/lib/live/sfx";
 import { supabase } from "@/lib/supabaseClient";
 import { rgba } from "../cafe/pixel";
-import { ArcadeHud, ArcadeSay, ArcadeScreen, Final } from "./Arcade";
+import { ArcadeHud, ArcadeSay, ArcadeScreen, Final, lineSay } from "./Arcade";
 import { Ctx, Cues, INK, Jolt, MINE, Screen, Sparks, THEIRS, Trail, bump, countdown, digits, digitsW, glow, pop } from "./fx";
 
-const STEP_MS = 8;
-const PAD_EVERY_MS = 60;
-const PING_EVERY_MS = 3000;
-const FIRST_SERVE_MS = 1500;
-const NEXT_SERVE_MS = 1000;
-const QUIET_MS = 2500;
+const QUIET_MS = 1500;
 const BALL = "#f6f1e4";
 /** a paddle stays lit this long after it hits */
 const FLASH_MS = 160;
@@ -234,9 +224,13 @@ export class PongView {
   }
 }
 
+/** How far a correction still shows, eased off by half every SMOOTH_MS; a jump this big is a new serve, not a fix. */
+const SMOOTH_MS = 35;
+const SNAP = 30;
+
 /**
- * Ping-pong over a channel of the match's own. Each player rules on the ball at their own paddle — the hit or the
- * miss they saw — and tells the other; between those words both fly the same ball, a half round trip apart.
+ * Ping-pong as rollback: each screen plays the whole table from both paddles, its own player's with no wait at all
+ * and the other one guessed until it arrives, then quietly corrected. A point counts once both screens are sure of it.
  */
 export default function Pong({
   match,
@@ -258,12 +252,14 @@ export default function Pong({
   const theirsRef = useRef<HTMLElement>(null);
   const sayRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
+  const lineRef = useRef<HTMLSpanElement>(null);
   const stopRef = useRef(!!note);
   const [result, setResult] = useState<Final | null>(null);
   const [tally, setTally] = useState<[number, number]>([0, 0]);
   const end = useEffectEvent(onEnd);
   const { id } = match;
   const me: Side = sideOf(match, self) ?? "o";
+  const ids = `${match.x.id} ${match.o.id}`;
 
   useEffect(() => {
     stopRef.current = !!note;
@@ -276,139 +272,95 @@ export default function Pong({
     if (!sb || !canvas || !ctx || !room) return;
     const view = new PongView(canvas);
     const cues = new Cues();
-    const rival: Side = me === "x" ? "o" : "x";
-    const pads: Record<Side, number> = { x: H / 2, o: H / 2 };
-    const score: Record<Side, number> = { x: 0, o: 0 };
-    const seen: Record<Side, number> = { x: 0, o: 0 };
+    const seat = me === "x" ? 0 : 1;
+    const rival = 1 - seat;
+    const seats = ids.split(" ");
+    const rules = pongRules(seedOf(id));
+    const link = new GameLink(sb, `relay-game:${room}:${id}`, self, seats, (from, m) => net.receive(from, m), devLag());
+    const net = new Netplay(rules, seats, self, link);
     const keys = new Set<string>();
+    const off = { bx: 0, by: 0, pad: 0 };
     const seenBall = { x: 0, y: 0, vx: 0, vy: 0 };
+    const seen = [0, 0];
+    let pad = H / 2;
     let lastY = H / 2;
-    let shown = H / 2;
-    let ball: Ball | null = null;
-    let dead = false;
-    let pending = false;
-    let n = 0;
-    let rtt = 120;
-    let met = false;
+    let tally0 = 0;
+    let tally1 = 0;
+    let began = false;
     let over = false;
-    let serveAt = 0;
-    let sentPad = { at: 0, y: -1 };
-    let pingAt = 0;
-    let quietSince = 0;
+    let quiet = false;
+    let lineAt = 0;
     let raf = 0;
     let prev = 0;
 
-    const ch = sb.channel(`relay-pong:${room}:${id}`, { config: { broadcast: { self: false } } });
-    const send = (m: PongMsg) => ch.send({ type: "broadcast", event: "p", payload: m });
     const say = (s: string) => {
       if (sayRef.current) sayRef.current.textContent = s;
     };
     const sayT = (uk: string, en: string) => say(tr(uiNow(), uk, en));
-    const hud = () => {
-      setTally([score[me], score[rival]]);
-      view.score(score[me], score[rival]);
+    sayT("чекаю на суперника…", "waiting for the other player…");
+
+    net.game.onRewind = (was, now) => {
+      if (was.ball && now.ball) {
+        off.bx += was.ball.x - now.ball.x;
+        off.by += was.ball.y - now.ball.y;
+      }
+      off.pad += was.pads[rival] - now.pads[rival];
+      if (Math.abs(off.bx) + Math.abs(off.by) > SNAP) off.bx = off.by = 0;
+    };
+
+    /** the points and the end, from the game both screens are sure of */
+    const settle = () => {
+      const s = net.game.sure;
       const now = performance.now();
-      for (const s of [me, rival]) {
-        if (score[s] <= seen[s]) continue;
-        seen[s] = score[s];
-        const ours = s === me;
+      for (const k of [0, 1]) {
+        if (s.score[k] <= seen[k]) continue;
+        seen[k] = s.score[k];
+        const ours = k === seat;
         view.point(ours, lastY, now);
         bump(ours ? mineRef.current : theirsRef.current);
         pop(popRef.current, tr(uiNow(), "ОЧКО!", "POINT!"), ours ? MINE : THEIRS, 800);
         sfx(ours ? "goal" : "conceded");
       }
-    };
-    const finish = () => {
-      if (over || Math.max(score.x, score.o) < WIN_AT) return false;
-      over = true;
-      serveAt = 0;
-      const win = score[me] >= WIN_AT;
-      setResult({ win, mine: score[me], theirs: score[rival] });
-      end(win);
-      cues.at(performance.now() + FANFARE_MS, () => {
-        view.end(win);
-        sfx(win ? "win" : "lose");
-      });
-      return true;
-    };
-
-    ch.on("broadcast", { event: "p" }, ({ payload }) => {
-      const m = cleanPong(payload);
-      if (!m || over) return;
-      const now = performance.now();
-      if (m.t === "hello") {
-        if (met) return;
-        met = true;
-        send({ t: "hello" });
-        countdown(cues, () => popRef.current, now, now + FIRST_SERVE_MS);
-        if (me === "x") {
-          serveAt = now + FIRST_SERVE_MS;
-          sayT("подаєш ти", "your serve");
-        } else sayT("готуйся, подає суперник", "get ready, their serve");
-      } else if (m.t === "ping") send({ t: "pong", a: m.a });
-      else if (m.t === "pong") rtt = Math.min(600, Math.max(20, rtt * 0.6 + (now - m.a) * 0.4));
-      else if (m.t === "pad") pads[rival] = clampPad(m.y);
-      else if (m.n > n) {
-        n = m.n;
-        pending = false;
-        quietSince = 0;
-        if (m.t === "ball") {
-          ball = flyFor(m.b, rtt / 2);
-          dead = false;
-          say("");
-        } else {
-          score.x = m.x;
-          score.o = m.o;
-          ball = null;
-          hud();
-          finish();
-        }
+      if (s.score[seat] !== tally0 || s.score[rival] !== tally1) {
+        tally0 = s.score[seat];
+        tally1 = s.score[rival];
+        setTally([tally0, tally1]);
+        view.score(tally0, tally1);
       }
-    });
-    ch.subscribe((s) => {
-      if (s !== "SUBSCRIBED") return;
-      send({ t: "hello" });
-      sayT("чекаю на суперника…", "waiting for the other player…");
-    });
-
-    const step = (dt: number, now: number) => {
-      if (!ball) return;
-      if (pending && (gone(ball) || (atFace(ball) && heading(ball) === me))) {
-        if (!quietSince) quietSince = now;
-        return;
+      if (s.over && !over) {
+        over = true;
+        const win = s.score[seat] >= WIN_AT;
+        setResult({ win, mine: s.score[seat], theirs: s.score[rival] });
+        end(win);
+        cues.at(now + FANFARE_MS, () => {
+          view.end(win);
+          sfx(win ? "win" : "lose");
+        });
       }
-      let b = fly(ball, dt);
-      if (!dead && !pending && atFace(b)) {
-        const to = heading(b);
-        if (to === me && covers(pads[me], b)) {
-          b = bounce(b, pads[me]);
-          send({ t: "ball", n: ++n, b });
-        } else if (to === me) {
-          dead = true;
-          score[rival] += 1;
-          send({ t: "point", n: ++n, x: score.x, o: score.o });
-          hud();
-          if (!finish()) serveAt = now + NEXT_SERVE_MS;
-        } else {
-          pending = true;
-          if (covers(pads[rival], b)) b = reflect(b);
-        }
-      }
-      ball = dead && gone(b) ? null : b;
     };
 
+    const input = () => padAt(pad);
+    const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
     const draw = (now: number) => {
-      if (ball) {
-        seenBall.x = me === "x" ? ball.x : W - ball.x;
-        seenBall.y = lastY = ball.y;
-        seenBall.vx = me === "x" ? ball.vx : -ball.vx;
-        seenBall.vy = ball.vy;
-      }
-      view.frame(ctx, now, ball && seenBall, pads[me], shown);
+      const s = net.game.state;
+      const p0 = net.prev;
+      const k = net.between(now);
+      const b = s.ball;
+      if (b) {
+        const q = p0.ball ?? b;
+        const x = lerp(q.x, b.x, k) + off.bx;
+        seenBall.x = me === "x" ? x : W - x;
+        seenBall.y = lastY = lerp(q.y, b.y, k) + off.by;
+        seenBall.vx = me === "x" ? b.vx : -b.vx;
+        seenBall.vy = b.vy;
+      } else off.bx = off.by = 0;
+      const mine = lerp(p0.pads[seat], s.pads[seat], k);
+      const theirs = lerp(p0.pads[rival], s.pads[rival], k) + off.pad;
+      view.frame(ctx, now, b && seenBall, mine, theirs);
     };
 
     const point = (e: PointerEvent) => {
-      pads[me] = clampPad(view.screen.at(e).y);
+      pad = clampPad(view.screen.at(e).y);
     };
     const down = (e: KeyboardEvent) => {
       if (over || !["ArrowUp", "ArrowDown", "w", "s"].includes(e.key)) return;
@@ -423,34 +375,37 @@ export default function Pong({
 
     const loop = () => {
       const now = performance.now();
-      const dt = prev ? Math.min(3000, now - prev) : 16;
+      const dt = prev ? Math.min(100, now - prev) : 16;
       prev = now;
       if (stopRef.current) cues.clear();
       cues.run(now);
       if (!stopRef.current && !over) {
         const dir = (keys.has("ArrowDown") || keys.has("s") ? 1 : 0) - (keys.has("ArrowUp") || keys.has("w") ? 1 : 0);
-        if (dir) pads[me] = clampPad(pads[me] + dir * dt * 0.14);
-        if (serveAt && now >= serveAt) {
-          serveAt = 0;
-          ball = serve(me);
-          dead = false;
-          send({ t: "ball", n: ++n, b: ball });
-          say("");
+        if (dir) pad = clampPad(pad + dir * dt * 0.14);
+        net.run(now, input);
+        if (net.started && !began) {
+          began = true;
+          countdown(cues, () => popRef.current, now, now + FIRST_STEPS * STEP_MS);
+          if (me === "x") sayT("подаєш ти", "your serve");
+          else sayT("готуйся, подає суперник", "get ready, their serve");
+          cues.at(now + FIRST_STEPS * STEP_MS + 1500, () => !quiet && say(""));
         }
-        for (let left = dt; left > 0; left -= STEP_MS) step(Math.min(STEP_MS, left), now);
-        if (met && now - sentPad.at >= PAD_EVERY_MS && Math.abs(pads[me] - sentPad.y) >= 0.5) {
-          sentPad = { at: now, y: pads[me] };
-          send({ t: "pad", y: pads[me] });
+        const stuck = !!net.stalledSince && now - net.stalledSince > QUIET_MS;
+        if (stuck !== quiet) {
+          quiet = stuck;
+          if (stuck) sayT("суперник не відповідає…", "the other player is not answering…");
+          else say("");
         }
-        if (met && now - pingAt >= PING_EVERY_MS) {
-          pingAt = now;
-          send({ t: "ping", a: now });
-        }
-        if (quietSince && now - quietSince > QUIET_MS) {
-          sayT("суперник не відповідає…", "the other player is not answering…");
-        }
+        settle();
       }
-      shown += (pads[rival] - shown) * Math.min(1, dt / 50);
+      if (now - lineAt > 1000 && lineRef.current && net.started) {
+        lineAt = now;
+        lineRef.current.textContent = lineSay(link);
+      }
+      const fade = Math.pow(0.5, dt / SMOOTH_MS);
+      off.bx *= fade;
+      off.by *= fade;
+      off.pad *= fade;
       draw(now);
       raf = requestAnimationFrame(loop);
     };
@@ -464,9 +419,9 @@ export default function Pong({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       view.dispose();
-      sb.removeChannel(ch);
+      link.close();
     };
-  }, [id, me, room]);
+  }, [id, ids, me, room, self]);
 
   const rival = me === "x" ? match.o : match.x;
   const verdict =
@@ -486,7 +441,7 @@ export default function Pong({
         theirsRef={theirsRef}
       />
       <ArcadeSay>{verdict ?? note ?? <span ref={sayRef} />}</ArcadeSay>
-      <ArcadeScreen popRef={popRef} final={result} rival={rival.name}>
+      <ArcadeScreen popRef={popRef} final={result} rival={rival.name} lineRef={lineRef}>
         <canvas
           ref={canvasRef}
           width={W * 3}

@@ -14,9 +14,9 @@ export default function TurnToast({ games, onOpen }: { games: Games; onOpen: () 
   const ui = useUi();
   const t = useTr();
   const [later, setLater] = useState("");
-  const { duels, ttt, chk, chess } = games;
+  const { duels, ttt, chk, chess, four } = games;
   const m = duels.match;
-  const b = chess.board ?? chk.board ?? ttt.board;
+  const b = chess.board ?? chk.board ?? four.board ?? ttt.board;
   if (!m || !b || m.over || m.gone || duels.away || b.winner || b.turn !== sideOf(m, duels.self)) return null;
   const key = `${m.id}.${"moves" in b ? b.moves.length : b.cells.filter(Boolean).length}`;
   if (later === key) return null;

@@ -3,39 +3,16 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { tr, uiNow, useTr } from "@/lib/i18n";
 import { Match, Side, sideOf } from "@/lib/live/duel";
-import {
-  GOAL_W,
-  H,
-  HockeyMsg,
-  MALLET_R,
-  MAX_MALLET,
-  Mallet,
-  PUCK_R,
-  Puck,
-  W,
-  WIN_AT,
-  cleanHockey,
-  glide,
-  glideFor,
-  half,
-  keepIn,
-  startAt,
-} from "@/lib/live/hockey";
+import { GameLink, devLag } from "@/lib/live/gameLink";
+import { Aim, FIRST_STEPS, GOAL_W, H, HOCKEY, MALLET_R, PUCK_R, STEP_MS, W, WIN_AT, aimAt } from "@/lib/live/hockey";
+import { Netplay } from "@/lib/live/netplay";
 import { sfx } from "@/lib/live/sfx";
 import { supabase } from "@/lib/supabaseClient";
 import { shade } from "../cafe/pixel";
-import { ArcadeHud, ArcadeSay, ArcadeScreen, Final } from "./Arcade";
+import { ArcadeHud, ArcadeSay, ArcadeScreen, Final, lineSay } from "./Arcade";
 import { Ctx, Cues, INK, Jolt, MINE, Screen, Sparks, THEIRS, Trail, bump, countdown, disc, glow, pop, ring } from "./fx";
 
-const STEP_MS = 4;
-const SEND_MS = 50;
-const MAL_MS = 40;
-const PING_MS = 3000;
-const FIRST_MS = 1500;
-const NEXT_MS = 1200;
-const RESEND_MS = 250;
-const QUIET_MS = 2500;
-const FINAL_SENDS = 3;
+const QUIET_MS = 1500;
 const KEY_SPEED = 0.12;
 const RED = "#e0525e";
 const BLUE = "#4aa3e0";
@@ -334,10 +311,14 @@ export class HockeyView {
   }
 }
 
+/** How far a correction still shows, eased off by half every SMOOTH_MS; a jump this big is a new puck, not a fix. */
+const SMOOTH_MS = 35;
+const SNAP = 20;
+
 /**
- * Air hockey over the match's own channel. Whoever's half the puck is in rules on it — the hit off their mallet, the
- * goal in their net — and streams it; when it crosses the red line it is handed over, so each mallet is ever judged
- * by its own player's screen.
+ * Air hockey as rollback: each screen plays the whole table from both players' aims, its own player's mallet with no
+ * wait at all and the other one guessed until their aim arrives, then quietly corrected. A goal counts once both
+ * screens are sure of it.
  */
 export default function Hockey({
   match,
@@ -359,12 +340,14 @@ export default function Hockey({
   const theirsRef = useRef<HTMLElement>(null);
   const sayRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
+  const lineRef = useRef<HTMLSpanElement>(null);
   const stopRef = useRef(!!note);
   const [result, setResult] = useState<Final | null>(null);
   const [tally, setTally] = useState<[number, number]>([0, 0]);
   const end = useEffectEvent(onEnd);
   const { id } = match;
   const me: Side = sideOf(match, self) ?? "o";
+  const ids = `${match.x.id} ${match.o.id}`;
 
   useEffect(() => {
     stopRef.current = !!note;
@@ -377,178 +360,108 @@ export default function Hockey({
     if (!sb || !canvas || !ctx || !room) return;
     const view = new HockeyView(canvas);
     const cues = new Cues();
-    const rival: Side = me === "x" ? "o" : "x";
-    const home = keepIn(me, W / 2, me === "x" ? H - 14 : 14);
-    const mine: Mallet = { ...home, vx: 0, vy: 0 };
-    let aim = { ...home };
-    let theirs = keepIn(rival, W / 2, rival === "x" ? H - 14 : 14);
-    const shown = { ...theirs };
-    const score: Record<Side, number> = { x: 0, o: 0 };
-    const seen: Record<Side, number> = { x: 0, o: 0 };
+    const seat = me === "x" ? 0 : 1;
+    const rival = 1 - seat;
+    const seats = ids.split(" ");
+    const link = new GameLink(sb, `relay-game:${room}:${id}`, self, seats, (from, m) => net.receive(from, m), devLag());
+    const net = new Netplay(HOCKEY, seats, self, link);
     const keys = new Set<string>();
+    const home = HOCKEY.idle(seat);
+    let pointer = { x: home.x, y: home.y };
+    const off = { px: 0, py: 0, mx: 0, my: 0 };
     const sp = { x: 0, y: 0, vx: 0, vy: 0 };
     const sm = { x: 0, y: 0 };
     const st = { x: 0, y: 0 };
-    let puck: Puck | null = null;
-    let epoch = 0;
-    let boss: Side = "x";
-    let heard = true;
-    let last: HockeyMsg | null = null;
-    let finals = 0;
-    let met = false;
+    const seen = [0, 0];
+    let began = false;
     let over = false;
-    let serveAt = 0;
-    let rtt = 120;
-    let sentAt = 0;
-    let malAt = 0;
-    let sentMal = { x: -1, y: -1 };
-    let pingAt = 0;
-    let heardAt = 0;
     let quiet = false;
+    let lineAt = 0;
     let raf = 0;
     let prev = 0;
 
-    const ch = sb.channel(`relay-hockey:${room}:${id}`, { config: { broadcast: { self: false } } });
-    const send = (m: HockeyMsg) => ch.send({ type: "broadcast", event: "h", payload: m });
     const say = (s: string) => {
       if (sayRef.current) sayRef.current.textContent = s;
     };
     const sayT = (uk: string, en: string) => say(tr(uiNow(), uk, en));
-    const hud = () => {
-      const [a, b] = [score[me], score[rival]];
-      setTally((p) => (p[0] === a && p[1] === b ? p : [a, b]));
+    sayT("чекаю на суперника…", "waiting for the other player…");
+
+    net.game.onRewind = (was, now) => {
+      if (was.puck && now.puck) {
+        off.px += was.puck.x - now.puck.x;
+        off.py += was.puck.y - now.puck.y;
+      }
+      off.mx += was.mal[rival].x - now.mal[rival].x;
+      off.my += was.mal[rival].y - now.mal[rival].y;
+      if (Math.abs(off.px) + Math.abs(off.py) > SNAP) off.px = off.py = 0;
+    };
+
+    /** the goals and the end, from the game both screens are sure of */
+    const settle = () => {
+      const s = net.game.sure;
       const now = performance.now();
-      for (const s of [me, rival]) {
-        if (score[s] <= seen[s]) continue;
-        seen[s] = score[s];
-        const ours = s === me;
+      for (const k of [0, 1]) {
+        if (s.score[k] <= seen[k]) continue;
+        seen[k] = s.score[k];
+        const ours = k === seat;
         view.goal(ours, now);
         bump(ours ? mineRef.current : theirsRef.current);
         pop(popRef.current, tr(uiNow(), "ГОЛ!", "GOAL!"), ours ? MINE : THEIRS, 900);
         sfx(ours ? "goal" : "conceded");
       }
-    };
-    const puckMsg = (): HockeyMsg => ({ t: "puck", e: epoch, boss, p: puck, s: [score.x, score.o] });
-    const tell = (now: number) => {
-      last = puckMsg();
-      send(last);
-      sentAt = now;
-    };
-    const finish = () => {
-      if (over || Math.max(score.x, score.o) < WIN_AT) return false;
-      over = true;
-      serveAt = 0;
-      const win = score[me] >= WIN_AT;
-      setResult({ win, mine: score[me], theirs: score[rival] });
-      end(win);
-      cues.at(performance.now() + FANFARE_MS, () => {
-        view.end(win);
-        sfx(win ? "win" : "lose");
-      });
-      return true;
-    };
-
-    ch.on("broadcast", { event: "h" }, ({ payload }) => {
-      const m = cleanHockey(payload);
-      if (!m || over) return;
-      const now = performance.now();
-      heardAt = now;
-      if (quiet) {
-        quiet = false;
-        say("");
+      setTally((p) => (p[0] === s.score[seat] && p[1] === s.score[rival] ? p : [s.score[seat], s.score[rival]]));
+      if (s.over && !over) {
+        over = true;
+        const win = s.score[seat] >= WIN_AT;
+        setResult({ win, mine: s.score[seat], theirs: s.score[rival] });
+        end(win);
+        cues.at(now + FANFARE_MS, () => {
+          view.end(win);
+          sfx(win ? "win" : "lose");
+        });
       }
-      if (m.t === "hello") {
-        if (met) return;
-        met = true;
-        send({ t: "hello" });
-        countdown(cues, () => popRef.current, now, now + FIRST_MS);
-        if (me === "x") {
-          serveAt = now + FIRST_MS;
-          sayT("шайба твоя: бий її битою", "your puck: hit it with your mallet");
-        } else sayT("готуйся, шайба в суперника", "get ready, their puck");
-      } else if (m.t === "ping") send({ t: "pong", a: m.a });
-      else if (m.t === "pong") rtt = Math.min(600, Math.max(20, rtt * 0.6 + (now - m.a) * 0.4));
-      else if (m.t === "mal") theirs = keepIn(rival, m.x, m.y);
-      else if (m.e > epoch || (m.e === epoch && m.boss === rival && boss === rival)) {
-        if (m.e > epoch) say("");
-        epoch = m.e;
-        boss = m.boss;
-        heard = true;
-        puck = m.p && glideFor(m.p, rtt / 2);
-        score.x = m.s[0];
-        score.o = m.s[1];
-        hud();
-        finish();
-      }
-    });
-    ch.subscribe((s) => {
-      if (s !== "SUBSCRIBED") return;
-      send({ t: "hello" });
-      sayT("чекаю на суперника…", "waiting for the other player…");
-    });
-
-    const moveMallet = (dt: number) => {
-      const dx = aim.x - mine.x;
-      const dy = aim.y - mine.y;
-      const d = Math.hypot(dx, dy);
-      const k = d > MAX_MALLET * dt ? (MAX_MALLET * dt) / d : 1;
-      const next = keepIn(me, mine.x + dx * k, mine.y + dy * k);
-      mine.vx = (next.x - mine.x) / dt;
-      mine.vy = (next.y - mine.y) / dt;
-      mine.x = next.x;
-      mine.y = next.y;
-    };
-
-    const step = (dt: number, now: number) => {
-      moveMallet(dt);
-      if (!puck) return;
-      if (boss !== me) {
-        const g = glide(puck, dt);
-        if (!g.goal) puck = g.p;
-        return;
-      }
-      const g = glide(puck, dt, mine);
-      if (g.goal) {
-        score[rival] += 1;
-        epoch += 1;
-        boss = me;
-        puck = null;
-        tell(now);
-        hud();
-        if (finish()) finals = 1;
-        else serveAt = now + NEXT_MS;
-        return;
-      }
-      const struck = Math.abs(g.p.vx - puck.vx) + Math.abs(g.p.vy - puck.vy) > 0.03;
-      puck = g.p;
-      if (half(puck) === rival) {
-        epoch += 1;
-        boss = rival;
-        heard = false;
-        tell(now);
-      } else if (struck) tell(now);
     };
 
     const flip = me === "x" ? 1 : -1;
     const tx = (x: number) => (me === "x" ? x : W - x);
     const ty = (y: number) => (me === "x" ? y : H - y);
+    const input = (): Aim => {
+      if (!keys.size) return aimAt(me, pointer.x, pointer.y);
+      let kx = 0;
+      let ky = 0;
+      keys.forEach((k) => {
+        kx += MOVES[k]?.[0] ?? 0;
+        ky += MOVES[k]?.[1] ?? 0;
+      });
+      const m = net.game.state.mal[seat];
+      const a = aimAt(me, m.x + kx * flip * KEY_SPEED * STEP_MS * 2, m.y + ky * flip * KEY_SPEED * STEP_MS * 2);
+      pointer = a;
+      return a;
+    };
+    const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
     const draw = (now: number) => {
-      if (puck) {
-        sp.x = tx(puck.x);
-        sp.y = ty(puck.y);
-        sp.vx = puck.vx * flip;
-        sp.vy = puck.vy * flip;
-      }
-      sm.x = tx(mine.x);
-      sm.y = ty(mine.y);
-      st.x = tx(shown.x);
-      st.y = ty(shown.y);
-      view.frame(ctx, now, puck && sp, sm, st);
+      const s = net.game.state;
+      const p0 = net.prev;
+      const k = net.between(now);
+      const p = s.puck;
+      if (p) {
+        const q = p0.puck ?? p;
+        sp.x = tx(lerp(q.x, p.x, k) + off.px);
+        sp.y = ty(lerp(q.y, p.y, k) + off.py);
+        sp.vx = p.vx * flip;
+        sp.vy = p.vy * flip;
+      } else off.px = off.py = 0;
+      sm.x = tx(lerp(p0.mal[seat].x, s.mal[seat].x, k));
+      sm.y = ty(lerp(p0.mal[seat].y, s.mal[seat].y, k));
+      st.x = tx(lerp(p0.mal[rival].x, s.mal[rival].x, k) + off.mx);
+      st.y = ty(lerp(p0.mal[rival].y, s.mal[rival].y, k) + off.my);
+      view.frame(ctx, now, p && sp, sm, st);
     };
 
     const point = (e: PointerEvent) => {
       const at = view.screen.at(e);
-      aim = keepIn(me, tx(at.x), ty(at.y));
+      pointer = { x: tx(at.x), y: ty(at.y) };
+      keys.clear();
     };
     const down = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
@@ -564,54 +477,36 @@ export default function Hockey({
 
     const loop = () => {
       const now = performance.now();
-      const dt = prev ? Math.min(250, now - prev) : 16;
+      const dt = prev ? Math.min(100, now - prev) : 16;
       prev = now;
       if (stopRef.current) cues.clear();
       cues.run(now);
       if (!stopRef.current && !over) {
-        if (keys.size) {
-          let kx = 0;
-          let ky = 0;
-          keys.forEach((k) => {
-            kx += MOVES[k]?.[0] ?? 0;
-            ky += MOVES[k]?.[1] ?? 0;
-          });
-          aim = keepIn(me, mine.x + kx * flip * KEY_SPEED * dt, mine.y + ky * flip * KEY_SPEED * dt);
+        net.run(now, input);
+        if (net.started && !began) {
+          began = true;
+          countdown(cues, () => popRef.current, now, now + FIRST_STEPS * STEP_MS);
+          if (me === "x") sayT("шайба твоя: бий її битою", "your puck: hit it with your mallet");
+          else sayT("готуйся, шайба в суперника", "get ready, their puck");
+          cues.at(now + FIRST_STEPS * STEP_MS + 2000, () => !quiet && say(""));
         }
-        if (serveAt && now >= serveAt) {
-          serveAt = 0;
-          epoch += 1;
-          boss = me;
-          puck = { ...startAt(me), vx: 0, vy: 0 };
-          tell(now);
-          say("");
+        const stuck = !!net.stalledSince && now - net.stalledSince > QUIET_MS;
+        if (stuck !== quiet) {
+          quiet = stuck;
+          if (stuck) sayT("суперник не відповідає…", "the other player is not answering…");
+          else say("");
         }
-        for (let left = dt; left > 0; left -= STEP_MS) step(Math.min(STEP_MS, left), now);
-        if (boss === me && puck && now - sentAt >= SEND_MS) tell(now);
-        if (boss === rival && !heard && last && now - sentAt >= RESEND_MS) {
-          send(last);
-          sentAt = now;
-        }
-        if (met && now - malAt >= MAL_MS && Math.hypot(mine.x - sentMal.x, mine.y - sentMal.y) >= 0.3) {
-          malAt = now;
-          sentMal = { x: mine.x, y: mine.y };
-          send({ t: "mal", x: mine.x, y: mine.y });
-        }
-        if (met && now - pingAt >= PING_MS) {
-          pingAt = now;
-          send({ t: "ping", a: now });
-        }
-        if (boss === rival && !quiet && heardAt && now - heardAt > QUIET_MS) {
-          quiet = true;
-          sayT("суперник не відповідає…", "the other player is not answering…");
-        }
-      } else if (over && finals && finals < FINAL_SENDS && last && now - sentAt >= RESEND_MS) {
-        finals += 1;
-        send(last);
-        sentAt = now;
+        settle();
       }
-      shown.x += (theirs.x - shown.x) * Math.min(1, dt / 40);
-      shown.y += (theirs.y - shown.y) * Math.min(1, dt / 40);
+      if (now - lineAt > 1000 && lineRef.current && net.started) {
+        lineAt = now;
+        lineRef.current.textContent = lineSay(link);
+      }
+      const fade = Math.pow(0.5, dt / SMOOTH_MS);
+      off.px *= fade;
+      off.py *= fade;
+      off.mx *= fade;
+      off.my *= fade;
       draw(now);
       raf = requestAnimationFrame(loop);
     };
@@ -625,9 +520,9 @@ export default function Hockey({
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       view.dispose();
-      sb.removeChannel(ch);
+      link.close();
     };
-  }, [id, me, room]);
+  }, [id, ids, me, room, self]);
 
   const rival = me === "x" ? match.o : match.x;
   const verdict =
@@ -647,7 +542,7 @@ export default function Hockey({
         theirsRef={theirsRef}
       />
       <ArcadeSay>{verdict ?? note ?? <span ref={sayRef} />}</ArcadeSay>
-      <ArcadeScreen popRef={popRef} final={result} rival={rival.name}>
+      <ArcadeScreen popRef={popRef} final={result} rival={rival.name} lineRef={lineRef}>
         <canvas
           ref={canvasRef}
           width={(W + 2 * RAIL) * 3}

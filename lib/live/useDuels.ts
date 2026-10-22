@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useEffectEvent, useState } from "react";
-import { DuelKind, Match, Player, TIMED, cleanDuel, sideOf } from "./duel";
+import { DuelKind, Match, Player, TIMED, cleanDuel, playersOf, seatOf } from "./duel";
 import { Guest } from "./social";
 import { Social } from "./useSocial";
 
@@ -13,35 +13,50 @@ export interface Invite {
   again?: string;
   /** seconds on each side's clock */
   clock?: number;
+  /** a game for three: both invited, in seat order */
+  party?: Player[];
 }
 
 export interface Duels {
   match: Match | null;
-  /** the opponent is no longer in the café */
-  away: boolean;
+  /** another player is no longer in the café: their name */
+  away: string | null;
   invites: Invite[];
-  waiting: { kind: DuelKind; game: string; to: Guest; again?: string; clock?: number } | null;
+  waiting: {
+    kind: DuelKind;
+    game: string;
+    to: Guest;
+    again?: string;
+    clock?: number;
+    /** a game for three: both invited, and the ones who already said yes */
+    party?: Guest[];
+    yes?: string[];
+  } | null;
   declined: string | null;
-  /** the opponent asks for another game of the one just played, while its board is still open here */
+  /** another player asks for another game of the one just played, while its board is still open here */
   again: Invite | null;
   self: string;
   name: string;
-  /** `clock`: seconds a side, for chess and draughts */
-  invite: (kind: DuelKind, g: Guest, clock?: number) => void;
-  /** asks the opponent for another game of the same kind and clock; whoever asks moves first, as with any invite */
+  /** `clock`: seconds a side, for chess and draughts; two guests make a game for three */
+  invite: (kind: DuelKind, to: Guest | Guest[], clock?: number) => void;
+  /** asks for another game of the same kind and clock; whoever asks moves first, as with any invite */
   rematch: () => void;
   accept: (i: Invite) => void;
   decline: (i: Invite) => void;
   finish: (game: string) => void;
   /** takes back the invite in flight, leaving the board as it is */
   cancel: () => void;
-  /** leaves the match, telling the other side unless it was played to the end, or cancels the invite */
+  /** leaves the match, telling the others unless it was played to the end, or cancels the invite */
   close: () => void;
 }
 
 const gameId = () => crypto.randomUUID().slice(0, 12);
+const player = (g: Player): Player => ({ id: g.id, name: g.name });
 
-/** Inviting someone in the café to a two-player game, and the match that follows; the moves are each game's own. */
+/**
+ * Inviting people in the café to a game for two or three, and the match that follows; the moves are each game's own.
+ * A game for three starts once both invited said yes: each of them as they accept, the inviter on the second yes.
+ */
 export function useDuels(social: Social): Duels {
   const { bus, self, name, guests } = social;
   const [match, setMatch] = useState<Match | null>(null);
@@ -54,8 +69,16 @@ export function useDuels(social: Social): Duels {
     setInvites((list) => list.filter((x) => x.game !== i.game));
     setDeclined(null);
     const clock = i.clock ? { clock: i.clock } : {};
-    setMatch({ kind: i.kind, id: i.game, x: i.from, o, gone: false, over: false, ...clock });
+    const seats = i.party ? { o: i.party[0], z: i.party[1] } : { o };
+    setMatch({ kind: i.kind, id: i.game, x: i.from, ...seats, gone: false, over: false, ...clock });
     bus.send("duel", { t: "accept", kind: i.kind, game: i.game, x: i.from, o, ...clock });
+  };
+
+  /** the game for three this side waits on is off: `who` said no or left, and the other invited hears so */
+  const drop = (game: string, who: string) => {
+    setDeclined(who);
+    setWaiting(null);
+    bus.send("duel", { t: "leave", game, by: self });
   };
 
   const onMsg = useEffectEvent((p: unknown) => {
@@ -69,9 +92,10 @@ export function useDuels(social: Social): Duels {
         from: m.from,
         ...(m.again ? { again: m.again } : {}),
         ...(m.clock ? { clock: m.clock } : {}),
+        ...(m.party ? { party: m.party } : {}),
       };
       // both asked for a rematch at once: the one with the smaller id takes the other's, the other waits for that
-      if (i.again && waiting?.again === i.again && waiting.to.id === i.from.id) {
+      if (!i.party && i.again && waiting?.again === i.again && waiting.to.id === i.from.id) {
         if (self < i.from.id) {
           setWaiting(null);
           accept(i);
@@ -80,40 +104,80 @@ export function useDuels(social: Social): Duels {
       }
       setInvites((list) => (list.some((x) => x.game === i.game) ? list : [...list, i].slice(-3)));
     } else if (m.t === "decline") {
+      const by = match?.id === m.game && !match.over && !match.gone && playersOf(match).find((x) => x.id === m.by);
+      if (by && by.id !== self) setMatch((g) => (g && g.id === m.game ? { ...g, gone: true, left: by.name } : g));
       if (m.to !== self || waiting?.game !== m.game) return;
-      setDeclined(waiting.to.name);
-      setWaiting(null);
+      const who = waiting.party?.find((x) => x.id === m.by) ?? waiting.to;
+      if (waiting.party) drop(m.game, who.name);
+      else {
+        setDeclined(who.name);
+        setWaiting(null);
+      }
     } else if (m.t === "accept") {
       if (waiting?.game !== m.game || m.x.id !== self) return;
-      setWaiting(null);
       const clock = m.clock ? { clock: m.clock } : {};
-      setMatch({ kind: m.kind, id: m.game, x: m.x, o: m.o, gone: false, over: false, ...clock });
+      const party = waiting.party;
+      if (!party) {
+        setWaiting(null);
+        setMatch({ kind: m.kind, id: m.game, x: m.x, o: m.o, gone: false, over: false, ...clock });
+        return;
+      }
+      if (!party.some((x) => x.id === m.o.id)) return;
+      const yes = [...new Set([...(waiting.yes ?? []), m.o.id])];
+      if (yes.length < party.length) {
+        setWaiting({ ...waiting, yes });
+        return;
+      }
+      setWaiting(null);
+      const [o, z] = party.map(player);
+      setMatch({ kind: m.kind, id: m.game, x: m.x, o, z, gone: false, over: false, ...clock });
     } else {
-      setMatch((g) => (g && g.id === m.game && !g.over && sideOf(g, m.by) ? { ...g, gone: true } : g));
+      const who = waiting?.game === m.game && waiting.party?.find((x) => x.id === m.by);
+      if (who) drop(m.game, who.name);
+      setMatch((g) => {
+        if (!g || g.id !== m.game || g.over || g.gone || seatOf(g, m.by) < 0) return g;
+        return { ...g, gone: true, left: playersOf(g)[seatOf(g, m.by)].name };
+      });
       setInvites((list) => list.filter((i) => i.game !== m.game));
     }
   });
   useEffect(() => bus.on("duel", (p, mine) => !mine && onMsg(p)), [bus]);
 
-  const other = match ? (match.x.id === self ? match.o : match.x) : null;
-  const away = !!(other && !guests.some((g) => g.id === other.id));
+  const others = match ? playersOf(match).filter((p) => p.id !== self) : [];
+  const away = others.find((p) => !guests.some((g) => g.id === p.id))?.name ?? null;
   const ended = !!match && (match.over || match.gone);
-  const again = (ended && invites.findLast((i) => i.again === match.id && i.from.id === other?.id)) || null;
+  const again =
+    (ended && invites.findLast((i) => i.again === match.id && others.some((p) => p.id === i.from.id))) || null;
 
-  const invite = (kind: DuelKind, g: Guest, clock?: number, after?: string) => {
+  const invite = (kind: DuelKind, to: Guest | Guest[], clock?: number, after?: string) => {
+    const list = Array.isArray(to) ? to : [to];
     const id = gameId();
     const extra = { ...(after ? { again: after } : {}), ...(clock && TIMED.includes(kind) ? { clock } : {}) };
+    const party = list.length > 1 ? list : null;
     setDeclined(null);
-    setWaiting({ kind, game: id, to: g, ...extra });
-    bus.send("duel", { t: "invite", kind, game: id, from: { id: self, name }, to: g.id, ...extra });
+    setWaiting({ kind, game: id, to: list[0], ...extra, ...(party ? { party, yes: [] } : {}) });
+    for (const g of list) {
+      bus.send("duel", {
+        t: "invite",
+        kind,
+        game: id,
+        from: { id: self, name },
+        to: g.id,
+        ...extra,
+        ...(party ? { party: party.map(player) } : {}),
+      });
+    }
   };
   const rematch = () => {
-    const g = other && guests.find((x) => x.id === other.id);
-    if (match && ended && g) invite(match.kind, g, match.clock, match.id);
+    if (!match || !ended) return;
+    // a game for three is asked again by whoever asked for it, so two asks never cross
+    if (match.z && match.x.id !== self) return;
+    const back = others.map((p) => guests.find((g) => g.id === p.id));
+    if (back.every(Boolean)) invite(match.kind, back as Guest[], match.clock, match.id);
   };
   const decline = (i: Invite) => {
     setInvites((list) => list.filter((x) => x.game !== i.game));
-    bus.send("duel", { t: "decline", game: i.game, to: i.from.id });
+    bus.send("duel", { t: "decline", game: i.game, to: i.from.id, by: self });
   };
   const finish = (game: string) => setMatch((g) => (g && g.id === game ? { ...g, over: true } : g));
   const cancel = () => {
