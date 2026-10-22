@@ -13,6 +13,7 @@ import {
   hookSettings,
   httpHookSettings,
   pluginSteps,
+  saveScript,
   splitKey,
   statusChain,
 } from "@/lib/live/hookConfig.mjs";
@@ -25,6 +26,7 @@ import { CafeSwitcher, JoinTeam, MemberName, TeamInvite, useTeamInvite } from ".
 import Code from "./connect/Code";
 import Disconnect from "./connect/Disconnect";
 import HookStatus from "./connect/HookStatus";
+import OtherAgents from "./connect/OtherAgents";
 import TeamKeys from "./connect/TeamKeys";
 import KeyLost from "./live/KeyLost";
 import OwnCafe from "./live/OwnCafe";
@@ -34,7 +36,7 @@ function cloudPrompt(site: string, url: string, ui: Ui): string {
   const { url: bare, key } = splitKey(url);
   const check = `echo '{"session_id":"relay-check","cwd":"'"$PWD"'","hook_event_name":"UserPromptSubmit","prompt":"перевірка Agent Lounge"}' | curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' -H '${KEY_HEADER}: ${key}' --data-binary @- '${bare}'`;
   const file = RELAY_SH.replace("$HOME", "~");
-  const save = `mkdir -p ~/.config/relay && curl -fsS ${site}/relay.sh -o ${file} && (shasum -a 256 ${file} || sha256sum ${file})`;
+  const save = saveScript(site);
   const status = `"statusLine": ${JSON.stringify(STATUS_LINE)}`;
   const json = JSON.stringify(cloudHookSettings(url), null, 2);
   return tr(
@@ -232,6 +234,8 @@ function CloudConnect({ site, roomKey }: { site: string; roomKey: string }) {
           </p>
         </div>
       </div>
+
+      <OtherAgents site={site} url={url} />
 
       <div className="step">
         <div className="step-n">

@@ -12,6 +12,9 @@ export type LiveKind =
   /** a tool Claude asked about went through: you answered; nothing to show, it only clears «чекає на тебе» */
   | "answered";
 
+/** The coding agent a chat runs in when it isn't Claude Code, which has none (`lib/live/source.ts`). */
+export type AgentSrc = "codex" | "copilot" | "gemini" | "opencode" | "cursor";
+
 /** Tokens one report adds: fresh input, cache writes, cache reads and output. */
 export interface Usage {
   in: number;
@@ -115,5 +118,7 @@ export interface LiveEvent {
   hv?: number;
   /** Claude Code's own HTTP hook sent it, with no script: no chat names, tokens or limits ride along */
   via?: "http";
+  /** another coding agent sent it through the same hooks: Codex, Copilot, Gemini, OpenCode or Cursor */
+  src?: AgentSrc;
 }
 

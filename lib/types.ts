@@ -61,7 +61,10 @@ export interface AgentDef {
   tokens?: number;
   /** index into the café's character looks; live agents keep the same face per agent type */
   look?: number;
-  /** live only: what the café's names and looks hang on, the agent's type, so it keeps them at any desk and in any chat */
+  /**
+   * live only: what the café's names and looks hang on, the agent's type, so it keeps them at any desk and in any chat;
+   * for Codex's or another agent's main chat, that agent
+   */
   key?: string;
   /** live only: the second or third agent of one type working at once */
   twin?: number;

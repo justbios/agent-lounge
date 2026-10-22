@@ -12,6 +12,7 @@
 #   relay.sh [--url URL] pair [new]                           a link that lets a phone answer for this computer
 #   relay.sh statusline                                       statusLine command: keeps limits and context, prints a line
 #   relay.sh limits                                           the same, silent, for chaining after another statusLine
+#   relay.sh [--url URL] codex|copilot|gemini|opencode [waits]  the same for another agent's hooks, named as that agent
 # Without --url the café link comes from ~/.config/relay/hook-url (written by /agent-lounge:connect).
 # Token counts and the last limits are kept in ~/.local/state/relay; nothing leaves this machine but the café's own events.
 # The room key goes in a header, not in the address, which servers keep in their logs.
@@ -181,6 +182,24 @@ post() {
   if [ -n "$key" ]; then curl -H "x-relay-key: $key" "$@" "$u"; else curl "$@" "$u"; fi
 }
 
+# The agent named by a flag, after a marker line, when the hook isn't Claude Code's
+tag() {
+  [ -z "$agent" ] || printf '\n#relay-agent\n%s\n' "$agent"
+}
+
+# send: posts the body on stdin to the café. Copilot and Gemini wait on every hook, so for them it goes on in the
+# background with nothing left on the hook's output, and the hook returns at once.
+send() {
+  case "$agent" in
+    copilot | gemini)
+      b=$(cat)
+      { printf '%s\n' "$b" | post "$url" -s -m 5 -o /dev/null -H 'content-type: text/plain' --data-binary @-; } \
+        >/dev/null 2>&1 &
+      ;;
+    *) post "$url" -s -m 5 -o /dev/null -H 'content-type: text/plain' --data-binary @- ;;
+  esac
+}
+
 # openssl 3 prints «SHA2-256(stdin)= …», LibreSSL just the hex; Windows' openssl.exe (Git Bash) ends lines with \r
 hex256() {
   openssl dgst -sha256 "$@" | awk '{ sub(/\r$/, ""); print $NF }'
@@ -259,6 +278,7 @@ ask() {
       title_of "$j"
       printf '\n#relay-v\n%s\n' "$version"
       printf '\n#relay-kid\n%s\n' "$(kid_of "$ak")"
+      tag
     } | post "$base" -s -m 4 -w '\n%{http_code}' -H 'content-type: text/plain' --data-binary @-
   }
   r=$(open_ask)
@@ -390,9 +410,12 @@ answered() {
   aid=$(safe "$(field "$j" agent_id)")
   [ "$who" = "$aid" ] || exit 0
   rm -f "$f"
-  printf '{"hook_event_name":"PostToolUse","session_id":"%s","agent_id":"%s","agent_type":"%s","tool_name":"%s"}\n#relay-v\n%s\n' \
-    "$sid" "$aid" "$(safe "$(field "$j" agent_type)")" "$(safe "$(field "$j" tool_name)")" "$version" |
-    post "$url" -s -m 5 -o /dev/null -H 'content-type: text/plain' --data-binary @-
+  {
+    printf '{"hook_event_name":"PostToolUse","session_id":"%s","agent_id":"%s","agent_type":"%s","tool_name":"%s"}\n' \
+      "$sid" "$aid" "$(safe "$(field "$j" agent_type)")" "$(safe "$(field "$j" tool_name)")"
+    tag
+    printf '#relay-v\n%s\n' "$version"
+  } | send
   exit 0
 }
 
@@ -545,6 +568,12 @@ if [ "$1" = "--url" ]; then
   url=$2
   shift 2
 fi
+# Codex, Copilot, Gemini and OpenCode post through here too, named by a flag; Gemini wants JSON back from every hook
+agent=""
+for a in "$@"; do
+  case "$a" in codex | copilot | gemini | opencode) agent=$a ;; esac
+done
+[ "$agent" = gemini ] && trap 'printf "{}\n"' EXIT
 if [ -z "$url" ]; then
   f="${RELAY_HOOK_FILE:-$conf/hook-url}"
   url=$(head -n 1 "$f" 2>/dev/null)
@@ -595,13 +624,14 @@ j=$(cat)
         checkin_line "$j"
         ;;
       waits)
-        case "$(field "$j" notification_type):$(field "$j" message)" in
-          auth_success:*) ;;
-          permission_prompt:* | *[Pp]ermission*) mark_wait "$j" ;;
+        case "$(field "$j" hook_event_name):$(field "$j" notification_type):$(field "$j" message)" in
+          *:auth_success:*) ;;
+          PermissionRequest:* | *:permission_prompt:* | *[Pp]ermission*) mark_wait "$j" ;;
         esac
         ;;
     esac
   done
+  tag
   printf '\n#relay-v\n%s\n' "$version"
-} | post "$url" -s -m 5 -o /dev/null -H 'content-type: text/plain' --data-binary @-
+} | send
 exit 0

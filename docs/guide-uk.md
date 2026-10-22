@@ -54,6 +54,19 @@ Claude Code hooks ──curl, x-relay-key: <ключ>──▶ Vercel /api/claud
   `lib/live/hookConfig.mjs`). Claude Code сам шле подію на `/api/claude-hook?…&via=http`, а той відповідає 204
   одразу й пише в кафе через `after()`, бо такий хук тримає Claude до відповіді. Назв чатів, токенів і лімітів у
   цьому режимі нема: їх читає скрипт.
+- Інші агенти (`components/connect/OtherAgents.tsx`): для Codex, Copilot CLI, Gemini CLI й OpenCode сторінка
+  підключення дає окрему фразу, яку виконує сам агент. Codex, Copilot і Gemini ходять через той самий `relay.sh`
+  з прапорцем свого імені (`codexHookSettings`, `copilotHookSettings`, `geminiHookSettings` у
+  `lib/live/hookConfig.mjs`), а скрипт дописує його після рядка `#relay-agent`. Copilot і Gemini чекають на кожен
+  хук, тож для них `relay.sh` шле у фоні, а Gemini ще й отримує `{}` у відповідь. OpenCode бере файл плагіна
+  (`opencodePlugin`) у `~/.config/opencode/plugins`: він сам шле ті самі події, а субагент там окрема дочірня сесія,
+  яку плагін подає під батьківською. Cursor запускає хуки Claude Code з `~/.claude/settings.json` сам, а кафе
+  впізнає його подію за `cursor_version`. `lib/live/normalize.ts` перекладає їхні хуки, інструменти й поля входу
+  на мову Claude Code (`BeforeTool` → `PreToolUse`, `run_shell_command` → `Bash`, латка Codex → `Edit` з першим
+  файлом латки). Головний агент такого чату зветься Codex, Copilot тощо, має свій вигляд, окремий від Claude (ключ
+  `codex` замість `main`), а на дошці чатів позначку (`lib/live/source.ts`). Відповісти з кафе можна лише Codex: його
+  `PermissionRequest` такий самий, як у Claude, і приходить, лише коли він справді питає. Хук дозволу Copilot
+  спрацьовує на кожну перевірку, а Gemini дозволити інструмент хуком не може, тож вони лише показують, що чекають.
 - На сторінці підключення блок «Стан підключення» (`components/connect/HookStatus.tsx`) наживо показує, чи дійшла
   перша справжня подія від твого Claude, і що перевірити, якщо ні.
 - Змінні для Vercel: `NEXT_PUBLIC_SUPABASE_URL` і `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (див. `.env.example`).
@@ -538,4 +551,5 @@ Claude Code хуки ──▶ relay.sh ──▶ /api/claude-hook ──▶ rel
 - [x] «поки тебе не було»: що зробили агенти, поки кафе не було на екрані, і чати, що чекають на тебе
 - [x] «я не за комп'ютером»: запит дозволу від Claude приходить у кафе й пушем, «дозволити раз» або «заборонити»
 - [x] «я не за комп'ютером» і для питань Claude з варіантами та його плану: відповісти чи затвердити з кафе
+- [x] інші агенти за столами: Codex (з відповіддю з телефона), Copilot CLI, Gemini CLI, OpenCode і Cursor
 - [x] рідкісні гості за стійкою: кур'єр з піцою, золотий кіт, блискучий агент, і гостьова книга в досягненнях

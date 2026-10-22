@@ -5615,6 +5615,10 @@ body {
 .os-pick {
   margin: 4px 0 2px;
 }
+.agent-pick {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
 .hook-status {
   display: flex;
   align-items: center;
@@ -5772,6 +5776,17 @@ body {
 .board-nm small {
   font-weight: 400;
   color: var(--dim);
+}
+/* a chat another agent runs: Codex, Copilot, Gemini, OpenCode or Cursor */
+.board-src {
+  margin-right: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  vertical-align: 1px;
 }
 .board-now {
   color: var(--muted);

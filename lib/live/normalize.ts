@@ -1,5 +1,6 @@
 import { readCheckinSection } from "./checkin";
 import {
+  AGENT_MARK,
   CHECKIN_MARK,
   KID_MARK,
   LIMITS_MARK,
@@ -9,8 +10,9 @@ import {
   VERSION_MARK,
 } from "./hookConfig.mjs";
 import { plainTool } from "./plain";
+import { readSrc } from "./source";
 import { techLine } from "./tech";
-import { Checkin, ContextFill, LimitWindow, Limits, LiveEvent, LiveKind, Say, Usage } from "./types";
+import { AgentSrc, Checkin, ContextFill, LimitWindow, Limits, LiveEvent, LiveKind, Say, Usage } from "./types";
 
 type Json = Record<string, unknown>;
 
@@ -182,6 +184,10 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
       });
     case "PostToolUse":
       return ev("answered");
+    case "PermissionRequest": {
+      const n = notice("permission_prompt", `needs your permission to use ${toolName}`);
+      return n ? ev("notify", n) : null;
+    }
     case "PostToolUseFailure":
       return ev("fail", { tool: describeTool(toolName, input).tool, ...tech("fail", toolName), say: { a: "fail" } });
     case "SubagentStart":
@@ -208,7 +214,7 @@ export function normalizeHook(raw: Json, seq: number, at: number): LiveEvent | n
 
 const MAX_ROSTER = 60;
 
-const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK, VERSION_MARK, KID_MARK, CHECKIN_MARK];
+const MARKS = [ROSTER_MARK, TITLE_MARK, USAGE_MARK, LIMITS_MARK, VERSION_MARK, KID_MARK, CHECKIN_MARK, AGENT_MARK];
 const MAX_TOKENS = 1e11;
 
 /** The text after a marker line, up to the next marker; null when the hook sent no such section. */
@@ -311,6 +317,91 @@ export interface HookBody {
   kid?: string;
   /** the main chat's newest check-in line (relay.sh 7) */
   checkin?: Checkin;
+  /** the agent that sent it when it isn't Claude Code; `raw` is already in Claude Code's words */
+  src?: AgentSrc;
+}
+
+/** Gemini's hooks and Cursor's own, by the Claude Code hook each one stands for. */
+const EVENTS: Record<string, string> = {
+  BeforeAgent: "UserPromptSubmit",
+  BeforeTool: "PreToolUse",
+  AfterTool: "PostToolUse",
+  AfterAgent: "Stop",
+  sessionStart: "SessionStart",
+  beforeSubmitPrompt: "UserPromptSubmit",
+  preToolUse: "PreToolUse",
+  postToolUse: "PostToolUse",
+  postToolUseFailure: "PostToolUseFailure",
+  subagentStart: "SubagentStart",
+  subagentStop: "SubagentStop",
+  stop: "Stop",
+  sessionEnd: "SessionEnd",
+};
+
+/** The other agents' tools by the Claude Code tool that does the same: Gemini's, OpenCode's, Codex's and Cursor's. */
+const TOOLS: Record<string, string> = {
+  run_shell_command: "Bash",
+  read_file: "Read",
+  write_file: "Write",
+  replace: "Edit",
+  glob: "Glob",
+  list_directory: "Glob",
+  search_file_content: "Grep",
+  grep_search: "Grep",
+  web_fetch: "WebFetch",
+  google_web_search: "WebSearch",
+  write_todos: "TodoWrite",
+  bash: "Bash",
+  read: "Read",
+  write: "Write",
+  edit: "Edit",
+  patch: "Edit",
+  list: "Glob",
+  grep: "Grep",
+  webfetch: "WebFetch",
+  websearch: "WebSearch",
+  todowrite: "TodoWrite",
+  task: "Task",
+  apply_patch: "Edit",
+  Shell: "Bash",
+  StrReplace: "Edit",
+};
+
+/** The file a Codex patch touches first: `*** Update File: src/app.ts`. */
+const PATCHED = /\*\*\* (?:Update|Add|Delete) File: (.+)/;
+
+/** Their inputs under Claude Code's keys, for the few the café reads: a path, a pattern, a site. */
+function claudeInput(input: Json): Json {
+  const out: Json = { ...input };
+  const path = str(input.file_path) ?? str(input.absolute_path) ?? str(input.filePath) ?? str(input.path);
+  const patch = Object.values(input).find((v): v is string => typeof v === "string" && PATCHED.test(v));
+  const file = path ?? (patch && PATCHED.exec(patch)?.[1]?.trim());
+  if (file) out.file_path = file;
+  if (!str(input.pattern) && str(input.dir_path)) out.pattern = str(input.dir_path);
+  const site = !str(input.url) && /https?:\/\/\S+/.exec(str(input.prompt) ?? "")?.[0];
+  if (site) out.url = site;
+  return out;
+}
+
+/**
+ * Another agent's hook as Claude Code would have sent it, so the rest of the café reads it the same way. Codex and
+ * Copilot already use Claude Code's names; Cursor keeps its chat in `conversation_id` and its folder in
+ * `workspace_roots`.
+ */
+function asClaude(raw: Json, src: AgentSrc | undefined): Json {
+  if (!src) return raw;
+  const hook = str(raw.hook_event_name);
+  const tool = str(raw.tool_name);
+  const roots = Array.isArray(raw.workspace_roots) ? raw.workspace_roots : [];
+  const input = raw.tool_input && typeof raw.tool_input === "object" ? (raw.tool_input as Json) : null;
+  return {
+    ...raw,
+    ...(hook && EVENTS[hook] ? { hook_event_name: EVENTS[hook] } : {}),
+    ...(!str(raw.session_id) && str(raw.conversation_id) ? { session_id: raw.conversation_id } : {}),
+    ...(!str(raw.cwd) && str(roots[0]) ? { cwd: roots[0] } : {}),
+    ...(tool && TOOLS[tool] ? { tool_name: TOOLS[tool] } : {}),
+    ...(input ? { tool_input: claudeInput(input) } : {}),
+  };
 }
 
 function readKid(sec: string | null): string | undefined {
@@ -338,7 +429,10 @@ export function parseHookBody(text: string): HookBody | null {
     return null;
   }
   if (!raw || typeof raw !== "object") return null;
+  const src = readSrc(section(text, AGENT_MARK)) ?? ("cursor_version" in raw ? "cursor" : undefined);
+  raw = asClaude(raw as Json, src);
   const extra = {
+    src,
     title: readTitle(section(text, TITLE_MARK)) ?? cleanTitle((raw as Json).session_title),
     usage: readUsage(section(text, USAGE_MARK)),
     ctx: readCtx(section(text, USAGE_MARK)),
@@ -374,6 +468,7 @@ export function withExtras(ev: LiveEvent, body: HookBody, member: string | null)
     ...(body.limits && ev.kind !== "roster" ? { limits: body.limits } : {}),
     ...(body.version ? { hv: body.version } : {}),
     ...(body.checkin && !ev.agent && ev.kind !== "roster" ? { checkin: body.checkin } : {}),
+    ...(body.src ? { src: body.src } : {}),
   };
 }
 

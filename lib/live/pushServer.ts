@@ -2,6 +2,7 @@ import webpush, { WebPushError } from "web-push";
 import { stopText } from "./attention";
 import { PushTarget, cloudPushGone, cloudPushTargets } from "./cloud";
 import { sessionLabel } from "./label";
+import { srcName } from "./source";
 import { LiveEvent } from "./types";
 
 const PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -30,8 +31,9 @@ export function alertFor(e: LiveEvent): PushAlert | null {
   const chat = e.title ?? sessionLabel(e.cwd);
   const label = e.member ? `${e.member} · ${chat}` : chat;
   const member = e.member;
-  const who = e.agent ? (e.agentType ?? "агент") : "Claude";
-  const whoEn = e.agent ? (e.agentType ?? "an agent") : "Claude";
+  const main = srcName(e.src);
+  const who = e.agent ? (e.agentType ?? "агент") : main;
+  const whoEn = e.agent ? (e.agentType ?? "an agent") : main;
   if (e.kind === "notify") {
     const permission = e.need !== "input";
     const tool = permission ? /: (.+)$/.exec(e.text ?? "")?.[1] : undefined;
@@ -55,8 +57,8 @@ export function alertFor(e: LiveEvent): PushAlert | null {
     };
   }
   if (e.kind === "stop" && !e.agent) {
-    const title = e.err ? `Claude ${stopText(e.err)}` : "Claude відповів";
-    const titleEn = e.err ? `Claude ${stopText(e.err, "en")}` : "Claude answered";
+    const title = e.err ? `${main} ${stopText(e.err)}` : `${main} відповів`;
+    const titleEn = e.err ? `${main} ${stopText(e.err, "en")}` : `${main} answered`;
     return { kind: "done", session: e.session, label, member, title, en: { title: titleEn } };
   }
   return null;

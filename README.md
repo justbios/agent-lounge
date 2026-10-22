@@ -22,6 +22,8 @@ whole team from `.claude/agents` has a desk, even before it's called.
 - **Teams:** several people connect their Claude to one café, each on their own floor.
 - **Your crew:** name each agent and make it a person, a robot, a cat or an alien; the name and look follow the agent
   to any desk and chat.
+- **Not only Claude:** Codex, Copilot CLI, Gemini CLI and OpenCode sit at the tables too, connected from the same
+  page; Cursor's chats come along with Claude Code's hooks.
 - **For the waiting:** a daily recap, achievements, furniture you earn with work, and mini-games with whoever is watching.
 
 The hooks are async and silent: they never slow Claude down and cost no tokens. Run locally, the café keeps

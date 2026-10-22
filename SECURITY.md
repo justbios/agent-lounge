@@ -57,6 +57,11 @@ permission prompts, questions and plans. The parts and their trust:
   tool's names, never the tool's input or output, so the café's «чекає на тебе» goes away. It posts only when a
   permission prompt or question marked that chat as waiting on this computer (`~/.local/state/relay/waits`), and only
   once.
+- Codex, Copilot and Gemini post through the same `relay.sh`, named after a `#relay-agent` line. The OpenCode plugin
+  (`opencodePlugin` in `lib/live/hookConfig.mjs`) posts the same Claude-shaped events itself, keeping from a tool's
+  input only its path, pattern, command, description, site, query, subagent type and task list, never a written
+  file's content or a command's output. Of them, only Codex can be answered from the café, through the same signed
+  asks as Claude.
 - While «я не за комп'ютером» is on, a permission request, question or plan is stored whole in `relay_asks`
   (the command, a written file's content, the plan): the text is erased after 24 hours, the row after 30 days.
 - Writes are capped at 600 events per room per minute and 200 new rooms per hour site-wide.

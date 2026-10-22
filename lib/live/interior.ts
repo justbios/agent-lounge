@@ -144,16 +144,19 @@ type Wearer = Pick<AgentDef, "id" | "key">;
 /** Where an agent's name and look are kept in the room: under its type, so they follow it from desk to desk. */
 export const lookKey = (a: Wearer): string => a.key ?? a.id;
 
-/** An agent's look: its own, or the one its desk number had before looks followed agents (0.12 and older). */
+/** A subagent kept its look under its desk number before looks followed agents (0.12 and older). */
+const byDesk = (a: Wearer): boolean => !!a.key?.startsWith("@") && a.key !== a.id;
+
+/** An agent's look: its own, or the one its desk number had before. Codex's main chat never takes Claude's. */
 export const lookOf = (looks: Record<string, LookPick>, a: Wearer): LookPick | undefined =>
-  looks[lookKey(a)] ?? looks[a.id];
+  looks[lookKey(a)] ?? (byDesk(a) ? looks[a.id] : undefined);
 
 /** Moves the looks these agents still wear by desk number onto the agents themselves. */
 export function rekey(looks: Record<string, LookPick>, agents: Wearer[]): Record<string, LookPick> {
   const out = { ...looks };
   for (const a of agents) {
     const k = lookKey(a);
-    if (k === a.id || !out[a.id]) continue;
+    if (!byDesk(a) || !out[a.id]) continue;
     out[k] ??= out[a.id];
     delete out[a.id];
   }

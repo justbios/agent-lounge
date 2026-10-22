@@ -66,7 +66,8 @@ export async function POST(req: Request) {
     0,
     Date.now(),
   );
-  if (note) {
+  // Codex says it waits from a hook of its own, which posts this too, whether or not you are away
+  if (note && !body.src) {
     const ev = withExtras(note, body, cleanMember(params.get("m")));
     const origin = new URL(req.url).origin;
     after(async () => {

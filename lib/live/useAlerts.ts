@@ -5,6 +5,7 @@ import { Ui, tr, uiNow, useUi } from "@/lib/i18n";
 import { Attention, attentionText, stopText } from "./attention";
 import { chime, unlockChime } from "./chime";
 import { LiveSession } from "./liveModel";
+import { srcName } from "./source";
 
 const PREFS_KEY = "relay.alerts";
 /** A question nobody answered rings again after this long, and once more after twice as long. */
@@ -151,12 +152,13 @@ export function useAlerts(
     if (p.sound) chime(a.kind === "done" && a.err ? "err" : a.kind);
     if (!p.desktop || pushOn || looking || !("Notification" in window) || Notification.permission !== "granted") return;
     const u = uiNow();
+    const who = srcName(s.src);
     const title =
       a.kind === "ask"
-        ? tr(u, "Claude чекає на тебе", "Claude is waiting for you")
+        ? tr(u, `${who} чекає на тебе`, `${who} is waiting for you`)
         : a.err
-          ? `Claude ${stopText(a.err, u)}`
-          : tr(u, "Claude відповів", "Claude answered");
+          ? `${who} ${stopText(a.err, u)}`
+          : tr(u, `${who} відповів`, `${who} answered`);
     const n = new Notification(title, {
       body: `${s.label} · ${attentionText(a, u)}`,
       tag: `relay-${s.id}`,

@@ -61,6 +61,17 @@ Ship the code together with `supabase/migrations/0023_ask_words.sql`; reconnect 
   eyes and antennas take the agent's colour. The café's «кав'ярня» window has an «Агенти» section to name and dress
   every agent of the chat at once, with each one drawn beside it. The name shows over the desk, in bubbles, the card,
   the agent list and the time panel; character packs change only clothes, keeping kind, skin and name.
+- Not only Claude: Codex, Copilot CLI, Gemini CLI and OpenCode sit at the tables too, and Cursor's chats come along
+  when it runs Claude Code's hooks, which it does by default. The connect page has an «Інші агенти» step with a phrase
+  for each, which that agent carries out itself: `relay.sh` hooks in `~/.codex/hooks.json`,
+  `~/.copilot/hooks/agent-lounge.json` or `~/.gemini/settings.json`, and a plugin file for OpenCode. `relay.sh` names
+  the agent after a `#relay-agent` line, posts in the background for Copilot and Gemini, which wait on every hook, and
+  prints `{}` for Gemini; the café puts their hooks, tools and inputs into Claude Code's words
+  (`lib/live/normalize.ts`) and knows Cursor by its `cursor_version`. Their main agent goes by its own name and look,
+  the board of chats marks the chat, and pings say «Codex чекає на тебе». Codex's permission requests can be approved
+  from a phone like Claude's. Copilot and Gemini only show that they wait: Copilot's permission hook runs on every
+  check, and Gemini's hooks can deny a tool but not allow one. OpenCode can't be answered from the café yet, and none
+  of them sends tokens or limits.
 
 ## 0.12.0 — not released yet
 

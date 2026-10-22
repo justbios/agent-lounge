@@ -5,7 +5,8 @@ import { AgentDef, PotLevel } from "@/lib/types";
 import { Attention, nextAttention, stopText } from "./attention";
 import { sessionLabel } from "./label";
 import { costOf } from "./price";
-import { Checkin, LiveEvent, Usage } from "./types";
+import { SOURCE_LOOKS, srcName } from "./source";
+import { AgentSrc, Checkin, LiveEvent, Usage } from "./types";
 import { ZERO_USAGE, addUsage, fillOf, sizeOf } from "./usage";
 
 export const CLAUDE_COLOR = "#ff9a62";
@@ -44,6 +45,8 @@ export interface LiveSession {
   member?: string;
   /** what it did last, for the board of all chats; what it waits on is {@link attn} */
   latest?: LiveEvent;
+  /** the coding agent it runs in when that isn't Claude Code */
+  src?: AgentSrc;
 }
 
 /** The palette colour a subagent type usually gets in the café, for places outside the scene such as the day card. */
@@ -85,6 +88,7 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
         attn: nextAttention(null, e),
         member: e.member,
         latest: e.kind === "answered" || e.kind === "notify" ? undefined : e,
+        src: e.src,
       });
       continue;
     }
@@ -94,6 +98,7 @@ export function listSessions(events: LiveEvent[]): LiveSession[] {
     s.count += 1;
     if (e.kind === "session_end") s.ended = true;
     if (!s.member && e.member) s.member = e.member;
+    if (!s.src && e.src) s.src = e.src;
     if (e.title) s.title = e.title;
     if (e.kind === "prompt" && e.tool === "питання") s.ask = e.text;
     if (!s.cwd && e.cwd) {
@@ -196,7 +201,11 @@ export function buildLiveModel(events: LiveEvent[], session: string, roster: str
   const origin = evs[0]?.at ?? Date.now();
   const seed = hash(session) % 100000;
 
-  const agents: AgentDef[] = [{ id: "main", name: "Claude", role: en ? "main session" : "головна сесія", color: CLAUDE_COLOR, icon: "bot", look: 2 }];
+  const src = evs.find((e) => e.src)?.src;
+  // another agent's main chat keeps its own name and look, apart from Claude's
+  const own = src ? { key: src, ...SOURCE_LOOKS[src] } : { color: CLAUDE_COLOR, look: 2 };
+  const role = en ? "main session" : "головна сесія";
+  const agents: AgentDef[] = [{ id: "main", name: srcName(src), role, icon: "bot", ...own }];
   const seats: Seat[] = [{ type: "main", busy: true, parent: 0 }];
   const stints: Stint[][] = [[]];
   const notes: Note[][] = [[]];

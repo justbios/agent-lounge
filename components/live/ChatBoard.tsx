@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { tr, useUi } from "@/lib/i18n";
 import { attentionText } from "@/lib/live/attention";
 import { LiveSession } from "@/lib/live/liveModel";
+import { SOURCES, srcName } from "@/lib/live/source";
 import { useSpeech } from "@/lib/live/speech";
 import { Stuck, stuckShort } from "@/lib/live/stuck";
 import { memberName, memberOf } from "@/lib/live/teamModel";
@@ -85,7 +86,7 @@ export default function ChatBoard({
         {first ? (
           <button className="board-ask" role="alert" onClick={() => onOpen(first.id)}>
             <span className="chat-flag flag-ask">!</span>
-            <b>{tr(ui, "Claude чекає на тебе", "Claude is waiting for you")}</b>
+            <b>{tr(ui, `${srcName(first.src)} чекає на тебе`, `${srcName(first.src)} is waiting for you`)}</b>
             <span className="board-what">
               {first.label}: {attentionText(first.attn!, ui)} · {ago(now - first.attn!.at, ui)}
             </span>
@@ -135,6 +136,7 @@ export default function ChatBoard({
                   <span className={`chat-dot ${working(s, now) ? "busy" : ""}`} />
                 )}
                 <span className="board-nm">
+                  {s.src && <span className="board-src">{SOURCES[s.src]}</span>}
                   {s.label}
                   {team && <small> · {memberName(memberOf(s), ui)}</small>}
                 </span>
