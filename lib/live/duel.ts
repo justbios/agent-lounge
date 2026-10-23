@@ -1,6 +1,6 @@
 import type { Ui } from "@/lib/i18n";
 
-export type DuelKind = "ttt" | "pong" | "cables" | "checkers" | "hockey" | "chess" | "sumo" | "four";
+export type DuelKind = "ttt" | "pong" | "cables" | "checkers" | "hockey" | "chess" | "sumo" | "four" | "arena" | "raid";
 
 export const DUEL_NAMES: Record<DuelKind, string> = {
   ttt: "хрестики-нулики",
@@ -11,6 +11,8 @@ export const DUEL_NAMES: Record<DuelKind, string> = {
   chess: "шахи",
   sumo: "сумо",
   four: "чотири в ряд",
+  arena: "бій загонів",
+  raid: "рейд на моноліт",
 };
 
 export const DUEL_NAMES_EN: Record<DuelKind, string> = {
@@ -22,6 +24,8 @@ export const DUEL_NAMES_EN: Record<DuelKind, string> = {
   chess: "chess",
   sumo: "sumo",
   four: "four in a row",
+  arena: "squad battle",
+  raid: "monolith raid",
 };
 
 /** A game's name in the viewer's language. */
@@ -29,8 +33,8 @@ export const duelName = (kind: DuelKind, ui: Ui = "uk"): string =>
   (ui === "en" ? DUEL_NAMES_EN : DUEL_NAMES)[kind];
 
 /** Played turn by turn over the café's own channel, so they survive the games panel closing. */
-export const TURN_BASED: readonly DuelKind[] = ["ttt", "checkers", "chess", "four"];
-export type LiveDuel = Exclude<DuelKind, "ttt" | "checkers" | "chess" | "four">;
+export const TURN_BASED: readonly DuelKind[] = ["ttt", "checkers", "chess", "four", "arena", "raid"];
+export type LiveDuel = Exclude<DuelKind, "ttt" | "checkers" | "chess" | "four" | "arena" | "raid">;
 /** the games three can play together */
 export const PARTY: readonly DuelKind[] = ["cables", "sumo"];
 

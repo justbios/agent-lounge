@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-export type Game = "bets" | "ttt" | "pong" | "cables" | "checkers" | "hockey" | "chess" | "sumo" | "four";
-const GAMES: readonly Game[] = ["bets", "ttt", "pong", "cables", "checkers", "hockey", "chess", "sumo", "four"];
+export type Game = "bets" | "ttt" | "pong" | "cables" | "checkers" | "hockey" | "chess" | "sumo" | "four" | "arena" | "raid";
+const GAMES: readonly Game[] = ["bets", "ttt", "pong", "cables", "checkers", "hockey", "chess", "sumo", "four", "arena", "raid"];
 
 export interface ScoreRow {
   player: string;

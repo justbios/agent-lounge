@@ -70,7 +70,8 @@ menu at the top switches it.
 
 ## License
 
-[Apache-2.0](LICENSE). The bundled NES homebrew games keep their own licences ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+[Apache-2.0](LICENSE). The bundled NES homebrew games and the strategy games opened from their authors' sites keep
+their own licences ([THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
 
 Agent Lounge is an independent project, not affiliated with Anthropic. "Claude" and "Claude Code" are trademarks of
 Anthropic.

@@ -14,8 +14,12 @@ import { Guest } from "@/lib/live/social";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
 import { Chess as ChessState } from "@/lib/live/useChess";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
+import type { HourRow } from "@/lib/live/recap";
+import type { ArenaNet } from "@/lib/live/useArenaNet";
 import { Four as FourState } from "@/lib/live/useFour";
 import { Ttt } from "@/lib/live/useTicTacToe";
+import type { AgentDef } from "@/lib/types";
+import ArenaDuel from "./ArenaDuel";
 import Cables from "./Cables";
 import Checkers from "./Checkers";
 import Chess from "./Chess";
@@ -28,6 +32,16 @@ import TicTacToe from "./TicTacToe";
 
 /** The games to pick from, each with its sign and what it is about in a few words. */
 const GAMES: { kind: DuelKind; icon: string; about: Two }[] = [
+  {
+    kind: "arena",
+    icon: "⚔️",
+    about: { uk: "твій загін агентів проти загону іншої людини", en: "your agent squad against someone else's" },
+  },
+  {
+    kind: "raid",
+    icon: "🗿",
+    about: { uk: "удвох, по три агенти, проти легасі-моноліту", en: "together, three agents each, against the legacy monolith" },
+  },
   { kind: "chess", icon: "♞", about: { uk: "мат королю перемагає", en: "checkmate wins" } },
   {
     kind: "checkers",
@@ -166,9 +180,13 @@ export default function Duels({
   chk,
   chess,
   four,
+  arena,
   guests,
   room,
   online,
+  agents,
+  roster,
+  rows,
   onEnd,
 }: {
   duels: DuelsState;
@@ -176,9 +194,14 @@ export default function Duels({
   chk: CheckersState;
   chess: ChessState;
   four: FourState;
+  arena: ArenaNet;
   guests: Guest[];
   room: string | null;
   online: boolean;
+  /** the café's agents, roster and last week: the squad for the agents' battle */
+  agents: AgentDef[];
+  roster: string[];
+  rows: HourRow[] | null;
   /** a real-time match was played to the end */
   onEnd: (kind: LiveDuel, win: boolean) => void;
 }) {
@@ -209,7 +232,18 @@ export default function Duels({
     return (
       <div className="duel">
         <div className="duel-board" ref={board}>
-          {m.kind === "ttt" ? (
+          {m.kind === "arena" || m.kind === "raid" ? (
+            <ArenaDuel
+              key={m.id}
+              net={arena}
+              self={duels.self}
+              agents={agents}
+              roster={roster}
+              rows={rows}
+              note={note}
+              onLeave={duels.close}
+            />
+          ) : m.kind === "ttt" ? (
             <TicTacToe key={m.id} ttt={ttt} self={duels.self} note={note} />
           ) : m.kind === "checkers" ? (
             <Checkers key={m.id} chk={chk} self={duels.self} note={note} />

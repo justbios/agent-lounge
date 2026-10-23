@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { WEB_GAME_ORIGINS } from "./lib/live/webGames";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -17,7 +18,8 @@ const SPOTIFY = ["https://open.spotify.com", "https://open.spotifycdn.com"];
 
 /**
  * Without nonces, so pages stay static: Next's own inline scripts need 'unsafe-inline'. The rest is pinned to what the
- * café loads: the jukebox's YouTube and Spotify players, the Supabase project, and blob: for the clip and the day card.
+ * café loads: the jukebox's YouTube and Spotify players, the games from their authors' sites, the Supabase project, and
+ * blob: for the clip and the day card.
  */
 const csp = [
   "default-src 'self'",
@@ -27,7 +29,7 @@ const csp = [
   "media-src 'self' blob:",
   "font-src 'self' data:",
   `connect-src 'self' ${supabaseOrigins().join(" ")}`.trim(),
-  `frame-src ${[...YOUTUBE, ...SPOTIFY].join(" ")}`,
+  `frame-src ${[...YOUTUBE, ...SPOTIFY, ...WEB_GAME_ORIGINS].join(" ")}`,
   "worker-src 'self'",
   "manifest-src 'self'",
   "object-src 'none'",

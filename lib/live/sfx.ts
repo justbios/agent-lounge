@@ -98,6 +98,44 @@ const SOUNDS = {
   link: { tones: arp([660, 990], 0.05, 0.06, "triangle", 0.2) },
   /** a cable told to turn: a soft tick under the finger */
   steer: { tones: [{ at: 0, dur: 0.03, f: 1200, to: 900, wave: "triangle", vol: 0.12 }] },
+  /** the arena: a blade meets something */
+  slash: {
+    tones: [{ at: 0, dur: 0.07, f: 900, to: 260, wave: "sawtooth", vol: 0.07 }],
+    noise: [{ at: 0, dur: 0.08, cut: 5200, vol: 0.22 }],
+  },
+  /** a bowstring, a cannon, a spore let go */
+  shoot: {
+    tones: [{ at: 0, dur: 0.09, f: 420, to: 900, wave: "triangle", vol: 0.16 }],
+    noise: [{ at: 0, dur: 0.05, cut: 3000, vol: 0.12 }],
+  },
+  /** a spell cast */
+  zap: { tones: arp([660, 880, 1320], 0.04, 0.07, "triangle", 0.14) },
+  /** something blows up */
+  boom: {
+    tones: [{ at: 0, dur: 0.35, f: 140, to: 40, wave: "triangle", vol: 0.4 }],
+    noise: [{ at: 0, dur: 0.45, cut: 900, vol: 0.45 }],
+  },
+  heal: { tones: arp([523, 784, 1047], 0.06, 0.12, "sine", 0.16) },
+  /** a shield goes up, or soaks a blow */
+  shield: { tones: [{ at: 0, dur: 0.18, f: 300, to: 520, wave: "sine", vol: 0.2 }] },
+  /** a fighter falls */
+  fall: {
+    tones: [{ at: 0, dur: 0.3, f: 260, to: 70, wave: "square", vol: 0.08 }],
+    noise: [{ at: 0.05, dur: 0.2, cut: 700, vol: 0.25 }],
+  },
+  /** a leader's ultimate */
+  ult: {
+    tones: [...arp([392, 523, 659, 784, 1047], 0.05, 0.1, "square", 0.08), { at: 0.25, dur: 0.5, f: 1568, to: 784, wave: "triangle", vol: 0.12 }],
+    noise: [{ at: 0.2, dur: 0.4, cut: 7000, vol: 0.1 }],
+  },
+  crit: { tones: [{ at: 0, dur: 0.12, f: 1400, to: 300, wave: "square", vol: 0.1 }], noise: [{ at: 0, dur: 0.14, cut: 6000, vol: 0.3 }] },
+  miss: { tones: [{ at: 0, dur: 0.12, f: 700, to: 1100, wave: "sine", vol: 0.1 }] },
+  /** something called onto the field */
+  summon: { tones: arp([330, 440, 554, 659], 0.05, 0.12, "triangle", 0.15) },
+  /** a star earned at a battle's end */
+  star: { tones: arp([1047, 1568], 0.05, 0.12, "triangle", 0.14) },
+  /** a new round */
+  gong: { tones: [{ at: 0, dur: 0.5, f: 196, wave: "triangle", vol: 0.25 }, { at: 0, dur: 0.4, f: 392, wave: "sine", vol: 0.12 }] },
 } satisfies Record<string, Spec>;
 
 export type SfxName = keyof typeof SOUNDS;

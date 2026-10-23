@@ -4,6 +4,7 @@ import { LiveEvent } from "./types";
 import { useBets } from "./useBets";
 import { useCheckers } from "./useCheckers";
 import { useChess } from "./useChess";
+import { useArenaNet } from "./useArenaNet";
 import { useDuels } from "./useDuels";
 import { useFour } from "./useFour";
 import { useScores } from "./useScores";
@@ -40,5 +41,6 @@ export function useGames({
   const chk = useCheckers(duels, social, scores);
   const chess = useChess(duels, social, scores);
   const four = useFour(duels, social, scores);
-  return { scores, bets, duels, ttt, chk, chess, four };
+  const arena = useArenaNet(duels, social, scores);
+  return { scores, bets, duels, ttt, chk, chess, four, arena };
 }

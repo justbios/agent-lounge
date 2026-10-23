@@ -4,6 +4,57 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.16.0 — not released yet
+
+No database change: the battle's progress is kept in the browser, and the scores of the battles between people go
+into the same table as the other games. Both people need this version to fight each other.
+
+- «Битва агентів» (`lib/arena/`, `components/games/arena/`), at the top of the games: a turn-based battle on hexes in
+  3D, after the old tactics games. The café's own agents are the squad. The chat's main agent leads it, and every
+  agent type fights as the class its name says (a reviewer as a reviewer, Explore as a scout, verifier as a tester),
+  at a level set by the tasks it was handed in the last week; stand-ins fill a small team. Eight classes, each with a
+  skill on a cooldown and a passive. The leader's ultimate depends on which agent it is (Claude calls two subagents,
+  Codex sends a cloud task, Gemini reads a million tokens, Copilot turns on autopilot, Cursor presses Tab, OpenCode
+  forks itself) and charges with the damage done on both sides.
+- A sprint of five battles against the bugs, each teaching one thing: the first NullPointer, two growing memory
+  leaks, a race condition, a deadlock to hold off from prod for seven rounds, and the legacy monolith, which calls
+  spaghetti at 60% and rages at 30%. Also a quick fight with random bugs and a spar against another café's agents,
+  and three levels for the bot.
+- Six places to fight in, each with its own sky, light, trees and stones round the board, and something drifting in
+  the air: a meadow at dusk with fireflies, an autumn wood with falling leaves, a snowy pass, the desert, the ash
+  fields under the monolith, and in Halloween's week a graveyard at midnight. Each sprint battle has its own; a quick
+  battle or a spar picks one from its id, so both screens see the same (`components/games/arena/scenery.ts`).
+- A battle opens like a game: both leaders slam in from the sides with «VS» between them while the camera sweeps in
+  round the field. Every fighter has a portrait, its own 3D figure rendered once, head and shoulders
+  (`components/games/arena/portraits.ts`), in the turn order, on the cards, in the menu and on the result; each class
+  and skill has its own icon.
+- Up to three stars a sprint battle: a win, a win with no one lost, and a fast one (in six rounds, or, holding out,
+  with over half the squad's health). The best of each battle is kept, and the sprint shows its total.
+- The result lists the whole squad with the damage each dealt, a crown on the one who dealt most and a skull on the
+  fallen; what a summoned copy deals counts for whoever summoned it.
+- Auto battle (A): the bot plays your side until you turn it off. Animations at 1×, 2× or 4×, and the space bar
+  fast-forwards the one that is playing.
+- «Бій загонів» and «Рейд на моноліт» among the games for two (`lib/arena/net.ts`, `lib/live/useArenaNet.ts`,
+  `components/games/ArenaDuel.tsx`). In the first your café's squad fights another person's; in the raid three of
+  each go side by side against the monolith and its court, a few levels above them. Only the people's commands
+  travel, each with every one before it, and again until the other side shows it has them; each screen replays the
+  bot's turns (the monolith's, anything summoned) itself, so both see the same battle. Closed and opened again, the
+  battle picks up where it stands; if one person leaves, the bot takes over their fighters.
+- Before a click the board shows where the fighter can go and the way there, who it can hit, and what a blow will do
+  and what comes back; the side of the enemy the pointer is on is where the blow comes from. Then the fighters walk,
+  swing, shoot and cast, the numbers pop, the camera shakes on a critical hit, and a log, a turn order and the
+  result (with the heaviest blow) go round it. On a phone the board turns along the screen.
+- The rules know nothing of the screen and roll their own seeded dice (`lib/arena/rules.ts`), so a battle replays
+  from its commands. `node --import ./scripts/ts-resolve.mjs scripts/arena-check.mjs` plays thousands of bot battles
+  to check that, and the balance.
+- The field is drawn with three.js (MIT), loaded only once a battle starts; the fighters are made of shapes in code,
+  nothing downloaded.
+- «Стратегії» in the games (`components/games/Strategy.tsx`, `lib/live/webGames.ts`): games that live on their
+  authors' own sites open in a window right in the panel, and only once picked. The first is Ancient Beast by
+  Freezing Moon, turn-based creature battles on hexes, 1v1 or 2v2 on one screen or online. Nothing of it is copied
+  into the café; who made it, its licences (AGPL-3.0 code, CC BY-SA 4.0 art and audio) and its source fold away
+  under it. Its origin is the only one added to `frame-src`, and the window cannot reach the café's page or keys.
+
 ## 0.15.0 — not released yet
 
 No database change: the costumes are kept in the lobby's own room settings.

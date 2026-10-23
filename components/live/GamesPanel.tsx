@@ -9,14 +9,20 @@ import { Checkers } from "@/lib/live/useCheckers";
 import { Chess } from "@/lib/live/useChess";
 import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
+import type { ArenaNet } from "@/lib/live/useArenaNet";
 import { Four } from "@/lib/live/useFour";
 import { NES_GAMES } from "@/lib/live/nesGames";
 import { Ttt } from "@/lib/live/useTicTacToe";
+import { WEB_GAMES } from "@/lib/live/webGames";
+import type { HourRow } from "@/lib/live/recap";
+import type { AgentDef } from "@/lib/types";
+import Arena from "../games/Arena";
 import Dendy from "../games/Dendy";
 import Duels from "../games/Duels";
+import Strategy from "../games/Strategy";
 
 const TOP = 5;
-const BOARDS: DuelKind[] = ["chess", "checkers", "hockey", "sumo", "four", "ttt", "pong", "cables"];
+const BOARDS: DuelKind[] = ["arena", "raid", "chess", "checkers", "hockey", "sumo", "four", "ttt", "pong", "cables"];
 
 const played = (rows: ScoreRow[], game: Game) => rows.filter((r) => r.game === game && r.played > 0);
 
@@ -55,10 +61,14 @@ export default function GamesPanel({
   chk,
   chess,
   four,
+  arena,
   guests,
   room,
   online,
   me,
+  agents,
+  roster,
+  rows,
   onClose,
 }: {
   scores: Scores;
@@ -67,10 +77,15 @@ export default function GamesPanel({
   chk: Checkers;
   chess: Chess;
   four: Four;
+  arena: ArenaNet;
   guests: Guest[];
   room: string | null;
   online: boolean;
   me: string;
+  /** the café's agents, roster and last week, for the agents' battle */
+  agents: AgentDef[];
+  roster: string[];
+  rows: HourRow[] | null;
   onClose: () => void;
 }) {
   const ui = useUi();
@@ -105,6 +120,10 @@ export default function GamesPanel({
           </p>
         )}
 
+        <Section title={t("Битва агентів", "Agents' battle")}>
+          <Arena agents={agents} roster={roster} rows={rows} />
+        </Section>
+
         <Section title={t("Денді", "NES")}>
           <Dendy />
           {NES_GAMES.length > 0 && (
@@ -135,9 +154,13 @@ export default function GamesPanel({
             chk={chk}
             chess={chess}
             four={four}
+            arena={arena}
             guests={guests}
             room={room}
             online={online}
+            agents={agents}
+            roster={roster}
+            rows={rows}
             onEnd={(kind, win) => {
               scores.record(me, kind, win);
               if (duels.match) duels.finish(duels.match.id);
@@ -151,6 +174,37 @@ export default function GamesPanel({
               </div>
             ))}
           </div>
+        </Section>
+
+        <Section title={t("Стратегії", "Strategy")}>
+          <Strategy />
+          <details className="dendy-credits">
+            <summary>{t("хто зробив ці ігри", "who made these games")}</summary>
+            <ul>
+              {WEB_GAMES.map((g) => (
+                <li key={g.id}>
+                  {g.title}: {g.authors[ui]};{" "}
+                  {g.licences.map((l) => (
+                    <span key={l.name}>
+                      {l.what[ui]}{" "}
+                      <a href={l.url} target="_blank" rel="noreferrer">
+                        {l.name}
+                      </a>
+                      ,{" "}
+                    </span>
+                  ))}
+                  <a href={g.source} target="_blank" rel="noreferrer">
+                    {t("вихідний код", "source code")}
+                  </a>
+                  . {g.mark?.[ui]}{" "}
+                  {t(
+                    "Гра відкривається з сайту авторів, у кафе з неї нічого не скопійовано.",
+                    "The game opens from its authors' site; nothing of it is copied into the café.",
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
         </Section>
 
         {played(scores.rows, "bets").length > 0 && (

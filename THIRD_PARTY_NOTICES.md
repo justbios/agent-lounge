@@ -25,8 +25,20 @@ These come from npm at install time and end up in the built app. Their licence f
 | [next](https://github.com/vercel/next.js), [react](https://github.com/facebook/react), react-dom | MIT |
 | [@supabase/supabase-js](https://github.com/supabase/supabase-js) | MIT |
 | [lucide-react](https://github.com/lucide-icons/lucide) | ISC |
+| [three](https://github.com/mrdoob/three.js) (the agents' battle field) | MIT |
 | [web-push](https://github.com/web-push-libs/web-push) (server only) | MPL-2.0 |
 | [Pixelify Sans](https://fonts.google.com/specimen/Pixelify+Sans) font, fetched by `next/font/google` at build time | SIL Open Font License 1.1 |
+
+## Opened from their authors' sites
+
+The games under «Стратегії» run on their authors' own sites and open in a window in the games panel. Nothing of
+them is copied into this repository or the built site.
+
+| What | Where it opens from | Licence |
+|---|---|---|
+| [Ancient Beast](https://github.com/FreezingMoon/AncientBeast), by Freezing Moon and contributors | `https://play.ancientbeast.com` | code AGPL-3.0, art and audio CC BY-SA 4.0 |
+
+The Ancient Beast name and logo are trademarks of Freezing Moon.
 
 ## Not included
 

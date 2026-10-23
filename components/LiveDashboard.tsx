@@ -250,7 +250,12 @@ export default function LiveDashboard({
 
   const viewRoom = useViewRoom();
   const [recapOpen, setRecapOpen] = useState(false);
-  const recap = useRecap({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events }, recapOpen);
+  const [gamesOpen, setGamesOpen] = useState(false);
+  // the agents' battle levels the fighters by the last week, so the games want it too
+  const recap = useRecap(
+    { cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events },
+    recapOpen || gamesOpen,
+  );
   const [sheet, setSheet] = useState<"ach" | "myAch" | "shop" | "plan" | "eta" | null>(null);
   const [placing, setPlacing] = useState<Placing | null>(null);
   const rooms = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
@@ -377,7 +382,6 @@ export default function LiveDashboard({
     open: chatOpen,
   });
   const sceneId = whole ? "team" : (session?.id ?? "");
-  const [gamesOpen, setGamesOpen] = useState(false);
   const games = useGames({
     social,
     cloud,
@@ -553,10 +557,14 @@ export default function LiveDashboard({
           chk={games.chk}
           chess={games.chess}
           four={games.four}
+          arena={games.arena}
           guests={social.guests}
           room={social.room}
           online={cloud}
           me={social.name}
+          agents={model.agents}
+          roster={roster}
+          rows={recap.rows}
           onClose={() => setGamesOpen(false)}
         />
       )}
