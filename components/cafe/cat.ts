@@ -1,5 +1,5 @@
 import { Point } from "@/lib/layout";
-import { CafeLayout, Dir, SEAT_DY, pathLength, pointAt, rng, route } from "@/lib/cafe/layout";
+import { CafeLayout, Dir, pathLength, pointAt, rng, route, standAt } from "@/lib/cafe/layout";
 import { Ctx, LINE, px } from "./pixel";
 
 const SPEED = 0.018;
@@ -66,9 +66,9 @@ export class Cat {
       return { p: { x: bed.x, y: bed.y + 1 }, band, bed };
     }
     if (busy.length && this.r() < 0.55) {
-      const d = lay.desks[busy[Math.floor(this.r() * busy.length)]];
-      const side = this.r() < 0.5 ? -1 : 1;
-      return { p: { x: d.x + side * 26, y: d.top + SEAT_DY + 2 }, band: d.row };
+      const i = busy[Math.floor(this.r() * busy.length)];
+      const at = standAt(lay, i);
+      return { p: { x: at.x + (lay.desks[i].side ? 4 : -4), y: at.y + 2 }, band: lay.desks[i].row };
     }
     const band = Math.floor(this.r() * lay.walkY.length);
     return { p: { x: Math.round(14 + this.r() * (lay.width - 28)), y: lay.walkY[band] }, band };

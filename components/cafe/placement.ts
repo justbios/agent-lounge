@@ -2,12 +2,10 @@ import { CafeLayout, WALL_H } from "@/lib/cafe/layout";
 import { Point } from "@/lib/layout";
 import type { Decor } from "@/lib/live/achievements";
 import { DECOR_PIECES, ItemDef, ItemId, ItemPlace, Placed, decorPid, itemOf } from "@/lib/live/interior";
-import { FLOOR_Y } from "./decor";
-import { doorOf, fixtures } from "./room";
+import { SILL_Y, doorOf, fixturesOf } from "./room";
 
-const SILL_Y = 33;
-const WALL_LOW = 36;
-const WALL_TOP = 6;
+const WALL_LOW = 40;
+const WALL_TOP = 8;
 
 export type Layer = Exclude<ItemPlace, "perk">;
 
@@ -39,38 +37,44 @@ const layerOf = (it: ItemDef): Layer => (it.place === "perk" ? "floor" : it.plac
 const high = (layer: Layer) => layer === "wall" || layer === "ceiling";
 
 const floorMemo = new WeakMap<CafeLayout, Box[]>();
-const wallMemo = new Map<number, Box[]>();
+const wallMemo = new Map<string, Box[]>();
 
-/** Desks with chairs and people, the bar and its high table, the drinks machine, the door, a tall room's plant. */
+/** The pods with their rugs, the counter and its stools, the lounge, the arcade, the bistro table, the door, the plants. */
 function floorBlocks(lay: CafeLayout): Box[] {
   const hit = floorMemo.get(lay);
   if (hit) return hit;
-  const v = fixtures(lay.width).VENDING;
+  const fx = fixturesOf(lay);
   const d = doorOf(lay);
   const out: Box[] = [
-    ...lay.desks.map((k) => ({ x: k.x - 27, y: k.top - 8, w: 54, h: 56 })),
-    { x: 0, y: 40, w: 49, h: 86 },
-    { x: v.x - 12, y: v.y, w: lay.width - v.x + 12, h: v.h + 4 },
-    { x: d.x - 4, y: d.y - 14, w: d.w + 8, h: lay.height - d.y + 14 },
+    ...lay.pods.map((p) => ({ x: p.x - 8, y: p.d - 22, w: 86, h: 76 })),
+    { x: 0, y: 40, w: 82, h: 72 },
+    fx.LOUNGE,
+    { x: fx.ARCADE.x - 2, y: fx.ARCADE.y - 2, w: fx.ARCADE.w + 4, h: fx.ARCADE.h + 4 },
+    { x: fx.BISTRO.x - 20, y: fx.BISTRO.y - 12, w: 40, h: 24 },
+    { x: d.x - 4, y: d.y - 8, w: d.w + 8, h: lay.height - d.y + 8 },
+    { x: 0, y: lay.front - 28, w: 34, h: 28 },
+    { x: lay.width - 34, y: lay.front - 28, w: 34, h: 28 },
   ];
-  if (lay.height >= 180) out.push({ x: 0, y: lay.height - 34, w: 24, h: 34 });
   floorMemo.set(lay, out);
   return out;
 }
 
-/** The chalkboard, windows, sign, sconces and clock: a poster hangs only between them. */
-function wallBlocks(width: number): Box[] {
-  const hit = wallMemo.get(width);
+/** The board, the print, the clock, the window and its curtains, the sign and the shelves: a poster hangs only between them. */
+function wallBlocks(lay: CafeLayout): Box[] {
+  const key = `${lay.width}|${lay.front}`;
+  const hit = wallMemo.get(key);
   if (hit) return hit;
-  const fx = fixtures(width);
+  const fx = fixturesOf(lay);
+  const w = fx.WINDOWS[0];
   const out: Box[] = [
-    { x: 1, y: 4, w: 47, h: 32 },
-    ...fx.WINDOWS.map((w) => ({ x: w.x - 2, y: 3, w: w.w + 4, h: 34 })),
+    fx.BOARD,
+    fx.PRINT,
+    { x: fx.CLOCK.x - 6, y: fx.CLOCK.y - 6, w: 12, h: 12 },
+    { x: w.x - 13, y: 2, w: w.w + 26, h: 48 },
     { x: fx.SIGN.x - 1, y: fx.SIGN.y - 1, w: fx.SIGN.w + 2, h: fx.SIGN.h + 2 },
-    ...fx.SCONCES.map((x) => ({ x: x - 5, y: 9, w: 10, h: 12 })),
-    { x: fx.CLOCK.x - 9, y: fx.CLOCK.y - 9, w: 18, h: 18 },
+    fx.SHELVES,
   ];
-  wallMemo.set(width, out);
+  wallMemo.set(key, out);
   return out;
 }
 
@@ -79,19 +83,19 @@ function fits(lay: CafeLayout, it: ItemDef, s: Spot, others: Standing[]): boolea
   const layer = layerOf(it);
   if (b.x < 1 || b.x + b.w > lay.width - 1) return false;
   if (layer === "floor" || layer === "rug") {
-    if (s.bottom < WALL_H + 4 || s.bottom > lay.height - 4) return false;
+    if (s.bottom < WALL_H + 6 || s.bottom > lay.front - 1) return false;
     if (floorBlocks(lay).some((o) => overlap(o, b))) return false;
   }
   if (high(layer)) {
     if (b.y < WALL_TOP || s.bottom > WALL_LOW) return false;
-    if (layer === "wall" && wallBlocks(lay.width).some((o) => overlap(o, b))) return false;
+    if (layer === "wall" && wallBlocks(lay).some((o) => overlap(o, b))) return false;
   }
   return !others.some((o) => o.layer === layer && overlap(boxOf(o, o), b));
 }
 
 function sillSpots(lay: CafeLayout, it: ItemDef): Spot[] {
   const half = Math.ceil(it.w / 2) + 1;
-  return fixtures(lay.width).WINDOWS.flatMap((w) => {
+  return fixturesOf(lay).WINDOWS.flatMap((w) => {
     const out: Spot[] = [];
     for (let cx = w.x + half; cx <= w.x + w.w - half; cx += 2) out.push({ cx, bottom: SILL_Y });
     return out;
@@ -103,7 +107,7 @@ export function spotAt(lay: CafeLayout, it: ItemDef, p: Point, others: Standing[
   const layer = layerOf(it);
   let s: Spot;
   if (layer === "sill") {
-    const w = fixtures(lay.width).WINDOWS.find((w) => p.x >= w.x - 4 && p.x <= w.x + w.w + 4 && p.y < WALL_H);
+    const w = fixturesOf(lay).WINDOWS.find((w) => p.x >= w.x - 4 && p.x <= w.x + w.w + 4 && p.y < WALL_H);
     if (!w) return null;
     const half = Math.ceil(it.w / 2) + 1;
     s = { cx: Math.max(w.x + half, Math.min(w.x + w.w - half, Math.round(p.x))), bottom: SILL_Y };
@@ -140,12 +144,13 @@ function settle(lay: CafeLayout, it: ItemDef, want: Spot, others: Standing[]): S
   return null;
 }
 
-/** Where earned decor stood before it could be moved. */
+/** Where earned decor stands until it is moved: along the floor in front of the counter and the lounge. */
 function homeOf(lay: CafeLayout, id: ItemId): Spot {
-  if (id === "arcade") return { cx: 11, bottom: FLOOR_Y };
-  if (id === "aquarium") return { cx: 31, bottom: FLOOR_Y };
-  if (id === "owl") return { cx: 115, bottom: SILL_Y };
-  return { cx: lay.width - 14, bottom: Math.min(lay.height - 4, FLOOR_Y) };
+  const w = fixturesOf(lay).WINDOWS[0];
+  if (id === "arcade") return { cx: 46, bottom: lay.front - 6 };
+  if (id === "aquarium") return { cx: 60, bottom: 136 };
+  if (id === "owl") return { cx: w.x + w.w - 8, bottom: SILL_Y };
+  return { cx: 22, bottom: 136 };
 }
 
 /** Every piece in this layout: the earned decor first, then what was bought, in the order it was put down. */
@@ -169,7 +174,7 @@ export function standing(lay: CafeLayout, placed: Placed[], decor: ReadonlySet<D
   return out;
 }
 
-const toSpot = (lay: CafeLayout, p: Placed): Spot => ({ cx: Math.round((p.x / 1000) * lay.width), bottom: Math.min(p.y, lay.height - 4) });
+const toSpot = (lay: CafeLayout, p: Placed): Spot => ({ cx: Math.round((p.x / 1000) * lay.width), bottom: Math.min(p.y, lay.front - 2) });
 
 export const toPlaced = (lay: CafeLayout, pid: string, item: ItemId, s: Spot): Placed => ({
   pid,

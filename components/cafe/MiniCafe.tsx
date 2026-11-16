@@ -11,7 +11,7 @@ import { DecorSet } from "./decor";
 import { drawFrame } from "./frame";
 import { lookFor, pickedLook } from "./people";
 import { standing } from "./placement";
-import { buildRoom } from "./room";
+import { buildRoom } from "./hall";
 import { HALLOWEEN, Theme } from "./theme";
 
 const FRAME_MS = 125;

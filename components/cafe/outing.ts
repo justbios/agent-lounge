@@ -1,9 +1,10 @@
 import { Point } from "@/lib/layout";
-import { CafeLayout, Dir, SEAT_DY, WALK_PX_PER_MS, pathLength, pointAt, route } from "@/lib/cafe/layout";
+import { CafeLayout, Dir, WALK_PX_PER_MS, pathLength, pointAt, route, standAt } from "@/lib/cafe/layout";
 import { CafeModel, Stint } from "@/lib/cafe/model";
 import { REST_MS } from "./idle";
 import { rand } from "./pixel";
 import { Standing } from "./placement";
+import { fixturesOf } from "./room";
 
 export type Errand = "coffee" | "soda" | "couch" | "arcade" | "jukebox";
 
@@ -39,7 +40,6 @@ const LEAVE_MS = 15_000;
 const CHANCE = 0.5;
 const MIN_STAY_MS = 3000;
 const SIP_MS = 25_000;
-const SIDE_STEP = 15;
 const STAY_MS: Record<Errand, number> = { coffee: 6000, soda: 4000, couch: 30_000, arcade: 22_000, jukebox: 7000 };
 const BACK: Record<Dir, Dir> = { left: "right", right: "left", up: "down", down: "up" };
 
@@ -51,16 +51,38 @@ function aisleFor(lay: CafeLayout, y: number): number {
 
 const spotMemo = new WeakMap<Standing[], { lay: CafeLayout; spots: Spot[] }>();
 
-/** Where an idle agent can go: the bar and the drinks machine always, a couch, the arcade and a jukebox once placed. */
+/**
+ * Where an idle agent can go: the counter for a coffee, the lounge's sofa and the arcade always, and a couch, another
+ * arcade or a jukebox once placed.
+ */
 export function spotsOf(lay: CafeLayout, furniture: Standing[]): Spot[] {
   const hit = spotMemo.get(furniture);
   if (hit && hit.lay === lay) return hit.spots;
-  const floor = (y: number) => Math.min(y, lay.height - 2);
-  const bar = { x: 54, y: 104 };
-  const vending = { x: lay.width - 18, y: 100 };
+  const floor = (y: number) => Math.min(y, lay.front - 2);
+  const fx = fixturesOf(lay);
+  const sofa = fx.SOFA;
+  const arcade = fx.ARCADE;
+  const bar = { x: 76, y: 108 };
   const spots: Spot[] = [
-    { key: "bar", group: "bar", seat: 0, errand: "coffee", at: bar, band: 0, face: "left" },
-    { key: "vending", group: "vending", seat: 0, errand: "soda", at: vending, band: 0, face: "up" },
+    { key: "bar", group: "bar", seat: 0, errand: "coffee", at: bar, band: aisleFor(lay, bar.y), face: "left" },
+    ...[12, 27].map((dx, k): Spot => ({
+      key: `sofa#${k}`,
+      group: "sofa",
+      seat: k,
+      errand: "couch",
+      at: { x: sofa.x + dx, y: sofa.y + 19 },
+      band: aisleFor(lay, sofa.y + 19),
+      face: "down",
+    })),
+    {
+      key: "arcade",
+      group: "arcade",
+      seat: 0,
+      errand: "arcade",
+      at: { x: arcade.x - 6, y: arcade.y + 28 },
+      band: aisleFor(lay, arcade.y + 28),
+      face: "right",
+    },
   ];
   for (const s of furniture) {
     if (s.layer !== "floor") continue;
@@ -89,8 +111,7 @@ function pathTo(lay: CafeLayout, i: number, s: Spot) {
   const hit = memo.get(key);
   if (hit) return hit;
   const d = lay.desks[i];
-  const start = { x: d.x + (s.at.x >= d.x ? 1 : -1) * SIDE_STEP, y: d.top + SEAT_DY };
-  const path = route(lay, start, d.row, s.at, s.band);
+  const path = route(lay, standAt(lay, i), d.row, s.at, s.band);
   const out = { path, len: pathLength(path) };
   memo.set(key, out);
   return out;

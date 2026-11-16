@@ -1,11 +1,26 @@
 "use client";
 
-import { CSSProperties, MouseEvent, PointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CSSProperties,
+  MouseEvent,
+  PointerEvent,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { PROJECT_URL } from "@/lib/brand";
-import { cafeLayout } from "@/lib/cafe/layout";
+import { useSceneView } from "@/lib/cafe/sceneView";
+import { CafeLayout, cafeLayout } from "@/lib/cafe/layout";
 import { Two, Ui, tr, useUi } from "@/lib/i18n";
 import { CafeModel } from "@/lib/cafe/model";
-import { Bubble, agentView, bubbleFor, buildTimeline } from "@/lib/cafe/timeline";
+import {
+  Bubble,
+  agentView,
+  bubbleFor,
+  buildTimeline,
+} from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
 import type { AgentDef } from "@/lib/types";
 import {
@@ -30,13 +45,14 @@ import { BLACK_CAT, Cat, DOG } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
 import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
-import { Ghost, drawFrame } from "./frame";
+import { Ghost, STATUS_COLOR, Status, drawFrame, seatStatus } from "./frame";
 import { CAT2 } from "./furniture";
 import { GuestSeat, barOverflow, seatGuests } from "./guests";
 import { HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
-import { buildRoom, doorOf, fixtures } from "./room";
+import { buildRoom } from "./hall";
+import { doorOf, fixturesOf } from "./room";
 import {
   Anchor,
   CafeBubble,
@@ -49,25 +65,57 @@ import {
   fixtureAnchor,
   onCat,
 } from "./sceneParts";
-import { BeanGains, BeanSack, ChatTag, GuestTags, JukeTag, ReactionLayer, SeatReaction } from "./SceneSocial";
+import {
+  BeanGains,
+  BeanSack,
+  ChatTag,
+  GuestTags,
+  JukeTag,
+  ReactionLayer,
+  SeatReaction,
+} from "./SceneSocial";
 import { HALLOWEEN, THEMES, Theme } from "./theme";
 import { GOLD_COAT, visitorFrame, visitorSeat } from "./visitor";
 import VisitorTag from "./VisitorTag";
+import StreetScene from "./StreetScene";
 import { fmtTokens } from "../live/tokens";
 import type { Gain } from "@/lib/live/useBeanGains";
 import { useHalloween } from "@/lib/live/season";
 
-export type { Anchor, FixturePick, Placing, SceneAlert, SceneWarn } from "./sceneParts";
+export type {
+  Anchor,
+  FixturePick,
+  Placing,
+  SceneAlert,
+  SceneWarn,
+} from "./sceneParts";
 
 const NO_DECOR: DecorSet = new Set();
 const SIGN_TEXT: Two = { uk: "інтернет-кафе", en: "internet café" };
 const LATE_TEXT: Two = { uk: "нічна зміна", en: "night shift" };
 const CLOSED_TEXT: Two = { uk: "зачинено до ранку", en: "closed till morning" };
 const MACHINES: ItemId[] = ["jukebox", "arcade"];
+/** Below this width the name plates turn into numbers, with the names in a row of cards under the picture. */
+const NARROW_PX = 560;
+const STATUS_TEXT: Record<Status, Two> = {
+  work: { uk: "працює", en: "working" },
+  wait: { uk: "чекає тебе", en: "waiting for you" },
+  done: { uk: "готово", en: "done" },
+  idle: { uk: "відпочиває", en: "resting" },
+};
+const ASKS: Two = { uk: "питає тебе", en: "is asking you" };
+const LEGEND_LABEL: Two = { uk: "агенти в залі", en: "agents in the room" };
+const freeSeats = (n: number, ui: Ui) =>
+  ui === "en"
+    ? `+${n} free seat${n === 1 ? "" : "s"}`
+    : `+${n} ${n === 1 ? "вільне місце" : "вільні місця"}`;
 /** the hint for anyone, then for the owner, who may also drag the machine */
 const JUKE_HINT: Two[] = [
   { uk: "музичний автомат: вибрати мелодію", en: "jukebox: pick a tune" },
-  { uk: "клацни, щоб вибрати мелодію, або перетягни", en: "click to pick a tune, or drag it" },
+  {
+    uk: "клацни, щоб вибрати мелодію, або перетягни",
+    en: "click to pick a tune, or drag it",
+  },
 ];
 const ARCADE_HINT: Two[] = [
   { uk: "ігровий автомат: пограти", en: "arcade machine: play" },
@@ -100,37 +148,8 @@ interface Drag {
   on: boolean;
 }
 
-export default function CafeScene({
-  model,
-  clock,
-  alert,
-  warns,
-  etas,
-  decor,
-  catName,
-  theme = THEMES.cafe,
-  rate = 0,
-  guests,
-  chatUnread = 0,
-  reactions,
-  onReact,
-  onPick,
-  pops,
-  interior = EMPTY_INTERIOR,
-  name,
-  onLook,
-  dress,
-  placing,
-  onPlacing,
-  onPlace,
-  onFurniture,
-  onMachine,
-  playing,
-  beans,
-  gains,
-  asleep,
-  visitors = false,
-}: {
+/** What the café scene shows, either way it is looked at. */
+export interface CafeSceneProps {
   model: CafeModel;
   clock: number;
   alert?: SceneAlert;
@@ -179,9 +198,53 @@ export default function CafeScene({
   asleep?: boolean;
   /** now and then a rare visitor walks in and sits at the last stool for a few minutes */
   visitors?: boolean;
-}) {
+}
+
+/** The café: from the street by default, or the room inside; placing furniture always happens inside. */
+export default function CafeScene(props: CafeSceneProps) {
+  const [view] = useSceneView();
+  return view === "street" && !props.placing ? (
+    <StreetScene {...props} />
+  ) : (
+    <HallScene {...props} />
+  );
+}
+
+function HallScene({
+  model,
+  clock,
+  alert,
+  warns,
+  etas,
+  decor,
+  catName,
+  theme = THEMES.cafe,
+  rate = 0,
+  guests,
+  chatUnread = 0,
+  reactions,
+  onReact,
+  onPick,
+  pops,
+  interior = EMPTY_INTERIOR,
+  name,
+  onLook,
+  dress,
+  placing,
+  onPlacing,
+  onPlace,
+  onFurniture,
+  onMachine,
+  playing,
+  beans,
+  gains,
+  asleep,
+  visitors = false,
+}: CafeSceneProps) {
   const ui = useUi();
   const [sel, setSel] = useState<string | null>(null);
+  const [narrow, setNarrow] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const catRef = useRef<HTMLSpanElement>(null);
   const cat2Ref = useRef<HTMLSpanElement>(null);
@@ -194,31 +257,56 @@ export default function CafeScene({
   const hasCat2 = owns(interior, "cat2");
   const cat2Name = hasCat2 ? interior.cat2Name : undefined;
   const title = name ?? interior.title ?? BRAND;
+  const brand = title.trim().toUpperCase() === BRAND;
   const namesRef = useRef({ cat: catName, cat2: cat2Name, sign, title });
-  const seats = useMemo(() => seatGuests(guests ?? [], ui), [guests, ui]);
-  const seatsRef = useRef<GuestSeat[]>(seats);
   const agents = model.agents;
-  const lay = useMemo(() => cafeLayout(agents.length, model.seed), [agents.length, model.seed]);
+  const lay = useMemo(
+    () => cafeLayout(agents.length, model.seed),
+    [agents.length, model.seed],
+  );
+  const seats = useMemo(
+    () => seatGuests(guests ?? [], ui, lay.width, lay.front),
+    [guests, ui, lay],
+  );
+  const seatsRef = useRef<GuestSeat[]>(seats);
   const dog = interior.pet === "dog";
   const halloween = useHalloween().on;
   const cat = useMemo(
-    () => (dog ? new Cat(lay, model.seed, DOG, "dog") : new Cat(lay, model.seed, halloween ? BLACK_CAT : undefined)),
+    () =>
+      dog
+        ? new Cat(lay, model.seed, DOG, "dog")
+        : new Cat(lay, model.seed, halloween ? BLACK_CAT : undefined),
     [dog, lay, model.seed, halloween],
   );
-  const cat2 = useMemo(() => (hasCat2 ? new Cat(lay, model.seed + 101, CAT2) : null), [hasCat2, lay, model.seed]);
+  const cat2 = useMemo(
+    () => (hasCat2 ? new Cat(lay, model.seed + 101, CAT2) : null),
+    [hasCat2, lay, model.seed],
+  );
   const goldCat = useMemo(() => new Cat(lay, 777, GOLD_COAT), [lay]);
   const visitorsRef = useRef(visitors);
   const tl = useMemo(() => buildTimeline(model), [model]);
   const phase = usePhase();
-  const th = useMemo(() => themeAt(halloween ? HALLOWEEN : theme, phase), [theme, phase, halloween]);
+  const th = useMemo(
+    () => themeAt(halloween ? HALLOWEEN : theme, phase),
+    [theme, phase, halloween],
+  );
   const views = agents.map((_, i) => agentView(model, tl, lay, i, clock));
   const working = views.some((v) => v.screen === "work" || v.walker);
-  const closed = !!asleep && phase === "night" && alert?.kind !== "ask" && !working;
+  const closed =
+    !!asleep && phase === "night" && alert?.kind !== "ask" && !working;
   const late = phase === "night" && working;
-  const sub = closed ? CLOSED_TEXT[ui] : (sign ?? (late ? LATE_TEXT : SIGN_TEXT)[ui]);
+  const sub = closed
+    ? CLOSED_TEXT[ui]
+    : (sign ?? (late ? LATE_TEXT : SIGN_TEXT)[ui]);
   const closedRef = useRef(closed);
-  const stand = useMemo(() => standing(lay, interior.placed, decor ?? NO_DECOR), [lay, interior.placed, decor]);
-  const shown = useMemo(() => (placing ? stand.filter((s) => s.pid !== placing.pid) : stand), [stand, placing]);
+  const stand = useMemo(
+    () => standing(lay, interior.placed, decor ?? NO_DECOR),
+    [lay, interior.placed, decor],
+  );
+  const shown = useMemo(
+    () => (placing ? stand.filter((s) => s.pid !== placing.pid) : stand),
+    [stand, placing],
+  );
   const shownRef = useRef<Standing[]>(shown);
   const ghostRef = useRef<Ghost | null>(null);
   const dragRef = useRef<Drag | null>(null);
@@ -233,7 +321,19 @@ export default function CafeScene({
     visitorsRef.current = visitors;
     seatsRef.current = seats;
     shownRef.current = shown;
-  }, [clock, alert, decor, catName, cat2Name, sign, title, seats, shown, closed, visitors]);
+  }, [
+    clock,
+    alert,
+    decor,
+    catName,
+    cat2Name,
+    sign,
+    title,
+    seats,
+    shown,
+    closed,
+    visitors,
+  ]);
 
   useEffect(() => {
     if (placing) return;
@@ -244,16 +344,35 @@ export default function CafeScene({
   useEffect(() => sceneMounted(), []);
 
   useEffect(() => {
+    const el = wrapRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([e]) =>
+      setNarrow(e.contentRect.width < NARROW_PX),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
     const faces = agents.map((a, i) => ({
-      ...lookFor(a.look ?? i, a.color, pickedLook(lookOf(looks, a), a.look ?? i)),
+      ...lookFor(
+        a.look ?? i,
+        a.color,
+        pickedLook(lookOf(looks, a), a.look ?? i),
+      ),
       costume: worn?.[i] ?? null,
     }));
     const props = agents.map((a) => lookOf(looks, a)?.prop);
-    const named = agents.map((a) => ({ ...a, name: agentName(a, lookOf(looks, a)) }));
-    const room = buildRoom(lay, agents, model.seed, th, props);
+    const named = agents.map((a) => ({
+      ...a,
+      name: agentName(a, lookOf(looks, a)),
+    }));
+    const room = buildRoom(lay, agents, model.seed, th, props, brand);
+    const sofa = fixturesOf(lay).SOFA;
+    const cushion = { x: sofa.x + 43, y: sofa.y + 13 };
     const pin = (el: HTMLElement | null, p: Point) => {
       if (!el) return;
       el.style.left = `${(p.x / lay.width) * 100}%`;
@@ -263,16 +382,25 @@ export default function CafeScene({
     let last = 0;
     const loop = (now: number) => {
       const clock = clockRef.current;
-      const busy = agents.map((_, i) => i).filter((i) => agentView(model, tl, lay, i, clock).screen === "work");
+      const busy = agents
+        .map((_, i) => i)
+        .filter((i) => agentView(model, tl, lay, i, clock).screen === "work");
       const dt = last ? Math.min(100, now - last) : 0;
-      const beds = shownRef.current.filter((s) => s.item === "catbed").map((s) => ({ x: s.cx, y: s.bottom }));
-      const freeOf = (other: Cat | null) => beds.filter((b) => b.x !== other?.bed?.x || b.y !== other.bed.y);
+      const beds = [
+        ...shownRef.current
+          .filter((s) => s.item === "catbed")
+          .map((s) => ({ x: s.cx, y: s.bottom })),
+        cushion,
+      ];
+      const freeOf = (other: Cat | null) =>
+        beds.filter((b) => b.x !== other?.bed?.x || b.y !== other.bed.y);
       cat.step(dt, now, busy, freeOf(cat2));
       cat2?.step(dt, now, busy, freeOf(cat));
       last = now;
       const wall = Date.now();
-      const visit = visitorsRef.current && !closedRef.current ? visitAt(wall) : null;
-      const stool = visit ? visitorSeat(seatsRef.current.length) : null;
+      const visit =
+        visitorsRef.current && !closedRef.current ? visitAt(wall) : null;
+      const stool = visit ? visitorSeat(seatsRef.current.length, lay) : null;
       drawFrame(ctx, {
         model,
         lay,
@@ -298,44 +426,77 @@ export default function CafeScene({
       if (clipWanted()) {
         const n = namesRef.current;
         const bubbles = agents
-          .map((_, i) => bubbleFor(model, tl, lay, i, agentView(model, tl, lay, i, clock), clock))
-          .filter((b): b is Bubble => b != null);
+          .map((_, i) =>
+            bubbleFor(
+              model,
+              tl,
+              lay,
+              i,
+              agentView(model, tl, lay, i, clock),
+              clock,
+            ),
+          )
+          .filter((b): b is Bubble => b != null)
+          .map((b) => seatedAt(lay, b));
         const cats = [
           ...(n.cat ? [{ ...cat.pos, name: n.cat }] : []),
           ...(cat2 && n.cat2 ? [{ ...cat2.pos, name: n.cat2 }] : []),
         ];
         const watermark = `agent lounge · ${PROJECT_URL}`;
         const alert = alertRef.current;
-        clipFrame(canvas, { lay, agents: named, bubbles, alert, cats, sign: n.sign, title: n.title, watermark });
+        clipFrame(canvas, {
+          lay,
+          agents: named,
+          bubbles,
+          alert,
+          cats,
+          sign: n.sign,
+          title: n.title,
+          watermark,
+          noSign: brand,
+        });
       }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, [model, agents, lay, tl, cat, cat2, goldCat, th, looks, worn]);
+  }, [model, agents, lay, tl, cat, cat2, goldCat, th, looks, worn, brand]);
 
   const nameOf = (i: number) => agentName(agents[i], lookOf(looks, agents[i]));
   const pointAt = (e: MouseEvent | PointerEvent): Point => {
     const r = e.currentTarget.getBoundingClientRect();
-    return { x: ((e.clientX - r.left) / r.width) * lay.width, y: ((e.clientY - r.top) / r.height) * lay.height };
+    return {
+      x: ((e.clientX - r.left) / r.width) * lay.width,
+      y: ((e.clientY - r.top) / r.height) * lay.height,
+    };
   };
   const hitAt = (p: Point): Hit | null => {
-    const at = agents.map((_, i) => agentView(model, tl, lay, i, clockRef.current));
+    const at = agents.map((_, i) =>
+      agentView(model, tl, lay, i, clockRef.current),
+    );
     return hitTest(lay, at, cat.pos, p, beans != null);
   };
   const ghostAt = (pl: Placing, p: Point): Ghost | null => {
     const it = itemOf(pl.item);
     if (!it) return null;
-    const s = spotAt(lay, it, p, stand.filter((q) => q.pid !== pl.pid));
+    const s = spotAt(
+      lay,
+      it,
+      p,
+      stand.filter((q) => q.pid !== pl.pid),
+    );
     const base = { item: it.id, w: it.w, h: it.h };
-    return s ? { ...base, ...s, ok: true } : { ...base, cx: p.x, bottom: p.y + it.h / 2, ok: false };
+    return s
+      ? { ...base, ...s, ok: true }
+      : { ...base, cx: p.x, bottom: p.y + it.h / 2, ok: false };
   };
   /** someone in front of a piece takes the click; a window or the board behind it doesn't */
   const blocked = (p: Point) => {
     const h = hitAt(p);
     return h?.kind === "agent" || h?.kind === "cat";
   };
-  const pieceAt = (p: Point) => (onFurniture && !blocked(p) ? standingAt(shown, p) : null);
+  const pieceAt = (p: Point) =>
+    onFurniture && !blocked(p) ? standingAt(shown, p) : null;
   const machineAt = (p: Point) => {
     const s = onMachine && !blocked(p) ? standingAt(shown, p) : null;
     return s && MACHINES.includes(s.item) ? s : null;
@@ -350,7 +511,12 @@ export default function CafeScene({
   const move = (e: PointerEvent<HTMLCanvasElement>) => {
     const el = e.currentTarget;
     const d = dragRef.current;
-    if (d && !d.on && e.buttons & 1 && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 3) {
+    if (
+      d &&
+      !d.on &&
+      e.buttons & 1 &&
+      Math.hypot(e.clientX - d.x, e.clientY - d.y) > 3
+    ) {
       d.on = true;
       el.setPointerCapture(e.pointerId);
       onPlacing?.({ item: d.s.item, pid: d.s.pid });
@@ -359,7 +525,11 @@ export default function CafeScene({
     const p = pointAt(e);
     if (pl) {
       ghostRef.current = ghostAt(pl, p);
-      el.style.cursor = ghostRef.current?.ok ? (d?.on ? "grabbing" : "copy") : "not-allowed";
+      el.style.cursor = ghostRef.current?.ok
+        ? d?.on
+          ? "grabbing"
+          : "copy"
+        : "not-allowed";
       el.title = "";
       return;
     }
@@ -367,7 +537,9 @@ export default function CafeScene({
     const m = machineAt(p);
     if (m) {
       el.style.cursor = "pointer";
-      el.title = (m.item === "arcade" ? ARCADE_HINT : JUKE_HINT)[onPlacing ? 1 : 0][ui];
+      el.title = (m.item === "arcade" ? ARCADE_HINT : JUKE_HINT)[
+        onPlacing ? 1 : 0
+      ][ui];
       return;
     }
     if (pieceAt(p)) {
@@ -377,8 +549,16 @@ export default function CafeScene({
     }
     const c2 = !h && cat2 && onCat(cat2.pos, p);
     el.style.cursor = h || c2 ? "pointer" : "";
-    const hint = !h ? "" : h.kind === "agent" ? `${nameOf(h.agent)}: ${HIT_HINT.agent[ui]}` : HIT_HINT[h.kind][ui];
-    el.title = c2 ? HIT_HINT.cat[ui] : h?.kind === "cat" && dog ? DOG_HINT[ui] : hint;
+    const hint = !h
+      ? ""
+      : h.kind === "agent"
+        ? `${nameOf(h.agent)}: ${HIT_HINT.agent[ui]}`
+        : HIT_HINT[h.kind][ui];
+    el.title = c2
+      ? HIT_HINT.cat[ui]
+      : h?.kind === "cat" && dog
+        ? DOG_HINT[ui]
+        : hint;
   };
   const up = (e: PointerEvent<HTMLCanvasElement>) => {
     const d = dragRef.current;
@@ -416,12 +596,18 @@ export default function CafeScene({
     setSel(null);
     const m = machineAt(p);
     if (m) {
-      onMachine!({ pid: m.pid, item: m.item }, anchorAt(lay, m.cx, m.bottom - m.h, m.bottom));
+      onMachine!(
+        { pid: m.pid, item: m.item },
+        anchorAt(lay, m.cx, m.bottom - m.h, m.bottom),
+      );
       return;
     }
     const f = pieceAt(p);
     if (f) {
-      onFurniture!({ pid: f.pid, item: f.item }, anchorAt(lay, f.cx, f.bottom - f.h, f.bottom));
+      onFurniture!(
+        { pid: f.pid, item: f.item },
+        anchorAt(lay, f.cx, f.bottom - f.h, f.bottom),
+      );
       return;
     }
     if (h?.kind === "cat" || (!h && cat2 && onCat(cat2.pos, p))) {
@@ -429,28 +615,65 @@ export default function CafeScene({
       onPick?.(null);
       return;
     }
-    onPick?.(h ? { kind: h.kind, anchor: fixtureAnchor(lay, h.kind, p) } : null);
+    onPick?.(
+      h ? { kind: h.kind, anchor: fixtureAnchor(lay, h.kind, p) } : null,
+    );
   };
   const selIdx = sel == null ? -1 : agents.findIndex((a) => a.id === sel);
 
-  const { SIGN, METER } = fixtures(lay.width);
+  const { SIGN, METER } = fixturesOf(lay);
+  /** where a seat's plate sits: over the head in the far row, under the chair in the near one */
+  const plateAt = (i: number) => {
+    const d = lay.desks[i];
+    const D = lay.pods[d.pod]?.d ?? d.top + 12;
+    return d.face === "front"
+      ? { x: d.x, y: D - 14, far: true, side: d.side }
+      : { x: d.x, y: D + 42, far: false, side: d.side };
+  };
+  /** on a phone the plates stay while they fit; past two pods they turn into numbers with a legend under the room */
+  const badges = narrow && lay.pods.length > 2;
+  const tagFor = (i: number) => {
+    const st = seatStatus(model, views[i], i, clock, alert);
+    const warn = st === "wait" ? undefined : warns?.get(i);
+    return { st, warn, color: warn ? "#ff7a5c" : STATUS_COLOR[st] };
+  };
   const pos = (x: number, y: number): CSSProperties => ({
     left: `${(x / lay.width) * 100}%`,
     top: `${(y / lay.height) * 100}%`,
   });
+  const asking = alert?.kind === "ask" ? alert.agent : -1;
+  /** the question card already says what the asking agent wants: no speech bubble under it */
   const bubbles = agents
     .map((_, i) => bubbleFor(model, tl, lay, i, views[i], clock))
-    .filter((b): b is Bubble => b != null);
+    .filter(
+      (b): b is Bubble =>
+        b != null && !(b.seated && !narrow && b.agent === asking),
+    )
+    .map((b) => seatedAt(lay, b));
   const door = doorOf(lay);
-  const talking = new Set(bubbles.filter((b) => b.seated).map((b) => b.agent));
+  /** a far-row talker's bubble sits where its plate would be */
+  const talking = new Set(
+    bubbles
+      .filter((b) => b.seated && lay.desks[b.agent].face === "front")
+      .map((b) => b.agent),
+  );
   const reactAt = (i: number) => {
     const w = agentView(model, tl, lay, i, clock).walker;
-    return w ? { x: w.x, y: w.y - 24 } : { x: lay.desks[i].x, y: lay.desks[i].top - 6 };
+    return w
+      ? { x: w.x, y: w.y - 24 }
+      : { x: lay.desks[i].x, y: lay.desks[i].top - 6 };
   };
 
   return (
-    <div className="cafe-wrap" style={{ "--ar": lay.width / lay.height } as CSSProperties}>
-      <div className="arcade cafe" style={{ "--k": 384 / lay.width } as CSSProperties}>
+    <div
+      className="cafe-wrap hall-wrap"
+      ref={wrapRef}
+      style={{ "--ar": lay.width / lay.height } as CSSProperties}
+    >
+      <div
+        className="arcade cafe"
+        style={{ "--k": 384 / lay.width } as CSSProperties}
+      >
         <canvas
           ref={canvasRef}
           width={lay.width}
@@ -466,45 +689,102 @@ export default function CafeScene({
           aria-label={sceneLabel(ui, dog)}
         />
         <div className="cafe-overlay" aria-hidden>
-          <div className={`cafe-neon ${closed ? "off" : ""}`} style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
-            <span className="cafe-neon-main" style={{ "--fit": titleFit(title) } as CSSProperties}>
-              {title}
+          {brand ? (
+            <span
+              className={`hall-sub ${closed ? "off" : ""}`}
+              style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h + 3)}
+            >
+              {sub}
             </span>
-            <span className="cafe-neon-sub">{sub}</span>
-          </div>
+          ) : (
+            <div
+              className={`cafe-neon ${closed ? "off" : ""}`}
+              style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}
+            >
+              <span
+                className="cafe-neon-main"
+                style={{ "--fit": titleFit(title) } as CSSProperties}
+              >
+                {title}
+              </span>
+              <span className="cafe-neon-sub">{sub}</span>
+            </div>
+          )}
           {closed && (
-            <span className="cafe-closed" style={pos(door.x + door.w / 2, door.y - 3)}>
+            <span
+              className="cafe-closed"
+              style={pos(door.x + door.w / 2, door.y - 3)}
+            >
               {tr(ui, "зачинено", "closed")}
             </span>
           )}
-          <span className={`cafe-meter ${rate > 0 ? "on" : ""}`} style={pos(METER.x + METER.w / 2, METER.y + METER.h / 2)}>
+          <span
+            className={`cafe-meter ${rate > 0 ? "on" : ""}`}
+            style={pos(METER.x + METER.w / 2, METER.y + METER.h / 2)}
+          >
             {`${rate > 0 ? fmtTokens(rate, ui) : "0"} ${tr(ui, "ток/хв", "tok/min")}`}
           </span>
           {agents.map((a, i) => {
-            if (talking.has(i)) return null;
-            const ask = alert?.kind === "ask" && alert.agent === i;
-            const warn = ask ? undefined : warns?.get(i);
-            const nick = lookOf(looks, a)?.name && nameOf(i);
+            if (talking.has(i) || !lay.desks[i]) return null;
+            const { st, warn, color } = tagFor(i);
+            const at = plateAt(i);
+            const style = { ...pos(at.x, at.y), "--c": color } as CSSProperties;
+            const where = at.far ? "far" : narrow ? `near s${at.side}` : "near";
+            if (badges)
+              return (
+                <span
+                  key={a.id}
+                  className={`street-badge hall-badge ${where} ${warn ? "warn" : ""}`}
+                  style={style}
+                >
+                  {i + 1}
+                </span>
+              );
             return (
               <span
                 key={a.id}
-                className={`cafe-name ${ask ? "ask" : warn ? "warn" : ""} ${nick ? "plate" : ""}`}
-                style={{ ...pos(lay.desks[i].x, lay.desks[i].top - 2), color: a.color }}
+                className={`hall-plate ${where} st-${st} ${warn ? "warn" : ""}`}
+                style={style}
               >
-                {warn && "! "}
-                {nick ?? a.name.toLowerCase()}
-                {ask && <b> · {alert.text}</b>}
-                {warn && <b> · {warn.short}</b>}
+                <i />
+                <b>
+                  {warn && "! "}
+                  {nameOf(i)}
+                </b>
               </span>
             );
           })}
+          {!badges &&
+            lay.pods.map((p, k) =>
+              p.used < 4 ? (
+                <span
+                  key={`free${k}`}
+                  className="hall-plate free"
+                  style={pos(p.used <= 2 ? p.x + 35 : p.x + 55, p.d + 42)}
+                >
+                  <i />
+                  <b>{narrow ? `+${4 - p.used}` : freeSeats(4 - p.used, ui)}</b>
+                </span>
+              ) : null,
+            )}
           <GuestTags seats={seats} more={barOverflow(guests ?? [])} pos={pos} />
-          <VisitorTag lay={lay} guests={seats.length} on={visitors && !closed} pos={pos} />
+          <VisitorTag
+            lay={lay}
+            guests={seats.length}
+            on={visitors && !closed}
+            pos={pos}
+          />
           <ChatTag unread={chatUnread} pos={pos} />
           <BeanSack beans={beans} pos={pos} />
           {beans != null && <BeanGains list={gains} pos={pos} />}
-          <JukeTag playing={playing} at={shown.find((s) => s.item === "jukebox")} pos={pos} />
-          {reactions && <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />}
+          <JukeTag
+            playing={playing}
+            at={shown.find((s) => s.item === "jukebox")}
+            pos={pos}
+          />
+          {reactions && (
+            <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />
+          )}
           {catName && (
             <span ref={catRef} className="cafe-cat">
               {catName}
@@ -522,11 +802,67 @@ export default function CafeScene({
               name={nameOf(b.agent)}
               color={agents[b.agent].color}
               style={pos(b.x, b.y)}
-              warn={alert?.kind === "ask" && alert.agent === b.agent ? undefined : warns?.get(b.agent)}
+              warn={
+                alert?.kind === "ask" && alert.agent === b.agent
+                  ? undefined
+                  : warns?.get(b.agent)
+              }
             />
           ))}
         </div>
+        {asking >= 0 && !narrow && lay.desks[asking] && (
+          <div className="street-ui">
+            <button
+              className="street-ask room-ask"
+              style={askStyle(lay, plateAt(asking))}
+              onClick={() => setSel(agents[asking].id)}
+              title={tr(ui, "відкрити картку агента", "open the agent's card")}
+            >
+              <b>
+                {nameOf(asking)} {ASKS[ui]}
+              </b>
+              <span>{alert?.text}</span>
+            </button>
+          </div>
+        )}
       </div>
+      {narrow && (
+        <div className="street-legend" aria-label={LEGEND_LABEL[ui]}>
+          {badges && (
+            <div className="street-cards">
+              {agents.map((a, i) => {
+                const { st, warn, color } = tagFor(i);
+                return (
+                  <button
+                    key={a.id}
+                    className={`street-card ${warn ? "warn" : ""}`}
+                    style={{ "--c": color } as CSSProperties}
+                    onClick={() => setSel(sel === a.id ? null : a.id)}
+                  >
+                    <span className="sc-n">{i + 1}</span>
+                    <span className="sc-t">
+                      <b>{nameOf(i)}</b>
+                      <i>{warn ? `! ${warn.short}` : STATUS_TEXT[st][ui]}</i>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {asking >= 0 && (
+            <button
+              className="street-ask flat"
+              onClick={() => setSel(agents[asking].id)}
+            >
+              <b>
+                {badges ? `${asking + 1} · ` : ""}
+                {nameOf(asking)}:
+              </b>{" "}
+              <span>{alert?.text}</span>
+            </button>
+          )}
+        </div>
+      )}
       <div className="cafe-pops">
         {selIdx >= 0 && (
           <ScenePop
@@ -542,7 +878,11 @@ export default function CafeScene({
               clock={clock}
               eta={etas?.[selIdx] ?? null}
               nameOf={nameOf}
-              asking={alert?.kind === "ask" && alert.agent === selIdx ? alert.text : undefined}
+              asking={
+                alert?.kind === "ask" && alert.agent === selIdx
+                  ? alert.text
+                  : undefined
+              }
               stuck={warns?.get(selIdx)?.long}
               onPick={(i) => setSel(agents[i].id)}
               onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
@@ -558,4 +898,29 @@ export default function CafeScene({
       </div>
     </div>
   );
+}
+
+/** A seated agent's speech sits over the head in the far row and over the monitor in the near one. */
+function seatedAt(lay: CafeLayout, b: Bubble): Bubble {
+  if (!b.seated) return b;
+  const d = lay.desks[b.agent];
+  const D = d && lay.pods[d.pod]?.d;
+  return D == null ? b : { ...b, y: d.face === "front" ? D - 25 : D + 16 };
+}
+
+/** The question card over the asking agent, kept inside the room, with its tail pointing at the plate. */
+function askStyle(
+  lay: { width: number; height: number },
+  at: { x: number; y: number },
+): CSSProperties {
+  const W = lay.width;
+  const cw = Math.min(118, W * 0.4);
+  const left = Math.max(3, Math.min(W - cw - 3, at.x - cw / 2));
+  const bottom = Math.max(30, at.y - 9);
+  return {
+    left: `${(left / W) * 100}%`,
+    width: `${(cw / W) * 100}%`,
+    bottom: `${(1 - bottom / lay.height) * 100}%`,
+    "--tail": `${(Math.max(6, Math.min(cw - 6, at.x - left)) / cw) * 100}%`,
+  } as CSSProperties;
 }

@@ -1,42 +1,65 @@
 import { Point } from "@/lib/layout";
 
-/** The room widens for a big crew so everyone fits in fewer bands. */
-export function cafeWidth(n: number): number {
-  return n > 16 ? 576 : n > 10 ? 512 : 384;
-}
-export const WALL_H = 50;
-export const SEAT_DY = 44;
+/**
+ * The hall seen in 3/4: a back wall with depth, desks grouped in pods of 2+2 that face each other, the counter on the
+ * left wall and the lounge on the right. Everything is in the design's native pixels (320×192 for up to eight agents).
+ */
+/** where the floor starts under the back wall */
+export const WALL_H = 66;
+/** the desk top of the first row of pods */
+const D0 = 101;
+const ROW_STEP = 84;
+export const POD_W = 70;
+const POD_PITCH = 86;
+/** the counter's column on the left: the first rug starts here */
+const LEFT = 80;
+/** the lounge's column on the right */
+const RIGHT = 72;
 export const STAND_MS = 320;
 export const GIVE_MS = 520;
 export const SIT_MS = 280;
 export const WALK_PX_PER_MS = 0.03;
 
-const FIRST_BAND = 66;
-const BAND_STEP = 82;
-const JITTER = 5;
-const SIDE_STEP = 15;
-const MIN_GAP = 62;
-const DESK_HALF = 24;
-/** the bar and stools on the left and the vending machine on the right eat into the first band */
-const firstSpan = (w: number): [number, number] => [72, w - 58];
-const span = (w: number): [number, number] => [34, w - 32];
-
 export type Dir = "up" | "down" | "left" | "right";
 
+/** Which way a seated agent looks: at us from the far side of the desk, or away from us on the near side. */
+export type Facing = "front" | "back";
+
 export interface Desk {
+  /** the middle of the seat */
   x: number;
+  /** the top of the seated agent's head */
   top: number;
+  /** the aisle this seat's agent walks out to: the one above its pod for the far row, below for the near row */
   row: number;
+  face: Facing;
+  pod: number;
+  /** 0 on the pod's left, 1 on its right */
+  side: 0 | 1;
+}
+
+/** Four desks pushed together, two facing two, with a lamp and a plant between them, on their own rug. */
+export interface Pod {
+  /** left edge of the desk block */
+  x: number;
+  /** top of the desk block */
+  d: number;
+  row: number;
+  /** how many of its four seats are taken */
+  used: number;
 }
 
 export interface CafeLayout {
   desks: Desk[];
-  /** nominal top of each band of desks */
+  pods: Pod[];
+  /** the desk top of each row of pods */
   bands: number[];
-  /** the aisle each band's people walk along, just behind its chairs */
+  /** the aisles: one above the first row of pods, then one below each row */
   walkY: number[];
   width: number;
   height: number;
+  /** the inside of the front wall: the floor ends here */
+  front: number;
 }
 
 export function rng(seed: number): () => number {
@@ -49,83 +72,84 @@ export function rng(seed: number): () => number {
   };
 }
 
-function bandCap(seed: number, band: number, width: number): number {
-  const lo = width >= 576 ? 5 : width >= 512 ? 4 : 2;
-  return lo + Math.floor(rng(seed * 31 + band * 7919)() * (width >= 512 ? 2 : 3));
-}
+/** Two pods a row up to eight agents, three after that; the room widens for the third. */
+const podsPerRow = (n: number) => (n > 8 ? 3 : 2);
 
-function fits(xs: number[], x: number): boolean {
-  return xs.every((o) => Math.abs(o - x) >= MIN_GAP);
-}
-
-function pickX(xs: number[], span: [number, number], r: () => number): number | null {
-  for (let k = 0; k < 40; k++) {
-    const x = Math.round(span[0] + r() * (span[1] - span[0]));
-    if (fits(xs, x)) return x;
-  }
-  let best: number | null = null;
-  let bestGap = MIN_GAP - 1;
-  for (let x = span[0]; x <= span[1]; x += 2) {
-    const gap = Math.min(...xs.map((o) => Math.abs(o - x)));
-    if (gap > bestGap) {
-      bestGap = gap;
-      best = x;
-    }
-  }
-  return best;
+/** The room widens past eight agents so a third pod fits between the counter and the lounge. */
+export function cafeWidth(n: number): number {
+  return LEFT - 4 + POD_PITCH * podsPerRow(n) + RIGHT;
 }
 
 /**
- * Desks scattered through the room in loose bands. Each desk depends only on the seed and the desks
- * before it, so a live café that gains an agent never reshuffles the ones already sitting.
+ * Pods of four, filled one at a time: first the far row that faces us, then the near row. A pod that is not the
+ * last row's only one keeps its place as the café gains agents; a lone pod or a short last row is centred.
  */
 export function cafeLayout(n: number, seed = 1): CafeLayout {
+  void seed;
   const width = cafeWidth(n);
-  const desks: Desk[] = [];
-  const bandXs: number[][] = [];
-  const full: boolean[] = [];
-
-  for (let i = 0; i < n; i++) {
-    const r = rng(seed * 1009 + i * 7349 + 17);
-    let placed = false;
-    while (!placed) {
-      const open = bandXs.map((xs, b) => b).filter((b) => !full[b] && bandXs[b].length < bandCap(seed, b, width));
-      if (!open.length) {
-        bandXs.push([]);
-        full.push(false);
-        continue;
-      }
-      const b = open[Math.floor(r() * open.length)];
-      const x = pickX(bandXs[b], b === 0 ? firstSpan(width) : span(width), r);
-      if (x == null) {
-        full[b] = true;
-        continue;
-      }
-      bandXs[b].push(x);
-      const top = FIRST_BAND + b * BAND_STEP + Math.round((r() * 2 - 1) * JITTER);
-      desks.push({ x, top, row: b });
-      placed = true;
-    }
+  const per = podsPerRow(n);
+  const count = Math.max(1, Math.ceil(n / 4));
+  const rows = Math.ceil(count / per);
+  const pods: Pod[] = [];
+  for (let k = 0; k < count; k++) {
+    const row = Math.floor(k / per);
+    const col = k % per;
+    const inRow = Math.min(per, count - row * per);
+    const x = LEFT + 6 + col * POD_PITCH + ((per - inRow) * POD_PITCH) / 2;
+    pods.push({ x, d: D0 + row * ROW_STEP, row, used: Math.max(0, Math.min(4, n - k * 4)) });
   }
-
-  const rows = Math.max(1, bandXs.length);
-  const bands = Array.from({ length: rows }, (_, b) => FIRST_BAND + b * BAND_STEP);
-  const walkY = bands.map((t) => t + SEAT_DY + JITTER + 3);
-  return { desks, bands, walkY, width, height: bands[rows - 1] + 70 };
+  const desks: Desk[] = [];
+  for (let i = 0; i < n; i++) {
+    const p = pods[Math.floor(i / 4)];
+    const s = i % 4;
+    const side = (s % 2) as 0 | 1;
+    const far = s < 2;
+    desks.push({
+      x: p.x + 15 + side * 40,
+      top: far ? p.d - 12 : p.d + 19,
+      row: far ? p.row : p.row + 1,
+      face: far ? "front" : "back",
+      pod: Math.floor(i / 4),
+      side,
+    });
+  }
+  const bands = Array.from({ length: rows }, (_, r) => D0 + r * ROW_STEP);
+  const walkY = [D0 - 24, ...bands.map((d) => d + 57)];
+  const front = bands[rows - 1] + 83;
+  return { desks, pods, bands, walkY, width, height: front + 8, front };
 }
 
-function laneFree(lay: CafeLayout, x: number, lo: number, hi: number): boolean {
-  return lay.desks.every((d) => d.row <= lo || d.row > hi || Math.abs(d.x - x) >= DESK_HALF);
+/** Where someone stands up beside their chair, on the pod's outer side, and walks off from. */
+export function standAt(lay: CafeLayout, i: number): Point {
+  const d = lay.desks[i];
+  const p = lay.pods[d.pod];
+  return { x: d.side ? p.x + POD_W - 2 : p.x + 2, y: d.face === "front" ? p.d - 2 : p.d + 40 };
 }
 
-/** An x where someone can cross from one aisle to another without walking through a desk. */
+/** The box a click on a seat lands in: its quarter of the pod, chair and person included. */
+export function seatBox(lay: CafeLayout, i: number): { x: number; y: number; w: number; h: number } {
+  const d = lay.desks[i];
+  const p = lay.pods[d.pod];
+  return d.face === "front" ? { x: d.x - 19, y: p.d - 18, w: 38, h: 28 } : { x: d.x - 19, y: p.d + 10, w: 38, h: 34 };
+}
+
+/** The counter on the left and the lounge on the right stand in the first row's way across the room. */
+function blocked(lay: CafeLayout, x: number, row: number): boolean {
+  if (x < 14 || x > lay.width - 14) return true;
+  if (row === 0 && (x < LEFT + 4 || x > lay.width - RIGHT - 4)) return true;
+  return lay.pods.some((p) => p.row === row && x >= p.x - 6 && x <= p.x + POD_W + 6);
+}
+
+/** An x where someone can cross from one aisle to another without walking through a pod, the counter or the sofa. */
 export function crossingX(lay: CafeLayout, fromX: number, toX: number, ra: number, rb: number): number {
   const lo = Math.min(ra, rb);
   const hi = Math.max(ra, rb);
-  let best = 6;
+  let best = Math.round(lay.width / 2);
   let bestCost = Infinity;
   for (let x = 6; x <= lay.width - 6; x += 2) {
-    if (!laneFree(lay, x, lo, hi)) continue;
+    let free = true;
+    for (let r = lo; r < hi && free; r++) free = !blocked(lay, x, r);
+    if (!free) continue;
     const cost = Math.abs(fromX - x) + Math.abs(x - toX);
     if (cost < bestCost) {
       bestCost = cost;
@@ -148,16 +172,9 @@ export function route(lay: CafeLayout, a: Point, ra: number, b: Point, rb: numbe
   return compact([a, { x: a.x, y: ya }, { x: lane, y: ya }, { x: lane, y: yb }, { x: b.x, y: yb }, b]);
 }
 
-/** Walking route from beside one agent's chair to beside another's. */
+/** Walking route from beside one agent's chair to beside another's, out along the aisles and between the pods. */
 export function handoffPath(lay: CafeLayout, from: number, to: number): Point[] {
-  const a = lay.desks[from];
-  const b = lay.desks[to];
-  const out = b.x >= a.x ? 1 : -1;
-  const start = { x: a.x + out * SIDE_STEP, y: a.top + SEAT_DY };
-  const via = a.row === b.row ? start.x : crossingX(lay, start.x, b.x, a.row, b.row);
-  const side = via < b.x ? -1 : 1;
-  const end = { x: b.x + side * SIDE_STEP, y: b.top + SEAT_DY };
-  return route(lay, start, a.row, end, b.row);
+  return route(lay, standAt(lay, from), lay.desks[from].row, standAt(lay, to), lay.desks[to].row);
 }
 
 function segLen(a: Point, b: Point): number {

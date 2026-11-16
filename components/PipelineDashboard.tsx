@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Play, Pause, RotateCcw, Zap, Package, Coins, Layers, Coffee, GitBranch, Dices } from "lucide-react";
+import { Play, Pause, RotateCcw, Zap, Package, Coins, Layers, Coffee, GitBranch, Dices, Store, Sofa } from "lucide-react";
+import { useSceneView } from "@/lib/cafe/sceneView";
 import { Two, useTr, useUi } from "@/lib/i18n";
 import { DEMO_AGENTS, DemoAgent, demoAgent } from "@/lib/types";
 import { buildMockRun } from "@/lib/mockRun";
@@ -54,6 +55,7 @@ export default function PipelineDashboard() {
   const [preset, setPreset] = useState(RANDOM);
   const [seed, setSeed] = useState(7);
   const [view, setView] = useState<"game" | "diagram">("game");
+  const [look, setLook] = useSceneView();
   const { run, cafe } = useMemo(() => {
     const agents = PRESETS[preset].crew(seed).map((a) => demoAgent(a, ui));
     const lay = cafeLayout(agents.length, seed);
@@ -171,6 +173,16 @@ export default function PipelineDashboard() {
               <GitBranch size={13} /> {t("схема", "diagram")}
             </button>
           </div>
+          {view === "game" && (
+            <div className="viewseg" aria-label={t("як показати кафе", "how to show the café")}>
+              <button className={look === "street" ? "on" : ""} onClick={() => setLook("street")}>
+                <Store size={13} /> {t("вітрина", "storefront")}
+              </button>
+              <button className={look === "hall" ? "on" : ""} onClick={() => setLook("hall")}>
+                <Sofa size={13} /> {t("зала", "room")}
+              </button>
+            </div>
+          )}
           <span className="hd-active">
             <span className="dot" style={{ background: active.color, boxShadow: `0 0 10px ${active.color}` }} />
             <span style={{ color: active.color }}>{activeLabel}</span>

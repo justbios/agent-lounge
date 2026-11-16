@@ -4,6 +4,22 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.18.0 — not released yet
+
+No database change and no change to `plugin/`.
+
+- The café hall is redrawn: a tall back wall with an arched window that follows the time of day, curtains, a menu
+  board, shelves, string lights and the neon sign; wainscoting and a plank floor with the window's light on it and
+  pools of lamp light. Desks sit in pods of 2+2 facing each other, each on its own fringed rug with a shared lamp and
+  plant; a pod fills its far row first, a fifth agent opens a new pod, the room widens from nine and starts a second
+  line of pods from thirteen. A bar with the barista, a lounge with a sofa (the cat's bed), bean bags, a floor lamp,
+  a bistro table and an arcade machine that opens the games.
+- An agent's state shows as the colour of its monitor's light on its face and a small bubble (… working, ? waiting
+  for you, ✓ done, z resting), and a readable name plate with a border in the state's colour; free seats say so. On a
+  narrow screen with many agents the picture carries numbers and a legend sits under it.
+- A second view, «вітрина»: the café seen from the street at night, through its shop windows. Pick it in the scene's
+  menu; the hall stays the default, and placing furniture always uses the hall.
+
 ## 0.17.0 — not released yet
 
 No database change and no change to `plugin/`. A new look from the Claude Design canvas, same café inside.

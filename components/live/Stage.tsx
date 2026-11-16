@@ -11,7 +11,10 @@ import {
   ScrollText,
   Users,
   X,
+  Sofa,
+  Store,
 } from "lucide-react";
+import { useSceneView } from "@/lib/cafe/sceneView";
 import { CafeModel } from "@/lib/cafe/model";
 import { Two, useTr, useUi } from "@/lib/i18n";
 import { openTracks } from "@/lib/live/achievements";
@@ -271,12 +274,14 @@ export default function Stage({
     if (p.kind === "board") return onRecap();
     if (p.kind === "vending" || p.kind === "beans") return onShop();
     if (p.kind === "window") return nextTheme(p.anchor);
+    if (p.kind === "games") return onGames();
     if (p.kind === "bar") {
       return onChat ? onChat() : note(p.anchor, t("груповий чат є в хмарному кафе", "the group chat lives in the hosted café"));
     }
     setPop(pop?.kind === "door" ? null : { kind: "door", anchor: p.anchor });
   };
   const flip = (s: Side) => setDrawer(drawer === s ? null : s);
+  const [sceneView, setSceneView] = useSceneView();
   const menu: MenuItem[] = [
     ...(onChat
       ? [{ icon: <MessageCircle size={14} />, label: t("чат кафе", "café chat"), onClick: onChat, badge: chatUnread }]
@@ -289,6 +294,9 @@ export default function Stage({
           { icon: <ScrollText size={14} />, label: t("журнал подій", "event log"), onClick: () => flip("log") },
         ]),
     ...(cafe.editable ? [{ icon: <LayoutGrid size={14} />, label: t("план кафе", "café plan"), onClick: onPlan }] : []),
+    sceneView === "street"
+      ? { icon: <Sofa size={14} />, label: t("зала: кафе зсередини", "room: the café inside"), onClick: () => setSceneView("hall") }
+      : { icon: <Store size={14} />, label: t("вітрина: кафе з вулиці", "storefront: the café from the street"), onClick: () => setSceneView("street") },
   ];
   const place = async (p: Placed) => {
     onPlacing(null);

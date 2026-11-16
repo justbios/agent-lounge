@@ -160,6 +160,15 @@ function drawSkyLight(ctx: Ctx, ix: number, light: Phase) {
   px(ctx, x + 1, y + 1, 4, 4, core);
 }
 
+/** The window's ground: the theme's planet, pines or Halloween hill, standing on y = 32 (the hall shifts it down). */
+export function drawSkyline(ctx: Ctx, ix: number, iw: number, seed: number, th: Theme) {
+  const light = th.light ?? "night";
+  if (th.skyline === "city") city(ctx, ix, iw, seed, th);
+  else if (th.skyline === "planet") planet(ctx, ix, iw, seed);
+  else if (th.skyline === "spooky") spooky(ctx, ix, iw, seed);
+  else pines(ctx, ix, iw, seed, light);
+}
+
 /** A window onto the theme's outside: city, open space or forest, with the static part of the sky. */
 export function drawWindow(ctx: Ctx, x: number, w: number, seed: number, th: Theme) {
   px(ctx, x - 1, 4, w + 2, 31, LINE);
@@ -197,7 +206,7 @@ function bat(ctx: Ctx, x: number, y: number, up: boolean, c: string, ix: number,
 }
 
 /** What moves behind the glass: rain, drifting stars, fireflies, snow or bats. */
-export function drawWeather(ctx: Ctx, t: number, fx: Fixtures, th: Theme) {
+export function drawWeather(ctx: Ctx, t: number, fx: Pick<Fixtures, "WINDOWS">, th: Theme) {
   const c = th.weatherColor;
   fx.WINDOWS.forEach((w, wi) => {
     const ix = w.x + 2;

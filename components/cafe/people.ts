@@ -1,5 +1,5 @@
 import { Dir } from "@/lib/cafe/layout";
-import { Costume, drawCostume, drawCostumeSeated } from "./halloween";
+import { Costume, drawCostume, drawCostumeLounging, drawCostumeSeated } from "./halloween";
 import { Box, Ctx, LINE, Rect, paint, px, shade } from "./pixel";
 
 const SHOES = "#2b2433";
@@ -408,6 +408,36 @@ export function drawSeated(ctx: Ctx, X: number, headTop: number, k: Look, mode: 
     px(ctx, X - 6, keys - (up === 0 ? 1 : 0), 2, 1, k.skin);
     px(ctx, X + 4, keys - (up === 1 ? 1 : 0), 2, 1, k.skin);
   }
+}
+
+/**
+ * Head and shoulders seen from the front, for someone on the far side of a desk looking at their screen and so at us;
+ * the desk in front hides the rest. Dozing, a person's eyes close.
+ */
+export function drawSeatedFront(ctx: Ctx, X: number, headTop: number, k: Look, mode: SeatMode, tick: number) {
+  const L = X - 5;
+  const bob = mode === "work" ? (tick >> 2) & 1 : 0;
+  const T = headTop + bob + (mode === "nap" ? 2 : mode === "alert" ? -1 : 0);
+  const sil: Box[] = [
+    [L + 1, T, 8, 8],
+    [L, T + 8, 10, 6],
+  ];
+  const f: Rect[] = [
+    [L, T + 8, 10, 6, k.shirt],
+    [L, T + 8, 1, 6, k.shirtDark],
+    [L + 9, T + 8, 1, 6, k.shirtDark],
+    [L + 4, T + 8, 2, 1, k.skinDark],
+    [L + 3, T + 9, 4, 1, shade(k.shirt, 1.15)],
+  ];
+  const [hs, hf] = head(L, T, k, "front");
+  paint(ctx, [...sil, ...hs], [...f, ...hf]);
+  if (mode === "nap" && k.kind === 0) {
+    px(ctx, L + 3, T + 4, 1, 2, k.skin);
+    px(ctx, L + 6, T + 4, 1, 2, k.skin);
+    px(ctx, L + 2, T + 5, 2, 1, LINE);
+    px(ctx, L + 6, T + 5, 2, 1, LINE);
+  }
+  if (k.costume) drawCostumeLounging(ctx, k.costume, X, T);
 }
 
 export function drawChair(ctx: Ctx, X: number, deskTop: number, color: string) {

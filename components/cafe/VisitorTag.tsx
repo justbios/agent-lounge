@@ -36,7 +36,7 @@ export default function VisitorTag({
   }, [on]);
 
   const visit = on && at ? visitAt(at) : null;
-  const seat = visit ? visitorSeat(guests) : null;
+  const seat = visit ? visitorSeat(guests, lay) : null;
   const sat = visit && seat && !visitorFrame(lay, visit, seat, at).walking ? visit.kind : null;
 
   useEffect(() => {
