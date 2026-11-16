@@ -16,6 +16,8 @@ No database change and no change to `plugin/`. The 0.18 hall with two fixes, bui
   the city outside following day, evening, night and the weather; the neon sign hangs on the glass and the window
   lays its light on the floor. The poster and the clock made room for it.
 - On a wide screen the hall takes the full width; the agents and the event log sit under it.
+- Plates find room for themselves: one that would run into another moves inward or a step lower, so a computer
+  keeps plates even with nine or twelve agents; numbers with a legend are for the phone.
 
 ## 0.18.0 — not released yet
 

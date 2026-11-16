@@ -6,7 +6,6 @@ import {
   PointerEvent,
   ReactNode,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -53,6 +52,7 @@ import { HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
 import { buildRoom } from "./hall";
+import { PlateIn, placePlates } from "./plates";
 import { doorOf, fixturesOf } from "./room";
 import {
   Anchor,
@@ -249,9 +249,10 @@ function HallScene({
   const [sel, setSel] = useState<string | null>(null);
   const [narrow, setNarrow] = useState(false);
   const [wide, setWide] = useState(0);
-  /** the plates overlap at this size: numbers and a legend instead, until the size or the names change */
-  const [crowded, setCrowded] = useState<string | null>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
+  /** the plates' typeface, read once the page has it, for measuring them */
+  const [family, setFamily] = useState<string | null>(null);
+  /** bumped when the web fonts arrive, so the plates are measured again in the real typeface */
+  const [, setFontsIn] = useState(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const catRef = useRef<HTMLSpanElement>(null);
@@ -350,6 +351,22 @@ function HallScene({
   }, [placing]);
 
   useEffect(() => sceneMounted(), []);
+
+  useEffect(() => {
+    let live = true;
+    const read = () => {
+      const f = getComputedStyle(document.body).getPropertyValue("--sans").trim();
+      if (live) setFamily(f || "sans-serif");
+    };
+    read();
+    document.fonts?.ready.then(() => {
+      read();
+      if (live) setFontsIn((n) => n + 1);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -644,17 +661,6 @@ function HallScene({
     x: p.used <= 2 ? p.x + 35 : p.x + 55,
     y: p.d + 42,
   });
-  /** on a phone, and wherever the plates would run into each other, numbers with a legend under the room */
-  const plateKey = `${wide}|${agents.map((_, i) => nameOf(i)).join("|")}`;
-  const badges = narrow || crowded === plateKey;
-  useLayoutEffect(() => {
-    if (badges || !overlayRef.current) return;
-    const boxes = [...overlayRef.current.querySelectorAll(".hall-plate")].map((el) => el.getBoundingClientRect());
-    const hit = boxes.some((a, k) =>
-      boxes.some((b, j) => j > k && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom),
-    );
-    if (hit) setCrowded(plateKey);
-  }, [badges, plateKey, clock, alert, warns]);
   const tagFor = (i: number) => {
     const st = seatStatus(model, views[i], i, clock, alert);
     const warn = st === "wait" ? undefined : warns?.get(i);
@@ -681,6 +687,44 @@ function HallScene({
       .filter((b) => b.seated && lay.desks[b.agent].face === "front")
       .map((b) => b.agent),
   );
+  /** the plates kept clear of each other at this size; numbers only on a phone, or when even that fails */
+  const plan = (() => {
+    if (narrow || !wide || !family) return undefined;
+    const list: PlateIn[] = [];
+    const far = (i: number) => lay.desks[i].face === "front";
+    const order = agents.map((_, i) => i).filter((i) => lay.desks[i] && !talking.has(i));
+    for (const i of [...order.filter(far), ...order.filter((i) => !far(i))]) {
+      const d = lay.desks[i];
+      const D = lay.pods[d.pod]?.d ?? d.top + 12;
+      const { st, warn } = tagFor(i);
+      list.push({
+        key: agents[i].id,
+        x: d.x,
+        y: far(i) ? D - 14 : D + 42,
+        kind: far(i) ? "far" : "near",
+        side: d.side,
+        name: nameOf(i),
+        state: warn ? `! ${warn.short}` : STATUS_TEXT[st][ui],
+      });
+    }
+    lay.pods.forEach((p, k) => {
+      if (p.used < 4) list.push({ key: `free${k}`, ...freeAt(p), kind: "free", side: 0, name: freeSeats(4 - p.used, ui) });
+    });
+    return placePlates(list, wide / lay.width, lay.width, family, measureText);
+  })();
+  const badges = narrow || plan === null;
+  /** a plate's place and size from the plan, or the board's place in CSS until the room has been measured */
+  const placed = (key: string): CSSProperties | null => {
+    const at = plan?.spots.get(key);
+    if (!plan || !at) return null;
+    const s = wide / lay.width;
+    return {
+      left: `${(at.left / (lay.width * s)) * 100}%`,
+      top: `${(at.top / (lay.height * s)) * 100}%`,
+      "--pf": `${plan.font}px`,
+      "--sf": `${plan.small}px`,
+    } as CSSProperties;
+  };
   const reactAt = (i: number) => {
     const w = agentView(model, tl, lay, i, clock).walker;
     return w
@@ -712,7 +756,7 @@ function HallScene({
           }}
           aria-label={sceneLabel(ui, dog)}
         />
-        <div className="cafe-overlay" aria-hidden ref={overlayRef}>
+        <div className="cafe-overlay" aria-hidden>
           {brand ? (
             <span
               className={`hall-sub ${closed ? "off" : ""}`}
@@ -768,11 +812,12 @@ function HallScene({
             if (talking.has(i)) return null;
             const at = plateAt(i);
             const where = at.far ? "far" : `near s${at.side}`;
+            const spot = placed(a.id);
             return (
               <span
                 key={a.id}
-                className={`hall-plate ${where} st-${st} ${warn ? "warn" : ""}`}
-                style={{ ...pos(at.x, at.y), "--c": color } as CSSProperties}
+                className={`hall-plate ${spot ? "placed" : where} st-${st} ${warn ? "warn" : ""}`}
+                style={{ ...(spot ?? pos(at.x, at.y)), "--c": color } as CSSProperties}
               >
                 <b>{nameOf(i)}</b>
                 <i>{warn ? `! ${warn.short}` : STATUS_TEXT[st][ui]}</i>
@@ -791,7 +836,11 @@ function HallScene({
                 +{4 - p.used}
               </span>
             ) : (
-              <span key={`free${k}`} className="hall-plate free" style={pos(at.x, at.y)}>
+              <span
+                key={`free${k}`}
+                className={`hall-plate free ${placed(`free${k}`) ? "placed" : ""}`}
+                style={placed(`free${k}`) ?? pos(at.x, at.y)}
+              >
                 <b>{freeSeats(4 - p.used, ui)}</b>
               </span>
             );
@@ -939,6 +988,15 @@ function seatedAt(lay: CafeLayout, b: Bubble): Bubble {
   const d = lay.desks[b.agent];
   const D = d && lay.pods[d.pod]?.d;
   return D == null ? b : { ...b, y: d.face === "front" ? D - 25 : D + 16 };
+}
+
+let measurer: CanvasRenderingContext2D | null = null;
+/** How wide a line of text is in this font, for keeping the plates apart. */
+function measureText(text: string, font: string): number {
+  measurer ??= document.createElement("canvas").getContext("2d");
+  if (!measurer) return text.length * 10;
+  measurer.font = font;
+  return measurer.measureText(text).width;
 }
 
 /** The question card beside the asking agent's pod, on the side with more room, its tail pointing at the agent. */

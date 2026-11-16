@@ -8831,6 +8831,16 @@ html[lang="en"] .connect-wrap .notice + .step::before {
   border-style: dashed;
   opacity: 0.95;
 }
+/* placed by components/cafe/plates.ts: its own spot and size, kept clear of the others */
+.hall-plate.placed,
+.hall-plate.free.placed {
+  transform: none;
+  margin: 0;
+  font-size: var(--pf);
+}
+.hall-plate.placed i {
+  font-size: var(--sf);
+}
 .hall-plate b {
   overflow: hidden;
   text-overflow: ellipsis;
