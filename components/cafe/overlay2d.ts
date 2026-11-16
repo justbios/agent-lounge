@@ -20,8 +20,6 @@ export interface OverlayInput {
   watermark: string;
   /** the scene paints its own sign (the street's pixel neon): no glowing text over it */
   noSign?: boolean;
-  /** per desk: what its plate says under the name, and the colour of its bar */
-  status?: { word: string; color: string }[];
 }
 
 const TYPE_MS_PER_CHAR = 22;
@@ -37,12 +35,6 @@ let family = "";
 function font(px: number, weight = 400): string {
   family ||= getComputedStyle(document.documentElement).getPropertyValue("--font-pixel").trim() || "monospace";
   return `${weight} ${px}px ${family}, monospace`;
-}
-let bodyFamily = "";
-/** Golos, the face the hall's plates and bubbles are written in on screen. */
-function body(px: number, weight = 600): string {
-  bodyFamily ||= getComputedStyle(document.documentElement).getPropertyValue("--font-body").trim() || "system-ui";
-  return `${weight} ${px}px ${bodyFamily}, system-ui, sans-serif`;
 }
 
 function spacing(ctx: CanvasRenderingContext2D, em: number, px: number) {
@@ -98,61 +90,51 @@ function neon(ctx: CanvasRenderingContext2D, o: OverlayInput, s: number, k: numb
   spacing(ctx, 0, 1);
 }
 
-/** The hall's name plates, as the page draws them: a dark plate, a status-coloured bar, the name and what it is doing. */
 function names(ctx: CanvasRenderingContext2D, o: OverlayInput, s: number, W: number, talking: Set<number>) {
-  const size = Math.max(13, Math.round(s * 4.5));
-  const small = Math.max(12, Math.round(size * 0.84));
-  const pad = Math.round(size * 0.5);
-  const bar = Math.max(3, Math.round(s));
-  ctx.textAlign = "left";
-  ctx.textBaseline = "top";
+  const size = Math.round(W * 0.013);
+  ctx.font = font(size);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+  ctx.lineJoin = "round";
   o.agents.forEach((a, i) => {
     if (talking.has(i)) return;
     const d = o.lay.desks[i];
     const pod = o.lay.pods[d.pod];
-    if (!pod) return;
-    const asking = o.alert?.kind === "ask" && o.alert.agent === i;
-    const st = o.status?.[i] ?? { word: "", color: a.color };
-    const color = asking ? "#ffc456" : st.color;
-    const max = asking ? W * 0.3 : 38 * s;
-    ctx.font = body(size);
-    const name = fit(ctx, a.name, max - pad * 2 - bar);
-    ctx.font = body(small, 500);
-    const word = fit(ctx, asking ? `${st.word}: ${o.alert!.text}` : st.word, max - pad * 2 - bar);
-    const nameW = (ctx.font = body(size), ctx.measureText(name).width);
-    const wordW = (ctx.font = body(small, 500), ctx.measureText(word).width);
-    const w = Math.ceil(Math.max(nameW, wordW) + pad * 2 + bar);
-    const h = Math.ceil(size * 1.15 + small * 1.15 + pad * 0.8);
-    const x = Math.round(d.x * s - w / 2);
-    const y = Math.round(d.face === "front" ? (pod.d - 36) * s - h : (pod.d + 42) * s);
-    ctx.fillStyle = "#05040b";
-    ctx.fillRect(x - 1, y - 1, w + 2, h + 2);
-    ctx.fillStyle = asking ? "#2a1d06" : "#1a1428";
-    ctx.fillRect(x, y, w, h);
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, bar, h);
-    ctx.font = body(size);
-    ctx.fillStyle = "#f6f2ff";
-    ctx.fillText(name, x + bar + pad, y + pad * 0.4);
-    ctx.font = body(small, 500);
-    ctx.fillStyle = color;
-    ctx.fillText(word, x + bar + pad, y + pad * 0.4 + size * 1.15);
+    const x = d.x * s;
+    // the hall's plates: over the head in the far row, under the chair in the near one
+    const y = !pod ? (d.top - 2) * s : d.face === "front" ? (pod.d - 14) * s : (pod.d + 42) * s + size * 1.2;
+    if (o.alert?.kind === "ask" && o.alert.agent === i) {
+      const text = fit(ctx, `${a.name.toLowerCase()} · ${o.alert.text}`, W * 0.26);
+      const w = ctx.measureText(text).width + size * 0.9;
+      const h = size * 1.5;
+      ctx.fillStyle = "#ffd25a";
+      ctx.fillRect(x - w / 2, y - h, w, h);
+      ctx.fillStyle = "#1d1708";
+      ctx.fillText(text, x, y - size * 0.25);
+      return;
+    }
+    const text = fit(ctx, a.name.toLowerCase(), W * 0.17 * (384 / o.lay.width));
+    ctx.strokeStyle = "#07050d";
+    ctx.lineWidth = Math.max(2, size / 5);
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = a.color;
+    ctx.fillText(text, x, y);
   });
 }
 
 function bubble(ctx: CanvasRenderingContext2D, b: Bubble, a: AgentDef, s: number, W: number) {
-  const em = Math.max(13, Math.round(W * 0.0132));
+  const em = Math.round(W * 0.0132);
   const border = Math.max(2, Math.round(W / 480));
   const bg = TONE_BG[b.tone] ?? "#f7f2e6";
   const sp = speechNow();
   const said = line(b, sp);
   const shown = said.slice(0, Math.min(said.length, Math.floor(b.age / TYPE_MS_PER_CHAR) + 1));
 
-  ctx.font = body(em, 500);
+  ctx.font = font(em);
   const lines = wrap(ctx, said, W * 0.19 - em * 1.2);
   const textW = Math.max(...lines.map((l) => ctx.measureText(l).width));
   const hd = em * 0.8;
-  ctx.font = body(hd, 600);
+  ctx.font = font(hd);
   const who = a.name.toLowerCase();
   const tool = chip(b.tool, sp)?.toLowerCase();
   const hdW = hd * 1.05 + ctx.measureText(who).width + (tool ? hd * 0.45 + ctx.measureText(tool).width + hd * 0.7 : 0);
@@ -185,7 +167,7 @@ function bubble(ctx: CanvasRenderingContext2D, b: Bubble, a: AgentDef, s: number
   ctx.fillStyle = a.color;
   ctx.fillRect(cx, hy + hd * 0.15, hd * 0.6, hd * 0.6);
   cx += hd * 1.05;
-  ctx.font = body(hd, 600);
+  ctx.font = font(hd);
   ctx.fillStyle = "#4a4258";
   ctx.fillText(who, cx, hy);
   if (tool) {
@@ -197,7 +179,7 @@ function bubble(ctx: CanvasRenderingContext2D, b: Bubble, a: AgentDef, s: number
     ctx.fillText(tool, cx + hd * 0.35, hy);
   }
 
-  ctx.font = body(em, 500);
+  ctx.font = font(em);
   ctx.fillStyle = INK;
   let left = shown.length;
   lines.forEach((line, i) => {
@@ -208,8 +190,8 @@ function bubble(ctx: CanvasRenderingContext2D, b: Bubble, a: AgentDef, s: number
 }
 
 function catName(ctx: CanvasRenderingContext2D, c: OverlayInput["cats"][number], s: number, W: number) {
-  const size = Math.max(12, Math.round(W * 0.011));
-  ctx.font = body(size, 600);
+  const size = Math.round(W * 0.011);
+  ctx.font = font(size);
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
   ctx.lineJoin = "round";

@@ -1,5 +1,5 @@
 import { CafeLayout } from "@/lib/cafe/layout";
-import { GLASS_ROWS, arcadeScreen, espresso, glassClip } from "./hall";
+import { VIEW_DY, archClip, arcadeScreen, espresso } from "./hall";
 import { hallPen } from "./hallPen";
 import { drawPerson, lookFor } from "./people";
 import { Ctx, LINE, px } from "./pixel";
@@ -31,19 +31,14 @@ function steamPuff(ctx: Ctx, x: number, y: number, t: number, puffs: number, ris
   ctx.globalAlpha = 1;
 }
 
-/** What moves on the back wall: the weather behind the glass wall, the clock's hands, the arcade's little game. */
+/** What moves on the back wall: the weather behind the arched window, the clock's hands, the arcade's little game. */
 export function drawAmbient(ctx: Ctx, t: number, lay: CafeLayout, th: Theme = THEMES.cafe) {
   const fx = fixturesOf(lay);
   const w = fx.WINDOWS[0];
   ctx.save();
-  glassClip(ctx, w.x, w.w);
-  // the weather is drawn for a window 23 rows tall: stack it down the glass, a band at a time
-  for (let y = GLASS_ROWS.top - 7, k = 0; y < GLASS_ROWS.bottom; y += 23, k++) {
-    ctx.save();
-    ctx.translate(k * 7, y);
-    drawWeather(ctx, t + k * 1.7, { WINDOWS: [{ x: w.x - 1 - k * 7, w: w.w + 2 }] }, th);
-    ctx.restore();
-  }
+  archClip(ctx, w.x, w.w);
+  ctx.translate(0, VIEW_DY);
+  drawWeather(ctx, t, { WINDOWS: [{ x: w.x - 1, w: w.w + 2 }] }, th);
   ctx.restore();
   const C = fx.CLOCK;
   hand(ctx, C.x, C.y, -Math.PI / 2 + t * 0.35, 3, LINE);

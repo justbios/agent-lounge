@@ -3023,22 +3023,6 @@ body {
   color: #5cffb0;
   text-shadow: 0 0 4px rgba(92, 255, 176, 0.7);
 }
-/* the hall's LED panel: the reading in Golos, bright enough to read; on a phone the panel stays dark */
-.hall-wrap .cafe-meter {
-  font-family: var(--sans);
-  font-size: clamp(12px, calc(1.1cqw * var(--k, 1)), 14px);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: #7fd8a8;
-}
-.hall-wrap .cafe-meter.on {
-  color: #8dffc4;
-}
-@container (max-width: 560px) {
-  .hall-wrap .cafe-meter {
-    display: none;
-  }
-}
 .limits-mini {
   display: flex;
   flex-direction: column;
@@ -8815,27 +8799,21 @@ html[lang="en"] .connect-wrap .notice + .step::before {
   border-color: #ff7a5c;
 }
 
-/* ---------- the hall: name plates, free seats, question card ---------- */
-/* plates in Golos on a solid dark plate, a status-coloured bar on the left: readable over any pixels */
+/* ---------- the hall («3/4 — та сама камера»): name plates, free seats, question card ---------- */
 .hall-plate {
   position: absolute;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  min-width: 0;
-  max-width: var(--pw, 120px);
-  padding: 3px 7px 4px 7px;
-  font-family: var(--sans);
-  font-size: clamp(13px, calc(1.3cqw * var(--k, 1)), 15px);
-  font-weight: 600;
-  line-height: 1.15;
+  align-items: center;
+  gap: 0.3em;
+  max-width: calc(22cqw * var(--k, 1));
+  padding: 0 0.3em 0.08em 0.22em;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: clamp(8px, 1.56cqw, 16px);
+  line-height: 1.1;
   white-space: nowrap;
-  color: #f6f2ff;
-  background: #1a1428;
-  border: 1px solid #05040b;
-  border-left: 3px solid var(--c);
-  border-radius: 3px;
-  box-shadow: 0 2px 0 rgba(5, 4, 11, 0.6);
+  color: #f4eeff;
+  background: #120e1c;
+  border: 1px solid var(--c);
 }
 .hall-plate.far {
   transform: translate(-50%, -100%);
@@ -8844,171 +8822,63 @@ html[lang="en"] .connect-wrap .notice + .step::before {
 .hall-plate.free {
   transform: translate(-50%, 0);
 }
-.hall-plate b,
+.hall-plate.near.s0 {
+  transform: translate(-100%, 0);
+  margin-left: 1.2cqw;
+}
+.hall-plate.near.s1 {
+  transform: translate(0, 0);
+  margin-left: -1.2cqw;
+}
 .hall-plate i {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: none;
+  width: 0.5em;
+  height: 0.5em;
+  background: var(--c);
 }
 .hall-plate b {
-  font-weight: 600;
-}
-.hall-plate i {
-  font-style: normal;
-  font-weight: 500;
-  font-size: max(12px, 0.84em);
-  color: var(--c);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 400;
 }
 .hall-plate.st-wait {
   background: #2a1d06;
+  box-shadow: 0 0 8px rgba(255, 196, 86, 0.45);
 }
-.hall-plate.warn {
-  border-left-color: #ff7a5c;
-}
-.hall-plate.warn i {
-  color: #ff9a80;
+.hall-plate.warn b {
+  color: #ffb3a0;
 }
 .hall-plate.free {
-  --c: #ff8ac0;
-  border: 1px dashed rgba(255, 138, 192, 0.75);
-  background: rgba(26, 20, 40, 0.94);
-}
-.hall-plate.free b {
-  font-weight: 500;
-  color: #ffd6e8;
-}
-.hall-badge {
-  min-width: 1.7em;
-  padding: 0.12em 0.35em;
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 700;
-  border: 2px solid #05040b;
-  border-radius: 4px;
+  --c: #ff6aa8;
+  border-style: dashed;
+  opacity: 0.9;
 }
 .hall-badge.far {
   transform: translate(-50%, -100%);
 }
-.hall-badge.side {
-  transform: translate(0, -50%);
-}
 .hall-sub {
   position: absolute;
   transform: translate(-50%, 0);
-  padding: 1px 6px;
   font-family: var(--font-pixel), var(--mono);
-  font-size: clamp(11px, 1.25cqw, 15px);
+  font-size: clamp(6px, 1.1cqw, 12px);
   letter-spacing: 0.08em;
   white-space: nowrap;
-  color: #ffe6f2;
-  background: rgba(14, 10, 22, 0.72);
-  border-radius: 2px;
-  text-shadow: 0 0 6px #ff4fa3;
+  color: #ffe0f0;
+  text-shadow:
+    0 0 4px #ff4fa3,
+    0 0 10px #ff4fa3;
 }
 .hall-sub.off {
-  color: #b8a8c0;
+  color: #6a4a5a;
   text-shadow: none;
 }
 .room-ask {
   white-space: normal;
-  font-size: clamp(13px, 1.35cqw, 15px);
+  font-size: clamp(10px, 1.3cqw, 14px);
   background: #221a34;
-  box-shadow:
-    0 0 0 2px #05040b,
-    0 4px 0 #7a5410;
+  box-shadow: 0 4px 0 #7a5410;
 }
 .room-ask::after {
   background: #221a34;
-}
-.room-ask.up::after {
-  top: -0.55em;
-  bottom: auto;
-  transform: translateX(-50%) rotate(225deg);
-}
-/* everything else written over the hall: a readable size and a solid backing, never thin pixel text on pixels */
-.hall-wrap .cafe-guest {
-  max-width: calc(11cqw * var(--k, 1));
-  padding: 2px 5px;
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.15;
-  color: #e4efff;
-  opacity: 1;
-  background: #1a1428;
-  border: 1px solid #05040b;
-  border-radius: 3px;
-  text-shadow: none;
-}
-.hall-wrap .cafe-guest.hi {
-  transform: translate(-50%, calc(-100% - 1.7em));
-}
-.hall-wrap .cafe-guest.me {
-  color: #ffd25a;
-}
-.hall-wrap .cafe-guest.visitor {
-  max-width: none;
-  color: #ffe08a;
-}
-.hall-wrap .cafe-cat {
-  padding: 1px 5px;
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.15;
-  color: #ffe2b8;
-  opacity: 1;
-  background: rgba(26, 20, 40, 0.92);
-  border-radius: 3px;
-  text-shadow: none;
-}
-.hall-wrap .cafe-chat {
-  font-family: var(--sans);
-  font-size: 13px;
-}
-.hall-wrap .cafe-beans {
-  font-family: var(--sans);
-  font-size: 12px;
-}
-.hall-wrap .cafe-juke {
-  padding: 1px 5px;
-  font-family: var(--sans);
-  font-size: 12px;
-  background: rgba(26, 20, 40, 0.92);
-  border-radius: 3px;
-  text-shadow: none;
-}
-.hall-wrap .cafe-closed {
-  padding: 2px 6px;
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.hall-wrap .cafe-neon-sub {
-  font-size: max(11px, calc(1.4cqw * var(--k, 1)));
-}
-.hall-wrap .cafe-bubble {
-  max-width: max(19cqw, 190px);
-  font-family: var(--sans);
-  font-size: clamp(12px, 1.3cqw, 14px);
-  font-weight: 500;
-  line-height: 1.3;
-}
-.hall-wrap .cb-hd {
-  font-size: 0.86em;
-  font-weight: 600;
-}
-.hall-wrap .street-card b {
-  font-size: 13px;
-}
-.hall-wrap .street-card i {
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 500;
-}
-.hall-wrap .street-card .sc-n {
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 700;
 }

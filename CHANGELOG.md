@@ -4,18 +4,6 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
-## 0.19.0 — not released yet
-
-No database change and no change to `plugin/`. The hall after the first look at 0.18.
-
-- Names are readable: plain text on a dark plate, with a bar in the state's colour and the state in words (працює,
-  питає тебе, готово, відпочиває). Bubbles are bigger and outlined. On a phone, and whenever agents sit in more than
-  one line, the picture carries numbers and a legend under it says who is who.
-- The back wall is one panoramic window onto the city, with day, evening, night and the weather.
-- A modern room instead of a vintage one: concrete wall, light oak floor, a cyan LED strip and a big «AGENT LOUNGE»
-  neon; white desks on black legs, a terrazzo bar, a teal velvet sofa, a picture menu.
-- The coloured rugs are gone: they meant nothing.
-
 ## 0.18.0 — not released yet
 
 No database change and no change to `plugin/`.

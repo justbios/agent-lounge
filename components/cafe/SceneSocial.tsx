@@ -18,8 +18,8 @@ type Pos = (x: number, y: number) => CSSProperties;
 export function GuestTags({ seats, more, pos }: { seats: GuestSeat[]; more: number; pos: Pos }) {
   return (
     <>
-      {seats.map((s, k) => (
-        <span key={s.id} className={`cafe-guest ${s.me ? "me" : ""} ${k % 2 ? "hi" : ""}`} style={pos(s.x, s.y - 13)}>
+      {seats.map((s) => (
+        <span key={s.id} className={`cafe-guest ${s.me ? "me" : ""}`} style={pos(s.x, s.y - 13)}>
           {guestTag(s)}
         </span>
       ))}
