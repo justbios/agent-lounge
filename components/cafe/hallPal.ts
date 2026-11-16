@@ -25,6 +25,8 @@ export interface HallPal {
   frame: string;
   frameHi: string;
   frameIn: string;
+  /** the shaded right edge of the frame and its mullions */
+  frameLo: string;
   mullion: string;
   mullionHi: string;
   sill: string;
@@ -57,6 +59,7 @@ const CAFE: HallPal = {
   frame: "#7a4a30",
   frameHi: "#a06a44",
   frameIn: "#4e2c1e",
+  frameLo: "#5a3220",
   mullion: "#6e4028",
   mullionHi: "#94603c",
   sill: "#c08a58",
@@ -108,6 +111,7 @@ const PALS: Record<Theme["id"], HallPal> = {
     frame: "#5a6886",
     frameHi: "#8fa0bf",
     frameIn: "#2a3346",
+    frameLo: "#3a4560",
     mullion: "#4a5672",
     mullionHi: "#7d8cab",
     sill: "#8fa0bf",

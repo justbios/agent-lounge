@@ -10,17 +10,16 @@ interface Rect {
 }
 
 export interface Fixtures {
-  /** the arched window over the room, its sill at {@link SILL_Y} */
+  /** the panoramic window over the room, its sill at {@link SILL_Y} */
   WINDOWS: { x: number; w: number }[];
+  /** the window's arched panes of glass, left to right */
+  PANES: { x: number; w: number }[];
   /** the neon board on the back wall */
   SIGN: Rect;
   /** the LED strip under the sign that shows tokens a minute */
   METER: Rect;
-  CLOCK: { x: number; y: number };
   /** the menu chalkboard: the day's recap */
   BOARD: Rect;
-  /** the framed print beside the board */
-  PRINT: Rect;
   /** the shelves on the right of the back wall */
   SHELVES: Rect;
   /** the back counter with the coffee machine: the café's shop */
@@ -37,9 +36,14 @@ export interface Fixtures {
 }
 
 /** The top of the window's sill, where pieces from the shop stand. */
-export const SILL_Y = 44;
+export const SILL_Y = 38;
 /** The floor line under the back wall's skirting. */
 export const FLOOR_TOP = 66;
+
+/** a pane of the window's glass in the first room, the wood between two panes and around them all */
+const PANE_W = 28;
+const MULLION = 3;
+const FRAME = 3;
 
 const memo = new Map<string, Fixtures>();
 
@@ -49,16 +53,21 @@ export function fixtures(width: number, front = 184): Fixtures {
   const hit = memo.get(key);
   if (hit) return hit;
   const dx = width - 320;
-  const wx = 104 + Math.round(dx * 0.3);
+  // the window spans the wall between the menu board and the shelves: six panes in the first room, more in a wider one
+  const left = 63;
+  const room = width - 68 - left;
+  const n = Math.max(1, Math.round((room - 2 * FRAME + MULLION) / (PANE_W + MULLION)));
+  const pw = Math.floor((room - 2 * FRAME - (n - 1) * MULLION) / n);
+  const ww = n * pw + (n - 1) * MULLION + 2 * FRAME;
+  const wx = left + Math.floor((room - ww) / 2);
   const nx = 174 + Math.round(dx * 0.62);
   const lx = width - 72;
   const fx: Fixtures = {
-    WINDOWS: [{ x: wx, w: 52 }],
+    WINDOWS: [{ x: wx, w: ww }],
+    PANES: Array.from({ length: n }, (_, i) => ({ x: wx + FRAME + i * (pw + MULLION), w: pw })),
     SIGN: { x: nx, y: 9, w: 70, h: 22 },
     METER: { x: nx + 15, y: 48, w: 40, h: 7 },
-    CLOCK: { x: wx - 7, y: 18 },
     BOARD: { x: 13, y: 8, w: 46, h: 31 },
-    PRINT: { x: 64, y: 10, w: 26, h: 30 },
     SHELVES: { x: width - 63, y: 6, w: 50, h: 35 },
     VENDING: { x: 10, y: 40, w: 64, h: 28 },
     BAR: { x: 8, y: 70, w: 74, h: 42 },

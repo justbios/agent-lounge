@@ -4,7 +4,7 @@ import { propIndex } from "./desk";
 import { hallPal, HallPal } from "./hallPal";
 import { O, Pen, dk, hallPen, lt } from "./hallPen";
 import { Ctx } from "./pixel";
-import { Fixtures, barSeats, doorOf, fixturesOf } from "./room";
+import { Fixtures, SILL_Y, barSeats, doorOf, fixturesOf } from "./room";
 import { mix } from "./street/px";
 import { THEMES, Theme, keepsSky } from "./theme";
 import { drawSkyline } from "./windows";
@@ -28,29 +28,35 @@ export interface HallArt {
 }
 
 const WY = 5;
-const WH = 40;
-/** the ground line inside the window, where the city stands */
-const GROUND = WY + WH - 3;
+/** the top of the glass, under the frame */
+const GT = WY + 3;
+/** the bottom of the glass: the sill sits on the chair rail here, and the city stands on it */
+const GB = SILL_Y;
+/** how tall each pane's arch is */
+const ARCH = 7;
 
-const half = (y: number, R: number, top: number, RY: number) => {
-  if (y < top) return -1;
-  if (y >= top + RY) return R;
-  const t = (top + RY - y) / RY;
-  return Math.floor(R * Math.sqrt(1 - t * t));
+/** How wide a pane's glass is in row `y`: all of it under the arch, less towards the arch's top. */
+const archHalf = (y: number, pw: number) => {
+  if (y >= GT + ARCH) return pw / 2;
+  const t = (GT + ARCH - y) / ARCH;
+  return Math.floor((pw / 2) * Math.sqrt(1 - t * t));
 };
 
-/** Clips to the glass of the arched window at `wx`, for what is seen through it. */
-export function archClip(g: Ctx, wx: number, ww: number) {
-  const wcx = wx + ww / 2;
+/** Clips to the glass of the window's arched panes, for what is seen through them. */
+export function glassClip(g: Ctx, fx: Fixtures) {
   g.beginPath();
-  for (let y = WY + 3; y < WY + WH - 2; y++) {
-    const hi = half(y, 23, WY + 3, 12);
-    if (hi > 0) g.rect(wcx - hi, y, hi * 2, 1);
+  for (const p of fx.PANES) {
+    const cx = p.x + p.w / 2;
+    for (let y = GT; y < GT + ARCH; y++) {
+      const hw = archHalf(y, p.w);
+      if (hw > 0) g.rect(Math.round(cx - hw), y, Math.round(hw * 2), 1);
+    }
+    g.rect(p.x, GT + ARCH, p.w, GB - GT - ARCH);
   }
   g.clip();
 }
 /** How far the window's view sits below the old flat windows' view, which weather and skylines are drawn for. */
-export const VIEW_DY = GROUND - 32;
+export const VIEW_DY = GB - 32;
 
 /** Sky colours spread over the glass from the theme's five. */
 function skyRows(th: Theme): string[] {
@@ -62,113 +68,205 @@ function skyRows(th: Theme): string[] {
   });
 }
 
+/** The city at each hour: the far haze, the middle row with dim windows, the landmarks, the near row lit up, the bay. */
 const CITY = {
-  night: { far: "#1e2448", near: "#141634", edge: "#22264a", lit: ["#ffc870", "#7fd4ff"], share: 0.38 },
-  dusk: { far: "#7a3a68", near: "#2c1a3c", edge: "#3c2650", lit: ["#ffc870", "#ff8a5a"], share: 0.42 },
-  dawn: { far: "#6a4a7a", near: "#2a2748", edge: "#3a3560", lit: ["#ffd27a", "#ffb27a"], share: 0.2 },
-  day: { far: "#8aa8cc", near: "#4f6388", edge: "#5f75a0", lit: ["#9db6d4", "#7f97b8"], share: 0.4 },
+  night: {
+    haze: "#1e2448", mid: "#181c40", midEdge: "#22264a", midLit: "#8a7a50", mark: "#10122c",
+    near: "#141634", edge: "#22264a", lit: ["#ffc870", "#7fd4ff"], share: 0.38,
+    bay: "#141a3a", bayHi: "#2a3060", street: ["#6f8cff", 0.14],
+  },
+  dusk: {
+    haze: "#9a4a72", mid: "#5a2e60", midEdge: "#6e3a6e", midLit: "#d88a70", mark: "#3a2048",
+    near: "#2c1a3c", edge: "#3c2650", lit: ["#ffc870", "#ff8a5a"], share: 0.42,
+    bay: "#5a2e60", bayHi: "#8a4270", street: ["#ff9a5a", 0.35],
+  },
+  dawn: {
+    haze: "#8a5a82", mid: "#4a3a64", midEdge: "#5a4a76", midLit: "#c89a80", mark: "#2a2748",
+    near: "#2a2748", edge: "#3a3560", lit: ["#ffd27a", "#ffb27a"], share: 0.2,
+    bay: "#4a3a64", bayHi: "#8a5a7a", street: ["#ffb27a", 0.25],
+  },
+  day: {
+    haze: "#8aa8cc", mid: "#6a82a8", midEdge: "#7a92b8", midLit: "#9db6d4", mark: "#4f6388",
+    near: "#4f6388", edge: "#5f75a0", lit: ["#9db6d4", "#7f97b8"], share: 0.4,
+    bay: "#5a7aa8", bayHi: "#9ac0e0", street: ["#ffffff", 0],
+  },
 } as const;
 
-function cityView(pen: Pen, wx: number, ww: number, th: Theme) {
-  const { P, X, rnd, reseed } = pen;
-  const c = CITY[th.light ?? "night"];
+/** The deep city behind the glass, from the design's sunset: a bay under a low sun, a spire, a water tower, a crane. */
+function cityView(pen: Pen, wx: number, gL: number, gR: number, th: Theme) {
+  const { P, A, X, ell, glow, rnd, reseed } = pen;
+  const light = th.light ?? "night";
+  const c = CITY[light];
+  const low = light === "dusk" || light === "dawn";
+  if (low) glow(wx + 60, 31, 26, 9, "#ffb060", 0.12);
   reseed(77);
-  for (let x = wx + 3; x < wx + ww - 3; x += 3) {
-    const h = 4 + Math.floor(rnd() * 9);
-    P(x, GROUND - h, 3, h, c.far);
+  for (let x = gL; x < gR; x += 3) {
+    const h = 3 + Math.floor(rnd() * 7);
+    P(x, GB - h, 3, h, c.haze);
   }
-  for (let x = wx + 3; x < wx + ww - 3; ) {
+  if (low) {
+    ell(wx + 60, 31, 7, 6, "#ffcf7a", 1);
+    ell(wx + 60, 31, 5, 4, "#ffe6a8", 1);
+    A(gL, 27, gR - gL, 1, "#ffd890", 0.3);
+    A(gL, 29, gR - gL, 1, "#ffd890", 0.18);
+  }
+  for (let x = gL; x < gR; ) {
     const bw = 4 + Math.floor(rnd() * 5);
-    const h = 6 + Math.floor(rnd() * 12);
-    const top = GROUND - h;
-    const w = Math.min(bw, wx + ww - 3 - x);
+    const h = 5 + Math.floor(rnd() * 8);
+    const top = GB - h;
+    const w = Math.min(bw, gR - x);
+    if (x + w > wx + 49 && x < wx + 72) {
+      x += bw;
+      continue;
+    }
+    P(x, top, w, h, c.mid);
+    P(x, top, 1, h, c.midEdge);
+    for (let yy = top + 2; yy < GB - 1; yy += 3)
+      for (let xx = x + 1; xx < x + w - 1; xx += 2) if (rnd() < 0.25) X(xx, yy, c.midLit);
+    x += bw + (rnd() < 0.3 ? 2 : 0);
+  }
+  P(wx + 87, 13, 1, 12, c.mark);
+  P(wx + 86, 18, 3, 7, c.mark);
+  X(wx + 87, 12, "#ff5a6a");
+  P(wx + 149, 21, 7, 5, c.near);
+  P(wx + 150, 20, 5, 1, c.near);
+  P(wx + 150, 26, 1, 4, c.near);
+  P(wx + 154, 26, 1, 4, c.near);
+  P(wx + 35, 16, 1, 14, c.mark);
+  P(wx + 29, 16, 14, 1, c.mark);
+  X(wx + 29, 17, c.mark);
+  P(wx + 29, 18, 1, 2, c.mark);
+  X(wx + 42, 15, "#ff5a6a");
+  for (let x = gL; x < gR; ) {
+    const bw = 5 + Math.floor(rnd() * 6);
+    const h = 3 + Math.floor(rnd() * 8);
+    const top = GB - h;
+    const w = Math.min(bw, gR - x);
+    if (x + w > wx + 47 && x < wx + 74) {
+      x += bw;
+      continue;
+    }
     P(x, top, w, h, c.near);
     P(x, top, 1, h, c.edge);
-    if (th.snowCaps) P(x, top, w, 1, "#e6ecff");
-    for (let yy = top + 2; yy < GROUND - 1; yy += 2)
-      for (let xx = x + 1; xx < x + bw - 1 && xx < wx + ww - 3; xx += 2)
-        if (rnd() < c.share) X(xx, yy, rnd() < 0.7 ? c.lit[0] : c.lit[1]);
-    if (rnd() < 0.4) {
+    P(x, top, w, 1, th.snowCaps ? "#e6ecff" : c.edge);
+    for (let yy = top + 2; yy < GB - 1; yy += 2)
+      for (let xx = x + 1; xx < x + w - 1; xx += 2) if (rnd() < c.share) X(xx, yy, rnd() < 0.7 ? c.lit[0] : c.lit[1]);
+    if (rnd() < 0.35) {
       P(x + 1, top - 3, 1, 3, c.near);
       X(x + 1, top - 4, "#ff5a6a");
     }
     x += bw;
   }
+  P(wx + 47, GB - 3, 27, 3, c.bay);
+  P(wx + 47, GB - 3, 27, 1, c.bayHi);
+  if (low) {
+    P(wx + 56, GB - 3, 9, 1, "#ffcf7a");
+    P(wx + 59, GB - 2, 5, 1, "#ffe6a8");
+    P(wx + 55, GB - 1, 11, 1, "#ffcf7a");
+  } else if (light === "day") {
+    P(wx + 57, GB - 2, 7, 1, "#d8ecff");
+  }
+  A(gL, GB - 2, gR - gL, 2, c.street[0], c.street[1]);
 }
 
 function drawWindow(g: Ctx, pen: Pen, fx: Fixtures, th: Theme, pal: HallPal) {
-  const { P, A, X, ell } = pen;
+  const { P, A, X, ell, rnd, reseed } = pen;
   const { x: wx, w: ww } = fx.WINDOWS[0];
-  const wcx = wx + ww / 2;
+  const panes = fx.PANES;
+  const gL = panes[0].x;
+  const gR = panes[panes.length - 1].x + panes[panes.length - 1].w;
   const light = th.light ?? "night";
-  P(wx - 12, 3, ww + 24, 2, "#c8a050");
-  P(wx - 12, 3, ww + 24, 1, "#f0d080");
-  X(wx - 13, 3, O);
-  X(wx + ww + 12, 3, O);
+  // the curtain rod
+  P(wx - 8, 2, ww + 16, 2, "#c8a050");
+  P(wx - 8, 2, ww + 16, 1, "#f0d080");
+  P(wx - 10, 1, 3, 4, O);
+  P(wx + ww + 7, 1, 3, 4, O);
+  // the outer frame
+  P(wx - 1, WY - 1, ww + 2, GB - WY + 1, O);
+  P(wx, WY, ww, GB - WY, pal.frame);
+  P(wx, WY, ww, 1, pal.frameHi);
+  P(wx, WY, 1, GB - WY, pal.frameHi);
+  P(wx + ww - 1, WY + 1, 1, GB - WY - 1, pal.frameLo);
+  // the sky, one gradient over all the glass
   const sky = skyRows(th);
-  for (let y = WY; y < WY + WH; y++) {
-    const ho = half(y, 26, WY, 14);
-    if (ho < 0) continue;
-    P(wcx - ho - 1, y, (ho + 1) * 2, 1, O);
-    P(wcx - ho, y, ho * 2, 1, pal.frame);
-    X(wcx - ho, y, pal.frameHi);
-    const hi = half(y, 23, WY + 3, 12);
-    if (hi > 0 && y < WY + WH - 2) {
-      const t = (y - WY - 3) / (WH - 5);
-      const f = t * (sky.length - 1);
-      const b = Math.floor(f);
-      for (let x = wcx - hi; x < wcx + hi; x++) X(x, y, f - b > 0.5 && (x + y) & 1 ? sky[Math.min(sky.length - 1, b + 1)] : sky[b]);
-      X(wcx - hi - 1, y, pal.frameIn);
-    }
+  for (let y = GT; y < GB; y++) {
+    const f = ((y - GT) / (GB - GT - 1)) * (sky.length - 1);
+    const b = Math.floor(f);
+    for (let x = gL; x < gR; x++) X(x, y, f - b > 0.5 && (x + y) & 1 ? sky[Math.min(sky.length - 1, b + 1)] : sky[b]);
   }
   g.save();
-  archClip(g, wx, ww);
+  glassClip(g, fx);
   const spooky = th.skyline === "spooky";
   const planet = th.skyline === "planet";
   if (light === "night" || light === "dusk" || keepsSky(th)) {
-    for (const [dx, dy] of [[12, 7], [20, 4], [37, 6], [29, 10], [44, 9], [17, 13], [8, 15], [40, 16]]) X(wx + dx, WY + dy, th.stars);
-  }
-  if (spooky) {
-    ell(wx + 16, WY + 13, 5, 5, "#e8913a");
-    ell(wx + 15, WY + 12, 4, 4, "#ffb347");
-  } else if (!planet) {
-    if (light === "night") {
-      ell(wx + 35, WY + 11, 4, 4, "#f4ecc8");
-      ell(wx + 37, WY + 10, 3, 3, sky[1]);
-    } else if (light === "day") {
-      ell(wx + 14, WY + 13, 4, 4, "#ffd84a");
-      ell(wx + 14, WY + 13, 3, 3, "#fff3b0");
-    } else {
-      const sx = light === "dusk" ? wx + 38 : wx + 14;
-      ell(sx, GROUND - 3, 6, 6, "#ffcf7a");
-      ell(sx, GROUND - 3, 4, 4, "#ffe6a8");
-      if (light === "dusk") {
-        X(wx + 25, WY + 5, "#fff6d8");
-        X(wx + 24, WY + 5, "#a89ccc");
-        X(wx + 26, WY + 5, "#a89ccc");
-      }
+    reseed(909);
+    for (let i = 0; i < 34; i++) {
+      const x = gL + Math.floor(rnd() * (gR - gL));
+      const y = GT + Math.floor(rnd() * 13);
+      X(x, y, rnd() < 0.3 ? "#fff6d8" : th.stars);
     }
   }
-  if (th.skyline === "city") cityView(pen, wx, ww, th);
+  if (spooky) {
+    ell(wx + 21, WY + 13, 5, 5, "#e8913a");
+    ell(wx + 20, WY + 12, 4, 4, "#ffb347");
+  } else if (!planet) {
+    if (light === "night" || light === "dusk") {
+      ell(wx + 21, 15, 4, 4, "#fff2c8");
+      ell(wx + 23, 14, 4, 4, sky[1]);
+      X(wx + 18, 14, "#fff6d8");
+    } else if (light === "day") {
+      ell(wx + 60, 15, 4, 4, "#ffd84a");
+      ell(wx + 60, 15, 3, 3, "#fff3b0");
+    }
+  }
+  if (th.skyline === "city") cityView(pen, wx, gL, gR, th);
   else {
     g.translate(0, VIEW_DY);
-    drawSkyline(g, wx + 3, ww - 6, 0, th);
+    drawSkyline(g, gL, gR - gL, 0, th);
   }
   g.restore();
-  P(wcx - 1, WY + 2, 2, WH - 3, pal.mullion);
-  P(wcx - 1, WY + 2, 1, WH - 3, pal.mullionHi);
-  P(wx + 3, WY + 15, ww - 6, 2, pal.mullion);
-  P(wx + 3, WY + 15, ww - 6, 1, pal.mullionHi);
-  for (let i = 0; i < 9; i++) {
-    A(wx + 8 + i, WY + 18 + i, 1, 1, "#ffffff", 0.22);
-    A(wx + 11 + i, WY + 18 + i, 1, 1, "#ffffff", 0.12);
+  // soft glare on each pane
+  for (const p of panes)
+    for (let k = 0; k < 10; k++) {
+      A(p.x + 4 + k, GT + 12 + k, 1, 1, "#ffffff", 0.18);
+      A(p.x + 7 + k, GT + 12 + k, 1, 1, "#ffffff", 0.1);
+    }
+  // the arches, the transoms, the mullions between the panes and a keystone over each
+  for (const p of panes) {
+    const cx = p.x + p.w / 2;
+    for (let y = GT; y < GT + ARCH; y++) {
+      const hw = archHalf(y, p.w);
+      P(p.x, y, p.w / 2 - hw, 1, pal.frame);
+      P(cx + hw, y, p.w / 2 - hw, 1, pal.frame);
+      X(cx - hw, y, pal.frameIn);
+      if (hw > 0) X(cx + hw - 1, y, pal.frameHi);
+    }
+    P(p.x, GT + ARCH, 1, GB - GT - ARCH, pal.frameIn);
+    P(p.x, GT + 12, p.w, 1, pal.mullion);
+    P(p.x, GT + 11, p.w, 1, pal.mullionHi);
   }
-  P(wx - 4, WY + WH - 1, ww + 8, 4, O);
-  P(wx - 3, WY + WH - 1, ww + 6, 2, pal.sill);
-  P(wx - 3, WY + WH - 1, ww + 6, 1, pal.sillHi);
-  P(wx - 3, WY + WH + 1, ww + 6, 1, pal.mullion);
+  for (let i = 1; i < panes.length; i++) {
+    const mx = panes[i - 1].x + panes[i - 1].w;
+    const mw = panes[i].x - mx;
+    P(mx, WY + 1, mw, GB - WY - 1, pal.frame);
+    P(mx, WY + 1, 1, GB - WY - 1, pal.mullionHi);
+    P(mx + mw - 1, WY + 1, 1, GB - WY - 1, pal.frameLo);
+  }
+  for (const p of panes) {
+    const cx = p.x + p.w / 2;
+    P(cx - 2, WY, 4, 3, pal.sill);
+    P(cx - 2, WY, 4, 1, pal.sillHi);
+    X(cx - 3, WY + 1, O);
+    X(cx + 2, WY + 1, O);
+  }
+  // the sill, on the chair rail
+  P(wx - 4, GB, ww + 8, 4, O);
+  P(wx - 3, GB, ww + 6, 2, pal.sill);
+  P(wx - 3, GB, ww + 6, 1, pal.sillHi);
+  P(wx - 3, GB + 2, ww + 6, 1, pal.mullion);
+  // the curtains at the outer ends, over the frame
   const curtain = (x: number, flip: boolean) => {
-    for (let y = 5; y < 50; y++) {
+    for (let y = 4; y < 50; y++) {
       const tie = y > 26 && y < 31;
       const w = y < 26 ? 9 : y < 31 ? 5 : 6 + Math.min(4, (y - 31) >> 2);
       for (let i = 0; i < w; i++) {
@@ -179,8 +277,29 @@ function drawWindow(g: Ctx, pen: Pen, fx: Fixtures, th: Theme, pal: HallPal) {
       if (tie) P(flip ? x + 4 : x + 1, y, 5, 1, pal.tie);
     }
   };
-  curtain(wx - 11, false);
-  curtain(wx + ww + 2, true);
+  curtain(wx - 3, false);
+  curtain(wx + ww - 7, true);
+  // on the sill: a cactus, a cup, a small plant
+  const k = wx + 87;
+  P(k, 33, 5, 5, O);
+  P(k + 1, 34, 3, 4, "#c0603a");
+  P(k + 1, 34, 3, 1, "#e08050");
+  P(k + 1, 28, 3, 6, O);
+  P(k + 2, 29, 1, 4, "#5a9a4a");
+  X(k + 2, 29, "#8cc06a");
+  const u = wx + 37;
+  P(u, 34, 5, 4, O);
+  P(u + 1, 35, 3, 3, "#efe4cc");
+  P(u + 1, 35, 3, 1, "#5a3020");
+  X(u + 5, 36, O);
+  A(u + 2, 31, 1, 2, "#ffffff", 0.35);
+  const f = wx + ww - 23;
+  P(f, 33, 6, 5, O);
+  P(f + 1, 34, 4, 4, "#4a7a6a");
+  P(f + 1, 34, 4, 1, "#6aa08a");
+  ell(f + 3, 31, 4, 2, O);
+  ell(f + 3, 31, 3, 1, "#4f8a4a");
+  X(f + 2, 30, "#8cc05a");
 }
 
 /** The light from the window falling on the floor, warm at sunset, white by day, faint and blue by night. */
@@ -194,12 +313,13 @@ function windowLight(th: Theme): [string, number] {
 }
 
 function drawSign(g: Ctx, pen: Pen, fx: Fixtures, brand: boolean) {
-  const { P, X, text, textW } = pen;
+  const { P, A, X, text, textW } = pen;
   const { x: nx, y: ny, w: nw, h: nh } = fx.SIGN;
-  P(nx - 1, ny - 1, nw + 2, nh + 2, O);
-  P(nx, ny, nw, nh, "#1d1228");
-  P(nx, ny, nw, 1, "#33224a");
-  P(nx, ny + nh - 1, nw, 1, "#140c1c");
+  // a see-through backing: the sign hangs on the glass
+  A(nx - 1, ny - 1, nw + 2, nh + 2, O, 0.7);
+  A(nx, ny, nw, nh, "#1d1228", 0.55);
+  A(nx, ny, nw, 1, "#33224a", 0.8);
+  A(nx, ny + nh - 1, nw, 1, "#140c1c", 0.8);
   for (const [x, y] of [[nx + 2, ny + 2], [nx + nw - 3, ny + 2], [nx + 2, ny + nh - 3], [nx + nw - 3, ny + nh - 3]]) X(x, y, "#5d5c80");
   P(nx + 14, 0, 1, ny - 1, "#3a2c48");
   P(nx + nw - 15, 0, 1, ny - 1, "#3a2c48");
@@ -246,22 +366,6 @@ function drawWallDecor(pen: Pen, fx: Fixtures, width: number) {
     P(B.x + 35, B.y + y, 5, 1, ["#ffc456", "#ff8ab8", "#8ee59b", "#62f0ff"][i]);
   });
   P(B.x + 1, B.y + 30, 44, 2, "#5e3a24");
-  const F = fx.PRINT;
-  P(F.x, F.y, 26, 30, O);
-  P(F.x + 1, F.y + 1, 24, 28, "#d8b878");
-  P(F.x + 3, F.y + 3, 20, 24, "#2a2252");
-  ["#3a2a5e", "#5a3268", "#8a4270", "#c25a6a", "#ee8a62"].forEach((c, i) => P(F.x + 3, F.y + 3 + i * 3, 20, 3, c));
-  ell(F.x + 16, F.y + 16, 3, 3, "#ffd690");
-  for (let x = F.x + 3; x < F.x + 23; x++) {
-    const h1 = 6 + Math.round(4 * Math.abs(Math.sin(x * 0.35)));
-    P(x, F.y + 27 - h1, 1, h1, "#3a2050");
-    const h2 = 3 + Math.round(2 * Math.abs(Math.sin(x * 0.6 + 1)));
-    P(x, F.y + 27 - h2, 1, h2, "#1e1230");
-  }
-  A(F.x + 1, F.y + 1, 24, 1, "#ffffff", 0.3);
-  const C = fx.CLOCK;
-  ell(C.x, C.y, 5, 5, O);
-  ell(C.x, C.y, 4, 4, "#efe4cc");
   // shelves on the right
   const sx = fx.SHELVES.x + 1;
   const shelf = (x: number, y: number, w: number) => {
@@ -807,7 +911,8 @@ export function buildRoom(
 
   const win = fx.WINDOWS[0];
   const [wc, wa] = windowLight(th);
-  glow(win.x + win.w / 2, 26, 40, 24, wc, wa * 0.5);
+  const wcx = win.x + Math.floor(win.w / 2);
+  glow(wcx, 22, Math.round((win.w * 112) / 189), 24, wc, wa * 0.35);
   drawWindow(g, pen, fx, th, pal);
   drawSign(g, pen, fx, brand);
   drawWallDecor(pen, fx, W);
@@ -829,19 +934,24 @@ export function buildRoom(
   lay.pods.forEach((p, k) => podBase(pen, p, k, colors(k)));
   lounge(pen, fx);
 
-  // the window's light on the floor
+  // the window's light on the floor: a patch under each pane, slanting towards the front
+  const panes = fx.PANES;
+  const gL = panes[0].x;
+  const gR = panes[panes.length - 1].x + panes[panes.length - 1].w;
+  const pitch = panes.length > 1 ? panes[1].x - panes[0].x : panes[0].w + 3;
+  const pw = panes[0].w;
   g.globalCompositeOperation = "lighter";
   g.fillStyle = wc;
-  for (let y = FL; y < FL + 64; y++) {
-    const t = (y - FL) / 64;
-    const l = win.x + t * 36;
-    const r = win.x + win.w + t * 46;
-    for (let x = Math.round(l); x < Math.round(r); x++) {
-      const u = (x - l) / (r - l);
-      if (Math.abs(u - 0.5) < 0.035) continue;
+  for (let y = FL; y < FL + 70; y++) {
+    const t = (y - FL) / 70;
+    for (let x = 9; x < W - 9; x++) {
+      const sx = wcx + (x - wcx - t * 34) / (1 + t * 0.22);
+      if (sx < gL + 2 || sx >= gR - 2) continue;
+      const k = (sx - gL) % pitch;
+      if (k >= pw - 1 || k < 1) continue;
       if (t > 0.6 && (x + y) & 1) continue;
       if (t > 0.85 && (x + 2 * y) % 4) continue;
-      g.globalAlpha = wa * (1 - t * 0.55);
+      g.globalAlpha = wa * 1.2 * (1 - t * 0.55);
       g.fillRect(x, y, 1, 1);
     }
   }

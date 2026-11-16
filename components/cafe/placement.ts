@@ -59,7 +59,7 @@ function floorBlocks(lay: CafeLayout): Box[] {
   return out;
 }
 
-/** The board, the print, the clock, the window and its curtains, the sign and the shelves: a poster hangs only between them. */
+/** The board, the window and its curtains, the sign and the shelves: a poster hangs only between them. */
 function wallBlocks(lay: CafeLayout): Box[] {
   const key = `${lay.width}|${lay.front}`;
   const hit = wallMemo.get(key);
@@ -68,9 +68,7 @@ function wallBlocks(lay: CafeLayout): Box[] {
   const w = fx.WINDOWS[0];
   const out: Box[] = [
     fx.BOARD,
-    fx.PRINT,
-    { x: fx.CLOCK.x - 6, y: fx.CLOCK.y - 6, w: 12, h: 12 },
-    { x: w.x - 13, y: 2, w: w.w + 26, h: 48 },
+    { x: w.x - 10, y: 1, w: w.w + 20, h: 49 },
     { x: fx.SIGN.x - 1, y: fx.SIGN.y - 1, w: fx.SIGN.w + 2, h: fx.SIGN.h + 2 },
     fx.SHELVES,
   ];

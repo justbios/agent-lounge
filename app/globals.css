@@ -7858,19 +7858,20 @@ body {
 
 /* the stage and, on a wide screen, the agents and the log beside it */
 .stage-grid.with-side {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
-  align-items: start;
-}
-.stage-side {
-  position: sticky;
-  top: 70px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-height: calc(100dvh - 180px);
-  min-height: 0;
+  gap: 0;
+}
+/* the agents and the log under the café, side by side, so the room takes the whole width */
+.stage-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.stage-side .side-log {
+  max-height: 520px;
 }
 .stage-side > div {
   min-height: 0;
@@ -8801,61 +8802,188 @@ html[lang="en"] .connect-wrap .notice + .step::before {
 
 /* ---------- the hall («3/4 — та сама камера»): name plates, free seats, question card ---------- */
 .hall-plate {
+  /* the board's plate at 4.5× (20px names), scaled with the room, never under its 3× size (16px names) */
   position: absolute;
   display: flex;
-  align-items: center;
-  gap: 0.3em;
-  max-width: calc(22cqw * var(--k, 1));
-  padding: 0 0.3em 0.08em 0.22em;
-  font-family: var(--font-pixel), var(--mono);
-  font-size: clamp(8px, 1.56cqw, 16px);
-  line-height: 1.1;
+  flex-direction: column;
+  max-width: 16em;
+  font-family: var(--sans);
+  font-size: max(16px, calc(1.1574cqw * var(--k, 1)));
   white-space: nowrap;
   color: #f4eeff;
   background: #120e1c;
-  border: 1px solid var(--c);
+  border: max(2px, 0.15em) solid var(--c);
+  box-shadow: 0.15em 0.15em 0 #07050d;
 }
 .hall-plate.far {
   transform: translate(-50%, -100%);
-}
-.hall-plate.near,
-.hall-plate.free {
-  transform: translate(-50%, 0);
+  margin-top: -2px;
 }
 .hall-plate.near.s0 {
   transform: translate(-100%, 0);
-  margin-left: 1.2cqw;
 }
 .hall-plate.near.s1 {
   transform: translate(0, 0);
-  margin-left: -1.2cqw;
+}
+.hall-plate.free {
+  --c: #ff6aa8;
+  transform: translate(-50%, 0);
+  border-style: dashed;
+  opacity: 0.95;
+}
+.hall-plate b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.2em 0.6em 0.15em;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.2;
+  background: #1a1428;
 }
 .hall-plate i {
+  display: flex;
+  align-items: center;
+  gap: 0.4375em;
+  padding: 0.0625em 0.75em 0.3125em;
+  font-size: max(13px, 0.8em);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--c);
+}
+.hall-plate i::before {
+  content: "";
   flex: none;
   width: 0.5em;
   height: 0.5em;
   background: var(--c);
 }
-.hall-plate b {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-weight: 400;
-}
-.hall-plate.st-wait {
-  background: #2a1d06;
-  box-shadow: 0 0 8px rgba(255, 196, 86, 0.45);
-}
-.hall-plate.warn b {
-  color: #ffb3a0;
-}
-.hall-plate.free {
-  --c: #ff6aa8;
-  border-style: dashed;
-  opacity: 0.9;
+/* on a phone, or where the plates would collide: numbers, with the names in a legend under the room */
+.hall-badge {
+  position: absolute;
+  transform: translate(-50%, 0);
+  min-width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 16px;
+  color: #120e1c;
+  background: var(--c);
+  border: 2px solid #120e1c;
+  box-shadow: 2px 2px 0 #07050d;
 }
 .hall-badge.far {
   transform: translate(-50%, -100%);
+}
+.hall-badge.free {
+  color: #ff6aa8;
+  background: #120e1c;
+  border: 2px dashed #ff6aa8;
+}
+.hall-badge.warn {
+  outline: 2px solid #ff7a5c;
+}
+.hall-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  font-family: var(--sans);
+}
+.hall-legend ol {
+  margin: 0;
+  padding: 0 2px;
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 5px;
+}
+.hall-legend li,
+.hall-legend li > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 13px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.hall-legend li > button {
+  padding: 0;
+  font-family: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.hall-legend .hl-n {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  box-sizing: border-box;
+  padding: 0 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #120e1c;
+  background: var(--c);
+  border: 1px solid var(--c);
+}
+.hall-legend li b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: #f4eeff;
+}
+.hall-legend li i {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: normal;
+  color: var(--c);
+}
+.hall-legend li.free {
+  --c: #ff6aa8;
+}
+.hall-legend li.free .hl-n {
+  color: #ff6aa8;
+  background: #120e1c;
+  border-style: dashed;
+}
+.hall-legend button.warn .hl-n {
+  outline: 2px solid #ff7a5c;
+}
+.hall-ask-flat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 19px;
+  text-align: left;
+  color: #f4eeff;
+  background: #221a34;
+  border: 2px solid #ffc456;
+  cursor: pointer;
+}
+.hall-ask-flat .hl-n {
+  --c: #ffc456;
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
+}
+.hall-ask-flat b {
+  font-weight: 600;
+  color: #ffc456;
 }
 .hall-sub {
   position: absolute;
@@ -8873,12 +9001,61 @@ html[lang="en"] .connect-wrap .notice + .step::before {
   color: #6a4a5a;
   text-shadow: none;
 }
+/* the question card, as on the board: 300px wide with 20px text at 4.5×, never under the 3× size */
 .room-ask {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  box-sizing: border-box;
+  width: min(15em, max(9em, var(--room, 15em)));
+  padding: 0.7em 0.8em 0.8em;
+  pointer-events: auto;
+  cursor: pointer;
+  text-align: left;
   white-space: normal;
-  font-size: clamp(10px, 1.3cqw, 14px);
+  font-family: var(--sans);
+  font-size: max(16px, calc(1.1574cqw * var(--k, 1)));
+  color: #f4eeff;
   background: #221a34;
-  box-shadow: 0 4px 0 #7a5410;
+  border: max(2px, 0.15em) solid #ffc456;
+  box-shadow: 0.2em 0.2em 0 #07050d;
 }
 .room-ask::after {
+  content: "";
+  position: absolute;
+  top: 0.7em;
+  width: 0.9em;
+  height: 0.9em;
+  box-sizing: border-box;
   background: #221a34;
+  border-top: max(2px, 0.15em) solid #ffc456;
+}
+.room-ask.left::after {
+  right: -0.6em;
+  border-right: max(2px, 0.15em) solid #ffc456;
+  transform: rotate(45deg);
+}
+.room-ask.right::after {
+  left: -0.6em;
+  border-left: max(2px, 0.15em) solid #ffc456;
+  transform: rotate(-45deg);
+}
+.room-ask b {
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.18;
+  color: #ffc456;
+}
+.room-ask span {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 1em;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.room-ask:hover {
+  background: #2a2040;
 }

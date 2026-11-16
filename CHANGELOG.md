@@ -4,6 +4,19 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.19.0 — not released yet
+
+No database change and no change to `plugin/`. The 0.18 hall with two fixes, built from the Claude Design board
+«Зала — правки». Rugs, bar, sofa and colours stay as they were.
+
+- Readable names: each agent has a plate with its name in Golos Text and its state in words under it (працює, питає
+  тебе, готово, відпочиває) in the state's colour; the question card is bigger. On a phone, or when plates would
+  collide, the picture carries numbers and a legend under it says who is who.
+- A panoramic window across the back wall between the menu and the shelves: arched panes, curtains at the ends,
+  the city outside following day, evening, night and the weather; the neon sign hangs on the glass and the window
+  lays its light on the floor. The poster and the clock made room for it.
+- On a wide screen the hall takes the full width; the agents and the event log sit under it.
+
 ## 0.18.0 — not released yet
 
 No database change and no change to `plugin/`.
