@@ -95,20 +95,24 @@ const SIGN_TEXT: Two = { uk: "інтернет-кафе", en: "internet café" }
 const LATE_TEXT: Two = { uk: "нічна зміна", en: "night shift" };
 const CLOSED_TEXT: Two = { uk: "зачинено до ранку", en: "closed till morning" };
 const MACHINES: ItemId[] = ["jukebox", "arcade"];
-/** Below this width the name plates turn into numbers, with the names in a row of cards under the picture. */
+/** Below this width the question card and the agents' cards move under the picture. */
 const NARROW_PX = 560;
+/** a desk's share of the room narrower than this on screen, and the plates turn into numbers with a legend below */
+const PLATE_MIN_PX = 96;
+/** a pod's free seats say «+2 вільні місця» in full only when a desk is at least this wide on screen */
+const FREE_FULL_PX = 112;
 const STATUS_TEXT: Record<Status, Two> = {
   work: { uk: "працює", en: "working" },
-  wait: { uk: "чекає тебе", en: "waiting for you" },
+  wait: { uk: "питає тебе", en: "asking you" },
   done: { uk: "готово", en: "done" },
   idle: { uk: "відпочиває", en: "resting" },
 };
 const ASKS: Two = { uk: "питає тебе", en: "is asking you" };
 const LEGEND_LABEL: Two = { uk: "агенти в залі", en: "agents in the room" };
-const freeSeats = (n: number, ui: Ui) =>
+const freeSeats = (n: number, ui: Ui, full: boolean) =>
   ui === "en"
-    ? `+${n} free seat${n === 1 ? "" : "s"}`
-    : `+${n} ${n === 1 ? "вільне місце" : "вільні місця"}`;
+    ? `+${n} ${full ? "free " : ""}seat${n === 1 ? "" : "s"}`
+    : `+${n} ${full ? (n === 1 ? "вільне " : "вільні ") : ""}${n === 1 ? "місце" : "місця"}`;
 /** the hint for anyone, then for the owner, who may also drag the machine */
 const JUKE_HINT: Two[] = [
   { uk: "музичний автомат: вибрати мелодію", en: "jukebox: pick a tune" },
@@ -201,6 +205,7 @@ export interface CafeSceneProps {
 }
 
 /** The café: from the street by default, or the room inside; placing furniture always happens inside. */
+
 export default function CafeScene(props: CafeSceneProps) {
   const [view] = useSceneView();
   return view === "street" && !props.placing ? (
@@ -243,7 +248,8 @@ function HallScene({
 }: CafeSceneProps) {
   const ui = useUi();
   const [sel, setSel] = useState<string | null>(null);
-  const [narrow, setNarrow] = useState(false);
+  const [shownW, setShownW] = useState(0);
+  const narrow = shownW > 0 && shownW < NARROW_PX;
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const catRef = useRef<HTMLSpanElement>(null);
@@ -259,6 +265,7 @@ function HallScene({
   const title = name ?? interior.title ?? BRAND;
   const brand = title.trim().toUpperCase() === BRAND;
   const namesRef = useRef({ cat: catName, cat2: cat2Name, sign, title });
+  const uiRef = useRef(ui);
   const agents = model.agents;
   const lay = useMemo(
     () => cafeLayout(agents.length, model.seed),
@@ -317,11 +324,13 @@ function HallScene({
     alertRef.current = alert;
     decorRef.current = decor;
     namesRef.current = { cat: catName, cat2: cat2Name, sign, title };
+    uiRef.current = ui;
     closedRef.current = closed;
     visitorsRef.current = visitors;
     seatsRef.current = seats;
     shownRef.current = shown;
   }, [
+    ui,
     clock,
     alert,
     decor,
@@ -346,9 +355,7 @@ function HallScene({
   useEffect(() => {
     const el = wrapRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(([e]) =>
-      setNarrow(e.contentRect.width < NARROW_PX),
-    );
+    const ro = new ResizeObserver(([e]) => setShownW(e.contentRect.width));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -444,6 +451,10 @@ function HallScene({
         ];
         const watermark = `agent lounge · ${PROJECT_URL}`;
         const alert = alertRef.current;
+        const status = agents.map((_, i) => {
+          const st = seatStatus(model, agentView(model, tl, lay, i, clock), i, clock, alert);
+          return { word: STATUS_TEXT[st][uiRef.current], color: STATUS_COLOR[st] };
+        });
         clipFrame(canvas, {
           lay,
           agents: named,
@@ -454,6 +465,7 @@ function HallScene({
           title: n.title,
           watermark,
           noSign: brand,
+          status,
         });
       }
       raf = requestAnimationFrame(loop);
@@ -622,16 +634,13 @@ function HallScene({
   const selIdx = sel == null ? -1 : agents.findIndex((a) => a.id === sel);
 
   const { SIGN, METER } = fixturesOf(lay);
-  /** where a seat's plate sits: over the head in the far row, under the chair in the near one */
-  const plateAt = (i: number) => {
-    const d = lay.desks[i];
-    const D = lay.pods[d.pod]?.d ?? d.top + 12;
-    return d.face === "front"
-      ? { x: d.x, y: D - 14, far: true, side: d.side }
-      : { x: d.x, y: D + 42, far: false, side: d.side };
-  };
-  /** on a phone the plates stay while they fit; past two pods they turn into numbers with a legend under the room */
-  const badges = narrow && lay.pods.length > 2;
+  /** where a seat's plate sits: over the bubble over the head in the far row, under the chair in the near one */
+  const plateAt = (i: number) => plateOf(lay, i);
+  /** how wide one desk is on screen: the plates take a desk's width each, or become numbers when that is too little */
+  const deskPx = shownW ? (shownW * 40) / lay.width : 120;
+  /** with a second row of pods there is no room for plates between the rows: numbers, and the names below */
+  const multi = lay.bands.length > 1;
+  const badges = multi || deskPx < PLATE_MIN_PX;
   const tagFor = (i: number) => {
     const st = seatStatus(model, views[i], i, clock, alert);
     const warn = st === "wait" ? undefined : warns?.get(i);
@@ -725,17 +734,22 @@ function HallScene({
             {`${rate > 0 ? fmtTokens(rate, ui) : "0"} ${tr(ui, "ток/хв", "tok/min")}`}
           </span>
           {agents.map((a, i) => {
-            if (talking.has(i) || !lay.desks[i]) return null;
+            // until the scene is measured we can't tell plates from badges: show neither
+            if (!shownW || talking.has(i) || !lay.desks[i]) return null;
             const { st, warn, color } = tagFor(i);
             const at = plateAt(i);
-            const style = { ...pos(at.x, at.y), "--c": color } as CSSProperties;
-            const where = at.far ? "far" : narrow ? `near s${at.side}` : "near";
+            const style = {
+              ...pos(at.x, at.y),
+              "--c": color,
+              "--pw": `${Math.round(deskPx - 6)}px`,
+            } as CSSProperties;
+            const where = at.far ? "far" : "near";
             if (badges)
               return (
                 <span
                   key={a.id}
-                  className={`street-badge hall-badge ${where} ${warn ? "warn" : ""}`}
-                  style={style}
+                  className={`street-badge hall-badge ${multi && at.far ? "side" : where} ${warn ? "warn" : ""}`}
+                  style={multi && at.far ? { ...style, ...pos(at.x + 12, at.y + 12) } : style}
                 >
                   {i + 1}
                 </span>
@@ -746,24 +760,23 @@ function HallScene({
                 className={`hall-plate ${where} st-${st} ${warn ? "warn" : ""}`}
                 style={style}
               >
-                <i />
-                <b>
-                  {warn && "! "}
-                  {nameOf(i)}
-                </b>
+                <b>{nameOf(i)}</b>
+                <i>{warn ? `! ${warn.short}` : STATUS_TEXT[st][ui]}</i>
               </span>
             );
           })}
-          {!badges &&
+          {!badges && shownW > 0 &&
             lay.pods.map((p, k) =>
               p.used < 4 ? (
                 <span
                   key={`free${k}`}
                   className="hall-plate free"
-                  style={pos(p.used <= 2 ? p.x + 35 : p.x + 55, p.d + 42)}
+                  style={{
+                    ...pos(p.used <= 2 ? p.x + 35 : p.x + 55, p.d + 42),
+                    "--pw": `${Math.round(p.used <= 2 ? deskPx * 2 : deskPx - 6)}px`,
+                  } as CSSProperties}
                 >
-                  <i />
-                  <b>{narrow ? `+${4 - p.used}` : freeSeats(4 - p.used, ui)}</b>
+                  <b>{freeSeats(4 - p.used, ui, deskPx >= FREE_FULL_PX || p.used <= 2)}</b>
                 </span>
               ) : null,
             )}
@@ -813,8 +826,8 @@ function HallScene({
         {asking >= 0 && !narrow && lay.desks[asking] && (
           <div className="street-ui">
             <button
-              className="street-ask room-ask"
-              style={askStyle(lay, plateAt(asking))}
+              className={`street-ask room-ask ${plateAt(asking).far ? "" : "up"}`}
+              style={askStyle(lay, plateAt(asking), badges ? 9 : (40 * lay.width) / (shownW || 960))}
               onClick={() => setSel(agents[asking].id)}
               title={tr(ui, "відкрити картку агента", "open the agent's card")}
             >
@@ -826,7 +839,7 @@ function HallScene({
           </div>
         )}
       </div>
-      {narrow && (
+      {(narrow || badges) && (
         <div className="street-legend" aria-label={LEGEND_LABEL[ui]}>
           {badges && (
             <div className="street-cards">
@@ -849,7 +862,7 @@ function HallScene({
               })}
             </div>
           )}
-          {asking >= 0 && (
+          {asking >= 0 && narrow && (
             <button
               className="street-ask flat"
               onClick={() => setSel(agents[asking].id)}
@@ -900,27 +913,42 @@ function HallScene({
   );
 }
 
-/** A seated agent's speech sits over the head in the far row and over the monitor in the near one. */
+/** Where a seat's name plate hangs: over the status bubble in the far row, under the chair in the near one. */
+function plateOf(lay: CafeLayout, i: number) {
+  const d = lay.desks[i];
+  const D = lay.pods[d.pod]?.d ?? d.top + 12;
+  return d.face === "front"
+    ? { x: d.x, y: D - 36, far: true, side: d.side }
+    : { x: d.x, y: D + 42, far: false, side: d.side };
+}
+
+/** A seated agent's speech sits where its plate would be in the far row, and over the monitor in the near one. */
 function seatedAt(lay: CafeLayout, b: Bubble): Bubble {
   if (!b.seated) return b;
   const d = lay.desks[b.agent];
   const D = d && lay.pods[d.pod]?.d;
-  return D == null ? b : { ...b, y: d.face === "front" ? D - 25 : D + 16 };
+  return D == null ? b : { ...b, y: d.face === "front" ? D - 34 : D + 16 };
 }
 
-/** The question card over the asking agent, kept inside the room, with its tail pointing at the plate. */
+/**
+ * The question card over the asking agent, clear of the other plates: above the far row's line of plates with its
+ * tail pointing down at the bubble, or below the near row's line with its tail pointing up. `plate` is how tall a
+ * plate stands, in scene pixels.
+ */
 function askStyle(
   lay: { width: number; height: number },
-  at: { x: number; y: number },
+  at: { x: number; y: number; far: boolean },
+  plate: number,
 ): CSSProperties {
   const W = lay.width;
-  const cw = Math.min(118, W * 0.4);
+  const cw = Math.min(124, W * 0.42);
   const left = Math.max(3, Math.min(W - cw - 3, at.x - cw / 2));
-  const bottom = Math.max(30, at.y - 9);
-  return {
-    left: `${(left / W) * 100}%`,
-    width: `${(cw / W) * 100}%`,
-    bottom: `${(1 - bottom / lay.height) * 100}%`,
-    "--tail": `${(Math.max(6, Math.min(cw - 6, at.x - left)) / cw) * 100}%`,
-  } as CSSProperties;
+  const tail = `${(Math.max(6, Math.min(cw - 6, at.x - left)) / cw) * 100}%`;
+  const box = { left: `${(left / W) * 100}%`, width: `${(cw / W) * 100}%`, "--tail": tail };
+  if (!at.far) {
+    const top = Math.min(at.y + plate + 3, lay.height - 34);
+    return { ...box, top: `${(top / lay.height) * 100}%` } as CSSProperties;
+  }
+  const bottom = Math.max(30, at.y - plate - 3);
+  return { ...box, bottom: `${(1 - bottom / lay.height) * 100}%` } as CSSProperties;
 }

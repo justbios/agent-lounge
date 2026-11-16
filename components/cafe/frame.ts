@@ -73,7 +73,7 @@ const NO_DECOR: DecorSet = new Set();
 
 /** What a seat shows at a glance: the light on the face, the colour of the name plate, the little bubble. */
 export type Status = "work" | "wait" | "done" | "idle";
-export const STATUS_COLOR: Record<Status, string> = { work: "#62f0ff", wait: "#ffc456", done: "#8ee59b", idle: "#9184b0" };
+export const STATUS_COLOR: Record<Status, string> = { work: "#62f0ff", wait: "#ffc456", done: "#8ee59b", idle: "#b3a6cf" };
 /** a finished agent keeps its tick this long before it counts as resting */
 const DONE_MS = 60_000;
 
@@ -201,38 +201,55 @@ function tri(x: number): number {
   return f < 1 ? f : 2 - f;
 }
 
-/** The little pixel bubble beside a seated agent: «…» working, «?» asking you, «✓» done, «z» resting. */
-function statusBubble(ctx: Ctx, x: number, y: number, st: Status) {
+/**
+ * The pixel bubble over a seated agent: «…» working, «?» asking you, «✓» done, «z» resting. Drawn at twice the
+ * design's pixel so it reads at a glance; `tail` is where its point sits, as a share of its width.
+ */
+function statusBubble(ctx: Ctx, x: number, y: number, st: Status, tail: number) {
   const { P, X } = hallPen(ctx);
   const c = STATUS_COLOR[st];
-  P(x, y, 11, 9, O);
-  P(x + 1, y + 1, 9, 7, c);
-  P(x + 1, y + 1, 9, 1, lt(c, 0.45));
-  P(x + 2, y + 9, 2, 1, O);
-  X(x + 2, y + 8, c);
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(2, 2);
+  P(0, 0, 11, 9, O);
+  P(1, 1, 9, 7, c);
+  P(1, 1, 9, 1, lt(c, 0.45));
+  const tx = Math.max(1, Math.min(8, Math.round(tail * 11) - 1));
+  P(tx, 8, 2, 2, O);
+  X(tx + (tail < 0.5 ? 0 : 1), 8, c);
   const d = O;
   if (st === "wait") {
-    P(x + 4, y + 2, 3, 1, d);
-    X(x + 6, y + 3, d);
-    X(x + 5, y + 4, d);
-    X(x + 5, y + 6, d);
+    P(4, 2, 3, 1, d);
+    X(6, 3, d);
+    X(5, 4, d);
+    X(5, 6, d);
   } else if (st === "done") {
-    X(x + 7, y + 2, d);
-    X(x + 6, y + 3, d);
-    X(x + 3, y + 4, d);
-    X(x + 5, y + 4, d);
-    X(x + 4, y + 5, d);
+    X(7, 2, d);
+    X(6, 3, d);
+    X(3, 4, d);
+    X(5, 4, d);
+    X(4, 5, d);
   } else if (st === "work") {
-    X(x + 3, y + 4, d);
-    X(x + 5, y + 4, d);
-    X(x + 7, y + 4, d);
+    X(3, 4, d);
+    X(5, 4, d);
+    X(7, 4, d);
   } else {
-    P(x + 4, y + 2, 3, 1, d);
-    X(x + 6, y + 3, d);
-    X(x + 5, y + 4, d);
-    X(x + 4, y + 5, d);
-    P(x + 4, y + 6, 3, 1, d);
+    P(4, 2, 3, 1, d);
+    X(6, 3, d);
+    X(5, 4, d);
+    X(4, 5, d);
+    P(4, 6, 3, 1, d);
   }
+  ctx.restore();
+}
+
+/**
+ * Where a seat's bubble sits: over the head in the far row; in the near row, whose backs are to us, just left of the
+ * head, so the monitor facing us stays clear and the pods' bubbles never meet.
+ */
+export function bubbleAt(d: Desk, D: number): { x: number; y: number; tail: number } {
+  if (d.face === "front") return { x: d.x - 11, y: D - 34, tail: 0.5 };
+  return { x: d.x - 29, y: D + 11, tail: 0.86 };
 }
 
 /** Spent tokens pile up as paper beside the desk: a sheet per third of an order of magnitude past ten thousand. */
@@ -411,8 +428,9 @@ export function drawFrame(ctx: Ctx, f: FrameInput) {
     const s = seats[i];
     if (!s.here) return;
     const D = lay.pods[d.pod].d;
-    const bob = s.status === "wait" && Math.floor(t * 2) % 2 ? -1 : 0;
-    statusBubble(ctx, d.side ? d.x + 7 : d.x - 18, (d.face === "front" ? D - 12 : D + 18) + bob, s.status);
+    const bob = s.status === "wait" && Math.floor(t * 2) % 2 ? -2 : 0;
+    const b = bubbleAt(d, D);
+    statusBubble(ctx, b.x, b.y + bob, s.status, b.tail);
     if (s.pastime === "nap") drawZzz(ctx, d.x, d.top, t, i);
   });
   drawFlights(ctx, model, lay, clock);

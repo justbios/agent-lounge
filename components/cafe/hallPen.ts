@@ -6,7 +6,7 @@ export const O = "#1a1020";
 export const lt = (c: string, t: number) => mix(c, "#fff2c4", t);
 export const dk = (c: string, t: number) => mix(c, "#24103a", t);
 
-/** The design's 3×5 pixel capitals, enough for «AGENT LOUNGE» and «МЕНЮ». */
+/** The design's 3×5 pixel capitals, enough for «AGENT LOUNGE». */
 const FONT: Record<string, string[]> = {
   A: [".#.", "#.#", "###", "#.#", "#.#"],
   G: [".##", "#..", "#.#", "#.#", ".##"],
@@ -95,6 +95,28 @@ export function hallPen(g: Ctx, seed0 = 4242) {
       cx += gl[0].length + 1;
     }
   };
+  /**
+   * Neon tube letters `k` pixels to a font pixel: a dark rim round the strokes so they read against a bright sky,
+   * the tube's colour, and a pale core along its top-left.
+   */
+  const neonText = (s: string, x: number, y: number, k: number, tube: string, core: string) => {
+    const cells: [number, number][] = [];
+    let cx = x;
+    for (const ch of s) {
+      const gl = FONT[ch];
+      if (!gl) {
+        cx += 3 * k;
+        continue;
+      }
+      gl.forEach((r, j) => {
+        for (let i = 0; i < r.length; i++) if (r[i] === "#") cells.push([cx + i * k, y + j * k]);
+      });
+      cx += (gl[0].length + 1) * k;
+    }
+    for (const [px, py] of cells) P(px - 1, py - 1, k + 2, k + 2, O);
+    for (const [px, py] of cells) P(px, py, k, k, tube);
+    for (const [px, py] of cells) X(px, py, core);
+  };
   /** A palm's fronds fanning up from (cx, by). */
   const fronds = (cx: number, by: number, n: number, len: number, spreadDeg: number) => {
     const fs: { a: number; L: number; c: string }[] = [];
@@ -125,7 +147,7 @@ export function hallPen(g: Ctx, seed0 = 4242) {
       X(ex, ey, dk(f.c, 0.35));
     });
   };
-  return { P, A, X, ell, glow, shadow, box, spr, text, textW, fronds, rnd, reseed };
+  return { P, A, X, ell, glow, shadow, box, spr, text, textW, neonText, fronds, rnd, reseed };
 }
 
 const glows = new Map<string, HTMLCanvasElement>();

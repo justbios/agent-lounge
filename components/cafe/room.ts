@@ -10,17 +10,15 @@ interface Rect {
 }
 
 export interface Fixtures {
-  /** the arched window over the room, its sill at {@link SILL_Y} */
+  /** the glass wall onto the city, floor to ceiling, its ledge at {@link SILL_Y} */
   WINDOWS: { x: number; w: number }[];
-  /** the neon board on the back wall */
+  /** the neon letters on the glass, with the line under them */
   SIGN: Rect;
-  /** the LED strip under the sign that shows tokens a minute */
+  /** the LED panel under the shelves that shows tokens a minute */
   METER: Rect;
   CLOCK: { x: number; y: number };
-  /** the menu chalkboard: the day's recap */
+  /** the menu screen over the coffee bar: the day's recap */
   BOARD: Rect;
-  /** the framed print beside the board */
-  PRINT: Rect;
   /** the shelves on the right of the back wall */
   SHELVES: Rect;
   /** the back counter with the coffee machine: the café's shop */
@@ -29,15 +27,15 @@ export interface Fixtures {
   BAR: Rect;
   /** the arcade cabinet in the games corner */
   ARCADE: Rect;
-  /** the lounge: sofa, floor lamp, round rug, table and bean bags */
+  /** the lounge: sofa, floor lamp, table and bean bags */
   LOUNGE: Rect;
   SOFA: Rect;
   /** the bistro table near the door, middle of its top */
   BISTRO: Point;
 }
 
-/** The top of the window's sill, where pieces from the shop stand. */
-export const SILL_Y = 44;
+/** The top of the ledge along the glass wall, where pieces from the shop stand. */
+export const SILL_Y = 58;
 /** The floor line under the back wall's skirting. */
 export const FLOOR_TOP = 66;
 
@@ -48,17 +46,17 @@ export function fixtures(width: number, front = 184): Fixtures {
   const key = `${width}|${front}`;
   const hit = memo.get(key);
   if (hit) return hit;
-  const dx = width - 320;
-  const wx = 104 + Math.round(dx * 0.3);
-  const nx = 174 + Math.round(dx * 0.62);
   const lx = width - 72;
+  /** the glass runs from the coffee bar's wall to the shelves */
+  const wx = 94;
+  const ww = width - wx - 68;
+  const sw = 100;
   const fx: Fixtures = {
-    WINDOWS: [{ x: wx, w: 52 }],
-    SIGN: { x: nx, y: 9, w: 70, h: 22 },
-    METER: { x: nx + 15, y: 48, w: 40, h: 7 },
-    CLOCK: { x: wx - 7, y: 18 },
-    BOARD: { x: 13, y: 8, w: 46, h: 31 },
-    PRINT: { x: 64, y: 10, w: 26, h: 30 },
+    WINDOWS: [{ x: wx, w: ww }],
+    SIGN: { x: wx + Math.round((ww - sw) / 2), y: 7, w: sw, h: 14 },
+    METER: { x: width - 62, y: 46, w: 38, h: 9 },
+    CLOCK: { x: 76, y: 15 },
+    BOARD: { x: 13, y: 6, w: 46, h: 25 },
     SHELVES: { x: width - 63, y: 6, w: 50, h: 35 },
     VENDING: { x: 10, y: 40, w: 64, h: 28 },
     BAR: { x: 8, y: 70, w: 74, h: 42 },

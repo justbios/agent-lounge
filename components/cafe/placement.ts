@@ -39,7 +39,7 @@ const high = (layer: Layer) => layer === "wall" || layer === "ceiling";
 const floorMemo = new WeakMap<CafeLayout, Box[]>();
 const wallMemo = new Map<string, Box[]>();
 
-/** The pods with their rugs, the counter and its stools, the lounge, the arcade, the bistro table, the door, the plants. */
+/** The pods, the counter and its stools, the lounge, the arcade, the bistro table, the door, the plants. */
 function floorBlocks(lay: CafeLayout): Box[] {
   const hit = floorMemo.get(lay);
   if (hit) return hit;
@@ -59,7 +59,7 @@ function floorBlocks(lay: CafeLayout): Box[] {
   return out;
 }
 
-/** The board, the print, the clock, the window and its curtains, the sign and the shelves: a poster hangs only between them. */
+/** The menu screen, the clock, the glass wall, the shelves and the LED panel: a poster hangs only between them. */
 function wallBlocks(lay: CafeLayout): Box[] {
   const key = `${lay.width}|${lay.front}`;
   const hit = wallMemo.get(key);
@@ -68,11 +68,10 @@ function wallBlocks(lay: CafeLayout): Box[] {
   const w = fx.WINDOWS[0];
   const out: Box[] = [
     fx.BOARD,
-    fx.PRINT,
     { x: fx.CLOCK.x - 6, y: fx.CLOCK.y - 6, w: 12, h: 12 },
-    { x: w.x - 13, y: 2, w: w.w + 26, h: 48 },
-    { x: fx.SIGN.x - 1, y: fx.SIGN.y - 1, w: fx.SIGN.w + 2, h: fx.SIGN.h + 2 },
+    { x: w.x - 3, y: 2, w: w.w + 6, h: 62 },
     fx.SHELVES,
+    fx.METER,
   ];
   wallMemo.set(key, out);
   return out;

@@ -45,7 +45,7 @@ export function hitTest(lay: CafeLayout, views: AgentView[], cat: Point | null, 
   if (inBox(p, b.x, b.y, b.w, b.h) || inBox(p, t.x - 20, t.y - 6, 40, 18)) return { kind: "bar" };
   const a = fx.ARCADE;
   if (inBox(p, a.x - 1, a.y - 1, a.w + 2, a.h + 2)) return { kind: "games" };
-  if (fx.WINDOWS.some((w) => inBox(p, w.x - 2, 3, w.w + 4, 44))) return { kind: "window" };
+  if (fx.WINDOWS.some((w) => inBox(p, w.x - 2, 3, w.w + 4, 58))) return { kind: "window" };
   const d = doorOf(lay);
   if (inBox(p, d.x - 4, d.y - 4, d.w + 8, d.h + 4)) return { kind: "door" };
   return null;
