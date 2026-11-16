@@ -10,8 +10,11 @@ export default function Sheet({
   title,
   sub,
   onClose,
+  wide,
   children,
 }: {
+  /** a window with two columns, as the achievements */
+  wide?: boolean;
   label: string;
   title: string;
   sub: ReactNode;
@@ -27,7 +30,7 @@ export default function Sheet({
 
   return (
     <div className="recap-backdrop" onClick={onClose}>
-      <div className="recap" role="dialog" aria-label={label} onClick={(e) => e.stopPropagation()}>
+      <div className={`recap ${wide ? "recap-wide" : ""}`} role="dialog" aria-label={label} onClick={(e) => e.stopPropagation()}>
         <div className="recap-hd">
           <div>
             <div className="recap-ttl">{title}</div>

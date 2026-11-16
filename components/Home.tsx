@@ -9,7 +9,7 @@ import { useLiveFeed } from "@/lib/live/useLiveFeed";
 import PipelineDashboard from "./PipelineDashboard";
 import LiveDashboard from "./LiveDashboard";
 import KeyLost from "./live/KeyLost";
-import TopBar, { Mode } from "./TopBar";
+import TopBar, { Mode, TopProps } from "./TopBar";
 
 export default function Home() {
   const hosted = useHosted();
@@ -25,16 +25,23 @@ export default function Home() {
   const access = useAccess(hosted && !viewing ? key : null);
   const mode: Mode = chosen ?? (viewing || feed.events.length ? "live" : "demo");
 
+  const top: TopProps = {
+    mode,
+    onMode: setChosen,
+    status: feed.status,
+    connected: hosted ? !!key && !viewing : local.events.length > 0,
+  };
+
+  // the live café draws its own bar on top: the counters it keeps live in it
   return (
-    <div className="app">
-      <TopBar
-        mode={mode}
-        onMode={setChosen}
-        status={feed.status}
-        connected={hosted ? !!key && !viewing : local.events.length > 0}
-      />
+    <div className={`app ${mode === "live" ? "app-live" : ""}`}>
+      {mode !== "live" && <TopBar {...top} />}
       {access?.lost && key && <KeyLost kind={access.lost} current={key} />}
-      {mode === "live" ? <LiveDashboard feed={feed} cloud={!!hosted} roomKey={key} viewing={viewing} /> : <PipelineDashboard />}
+      {mode === "live" ? (
+        <LiveDashboard feed={feed} cloud={!!hosted} roomKey={key} viewing={viewing} top={top} />
+      ) : (
+        <PipelineDashboard />
+      )}
     </div>
   );
 }

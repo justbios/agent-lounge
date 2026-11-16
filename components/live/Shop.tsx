@@ -21,6 +21,25 @@ import { fmtTokens } from "./tokens";
 
 const PAD = 2;
 
+/** Where a piece goes, for the tabs over the shelf; a rug lies on the floor and a lamp under the ceiling hangs on the wall side. */
+type Shelf = "all" | "sill" | "wall" | "floor" | "perk";
+const SHELF_OF: Record<ItemPlace, Shelf> = {
+  sill: "sill",
+  wall: "wall",
+  ceiling: "wall",
+  floor: "floor",
+  rug: "floor",
+  perk: "perk",
+  costume: "perk",
+};
+const SHELVES: { id: Shelf; name: Two }[] = [
+  { id: "all", name: { uk: "усе", en: "all" } },
+  { id: "sill", name: { uk: "підвіконня", en: "windowsill" } },
+  { id: "wall", name: { uk: "стіна", en: "wall" } },
+  { id: "floor", name: { uk: "підлога", en: "floor" } },
+  { id: "perk", name: { uk: "особливе", en: "special" } },
+];
+
 const WHERE: Record<ItemPlace, Two> = {
   sill: { uk: "на підвіконня", en: "for the windowsill" },
   wall: { uk: "на стіну", en: "for the wall" },
@@ -98,6 +117,7 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
   const t = useTr();
   const [busy, setBusy] = useState<ItemId | null>(null);
   const [bad, setBad] = useState(false);
+  const [shelf, setShelf] = useState<Shelf>("all");
   const stock = inStock(cafe.interior);
   const room = cafe.kind === "mine" || cafe.kind === "theirs";
   const per = room ? t("кімнату", "room") : t("кафе", "café");
@@ -142,11 +162,18 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
             <div className="shop-acts">
               {sell && (
                 <button
-                  className="btn"
+                  className={`btn ${cafe.beans.left >= it.price ? "btn-buy" : "btn-short"}`}
                   disabled={cafe.beans.left < it.price || busy != null}
                   onClick={() => void buy(it.id)}
                 >
-                  {busy === it.id ? t("купую…", "buying…") : t("купити", "buy")}
+                  {busy === it.id
+                    ? t("купую…", "buying…")
+                    : cafe.beans.left >= it.price
+                      ? t(`купити · ${it.price.toLocaleString("uk-UA")}`, `buy · ${it.price.toLocaleString("en-GB")}`)
+                      : t(
+                          `ще ${(it.price - cafe.beans.left).toLocaleString("uk-UA")} зерен`,
+                          `${(it.price - cafe.beans.left).toLocaleString("en-GB")} beans short`,
+                        )}
                 </button>
               )}
               {!perk && have > 0 && (
@@ -193,29 +220,32 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
 
   return (
     <section className="shop">
-      {ui === "en" ? (
-        <p className="alerts-hint">
-          The bean count started over on {since}: only work since then earns beans, and anything bought before stays in
-          the café. Claude&apos;s work earns coffee beans: a bean for every {r.outPerBean.toLocaleString("en-GB")}{" "}
-          tokens Claude and the agents write, {r.dispatch} per handoff to an agent, {r.crowdedHour} for an hour when at
-          least {r.crowd} different agents worked, {r.firstOfDay} for the first question of the day, and every
-          achievement pays another 50 to 300. Achievements unlock themes and records.
-          {cafe.editable
-            ? " Anything placed, earned decor included, can be dragged or clicked to move it or put it away."
-            : ` ${keeper} buys and places things here.`}
-        </p>
-      ) : (
-        <p className="alerts-hint">
-          Рахунок зерен почався заново {since}: їх дає лише робота відтоді, а куплене раніше лишилось у кафе. Кавові
-          зерна дає робота Claude: зернина за кожні {fmtTokens(r.outPerBean)} токенів, які написали Claude й
-          агенти, {r.dispatch} за доручення агенту, {r.crowdedHour} за годину, коли працювали щонайменше {r.crowd}{" "}
-          різні агенти, {r.firstOfDay} за перше питання дня, а кожне досягнення ще від 50 до 300. Теми й платівки
-          відкривають досягнення.
-          {cafe.editable
-            ? " Поставлене, і зароблений декор теж, можна перетягнути або клацнути, щоб перемістити чи прибрати."
-            : ` Купує й ставить ${keeper}.`}
-        </p>
-      )}
+      <details className="shop-rules">
+        <summary>{t("як заробити зерна", "how beans are earned")}</summary>
+        {ui === "en" ? (
+          <p className="alerts-hint">
+            The bean count started over on {since}: only work since then earns beans, and anything bought before stays in
+            the café. Claude&apos;s work earns coffee beans: a bean for every {r.outPerBean.toLocaleString("en-GB")}{" "}
+            tokens Claude and the agents write, {r.dispatch} per handoff to an agent, {r.crowdedHour} for an hour when at
+            least {r.crowd} different agents worked, {r.firstOfDay} for the first question of the day, and every
+            achievement pays another 50 to 300. Achievements unlock themes and records.
+            {cafe.editable
+              ? " Anything placed, earned decor included, can be dragged or clicked to move it or put it away."
+              : ` ${keeper} buys and places things here.`}
+          </p>
+        ) : (
+          <p className="alerts-hint">
+            Рахунок зерен почався заново {since}: їх дає лише робота відтоді, а куплене раніше лишилось у кафе. Кавові
+            зерна дає робота Claude: зернина за кожні {fmtTokens(r.outPerBean)} токенів, які написали Claude й
+            агенти, {r.dispatch} за доручення агенту, {r.crowdedHour} за годину, коли працювали щонайменше {r.crowd}{" "}
+            різні агенти, {r.firstOfDay} за перше питання дня, а кожне досягнення ще від 50 до 300. Теми й платівки
+            відкривають досягнення.
+            {cafe.editable
+              ? " Поставлене, і зароблений декор теж, можна перетягнути або клацнути, щоб перемістити чи прибрати."
+              : ` Купує й ставить ${keeper}.`}
+          </p>
+        )}
+      </details>
       {bad && <p className="key-paste-bad">{t("Не вдалося купити, спробуй ще раз.", "Couldn't buy it, try again.")}</p>}
       {spooky.length > 0 && (
         <>
@@ -241,7 +271,22 @@ export default function Shop({ cafe, onPlace }: { cafe: CafeState; onPlace: (ite
           <ul className="shop-grid">{suits.map(row)}</ul>
         </>
       )}
-      <ul className="shop-grid">{SHOP.filter((it) => !it.rare && !it.season).map(row)}</ul>
+      <div className="shop-shelves" role="tablist" aria-label={t("куди поставити", "where it goes")}>
+        {SHELVES.map((sh) => (
+          <button
+            key={sh.id}
+            role="tab"
+            aria-selected={shelf === sh.id}
+            className={`btn ${shelf === sh.id ? "on" : ""}`}
+            onClick={() => setShelf(sh.id)}
+          >
+            {sh.name[ui]}
+          </button>
+        ))}
+      </div>
+      <ul className="shop-grid">
+        {SHOP.filter((it) => !it.rare && !it.season && (shelf === "all" || SHELF_OF[it.place] === shelf)).map(row)}
+      </ul>
       <h3 className="shop-rare-hd">{t(`✦ Рідкісне: по одному на ${per}`, `✦ Rare: one per ${per}`)}</h3>
       <ul className="shop-grid">{SHOP.filter((it) => it.rare).map(row)}</ul>
     </section>

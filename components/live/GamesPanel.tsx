@@ -45,10 +45,25 @@ function Leaders({ rows, game, me }: { rows: ScoreRow[]; game: Game; me: string 
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({
+  title,
+  tag,
+  hero,
+  children,
+}: {
+  title: string;
+  /** a small label beside the title, such as «new» */
+  tag?: string;
+  /** the game the hall opens with, in a frame of its own */
+  hero?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <section className="recap-sec game-sec">
-      <div className="share-ttl">{title}</div>
+    <section className={`recap-sec game-sec ${hero ? "game-hero" : ""}`}>
+      <h3 className="game-ttl">
+        {title}
+        {tag && <span className="game-tag">{tag}</span>}
+      </h3>
       {children}
     </section>
   );
@@ -120,98 +135,115 @@ export default function GamesPanel({
           </p>
         )}
 
-        <Section title={t("Битва агентів", "Agents' battle")}>
-          <Arena agents={agents} roster={roster} rows={rows} />
-        </Section>
+        <div className="games-grid">
+          <div className="games-main">
+            <Section title={t("Битва агентів", "Agents' battle")} tag={t("нове", "new")} hero>
+              <Arena agents={agents} roster={roster} rows={rows} />
+            </Section>
 
-        <Section title={t("Денді", "NES")}>
-          <Dendy />
-          {NES_GAMES.length > 0 && (
-            <details className="dendy-credits">
-              <summary>{t("хто зробив ці ігри", "who made these games")}</summary>
-              <ul>
-                {NES_GAMES.map((g) => (
-                  <li key={g.id}>
-                    {g.title}: {g.author},{" "}
-                    <a href={g.licenseUrl} target="_blank" rel="noreferrer">
-                      {g.license}
-                    </a>
-                    ,{" "}
-                    <a href={g.source} target="_blank" rel="noreferrer">
-                      {t("вихідний код", "source code")}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </Section>
+            <Section title={t("З гостями кафе", "With the café's guests")}>
+              <Duels
+                duels={duels}
+                ttt={ttt}
+                chk={chk}
+                chess={chess}
+                four={four}
+                arena={arena}
+                guests={guests}
+                room={room}
+                online={online}
+                agents={agents}
+                roster={roster}
+                rows={rows}
+                onEnd={(kind, win) => {
+                  scores.record(me, kind, win);
+                  if (duels.match) duels.finish(duels.match.id);
+                }}
+              />
+            </Section>
 
-        <Section title={t("Удвох і втрьох", "For two or three")}>
-          <Duels
-            duels={duels}
-            ttt={ttt}
-            chk={chk}
-            chess={chess}
-            four={four}
-            arena={arena}
-            guests={guests}
-            room={room}
-            online={online}
-            agents={agents}
-            roster={roster}
-            rows={rows}
-            onEnd={(kind, win) => {
-              scores.record(me, kind, win);
-              if (duels.match) duels.finish(duels.match.id);
-            }}
-          />
-          <div className="leaders-2">
-            {BOARDS.filter((k) => played(scores.rows, k).length > 0).map((k) => (
-              <div key={k}>
-                <div className="muted-sm">{duelName(k, ui)}</div>
-                <Leaders rows={scores.rows} game={k} me={me} />
-              </div>
-            ))}
-          </div>
-        </Section>
+            <Section title={t("Денді", "NES")}>
+              <Dendy />
+              {NES_GAMES.length > 0 && (
+                <details className="dendy-credits">
+                  <summary>{t("хто зробив ці ігри", "who made these games")}</summary>
+                  <ul>
+                    {NES_GAMES.map((g) => (
+                      <li key={g.id}>
+                        {g.title}: {g.author},{" "}
+                        <a href={g.licenseUrl} target="_blank" rel="noreferrer">
+                          {g.license}
+                        </a>
+                        ,{" "}
+                        <a href={g.source} target="_blank" rel="noreferrer">
+                          {t("вихідний код", "source code")}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+            </Section>
 
-        <Section title={t("Стратегії", "Strategy")}>
-          <Strategy />
-          <details className="dendy-credits">
-            <summary>{t("хто зробив ці ігри", "who made these games")}</summary>
-            <ul>
-              {WEB_GAMES.map((g) => (
-                <li key={g.id}>
-                  {g.title}: {g.authors[ui]};{" "}
-                  {g.licences.map((l) => (
-                    <span key={l.name}>
-                      {l.what[ui]}{" "}
-                      <a href={l.url} target="_blank" rel="noreferrer">
-                        {l.name}
+
+            <Section title={t("Стратегії", "Strategy")}>
+              <Strategy />
+              <details className="dendy-credits">
+                <summary>{t("хто зробив ці ігри", "who made these games")}</summary>
+                <ul>
+                  {WEB_GAMES.map((g) => (
+                    <li key={g.id}>
+                      {g.title}: {g.authors[ui]};{" "}
+                      {g.licences.map((l) => (
+                        <span key={l.name}>
+                          {l.what[ui]}{" "}
+                          <a href={l.url} target="_blank" rel="noreferrer">
+                            {l.name}
+                          </a>
+                          ,{" "}
+                        </span>
+                      ))}
+                      <a href={g.source} target="_blank" rel="noreferrer">
+                        {t("вихідний код", "source code")}
                       </a>
-                      ,{" "}
-                    </span>
+                      . {g.mark?.[ui]}{" "}
+                      {t(
+                        "Гра відкривається з сайту авторів, у кафе з неї нічого не скопійовано.",
+                        "The game opens from its authors' site; nothing of it is copied into the café.",
+                      )}
+                    </li>
                   ))}
-                  <a href={g.source} target="_blank" rel="noreferrer">
-                    {t("вихідний код", "source code")}
-                  </a>
-                  . {g.mark?.[ui]}{" "}
-                  {t(
-                    "Гра відкривається з сайту авторів, у кафе з неї нічого не скопійовано.",
-                    "The game opens from its authors' site; nothing of it is copied into the café.",
-                  )}
-                </li>
-              ))}
-            </ul>
-          </details>
-        </Section>
+                </ul>
+              </details>
+            </Section>
 
-        {played(scores.rows, "bets").length > 0 && (
-          <Section title={t("Ставки", "Bets")}>
-            <Leaders rows={scores.rows} game="bets" me={me} />
-          </Section>
-        )}
+          </div>
+          <aside className="games-side" aria-label={t("таблиця", "leaderboard")}>
+            <h3 className="game-ttl">{t("Таблиця", "Leaderboard")}</h3>
+            <div className="leaders-2 leaders-col">
+              {BOARDS.filter((k) => played(scores.rows, k).length > 0).map((k) => (
+                <div key={k}>
+                  <div className="muted-sm">{duelName(k, ui)}</div>
+                  <Leaders rows={scores.rows} game={k} me={me} />
+                </div>
+              ))}
+            </div>
+            {!BOARDS.some((k) => played(scores.rows, k).length > 0) && (
+              <p className="alerts-hint">
+                {t(
+                  "Тут з'являться переможці, щойно хтось у кафе зіграє партію.",
+                  "The winners show up here once someone in the café plays a game.",
+                )}
+              </p>
+            )}
+          {played(scores.rows, "bets").length > 0 && (
+            <div className="games-bets">
+              <div className="muted-sm">{t("Ставки", "Bets")}</div>
+              <Leaders rows={scores.rows} game="bets" me={me} />
+            </div>
+          )}
+          </aside>
+        </div>
       </div>
     </div>
   );

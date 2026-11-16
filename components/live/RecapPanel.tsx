@@ -174,15 +174,18 @@ export default function RecapPanel({
   return (
     <div className="recap-backdrop" onClick={onClose}>
       <div
-        className="recap"
+        className="recap receipt"
         role="dialog"
         aria-label={t("підсумок дня", "day recap")}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="recap-hd">
+        <div className="recap-hd receipt-hd">
           <div>
+            <div className="receipt-brand">AGENT LOUNGE</div>
             <div className="recap-ttl">{t("Підсумок дня", "Day recap")}</div>
-            <div className="muted-sm">{date}</div>
+            <div className="muted-sm">
+              {t("інтернет-кафе для твоїх агентів", "an internet café for your agents")} · {date}
+            </div>
           </div>
           <button className="btn recap-x" onClick={onClose} aria-label={t("закрити", "close")}>
             <X size={15} />
@@ -201,7 +204,7 @@ export default function RecapPanel({
           !error && <p className="alerts-hint">{t("рахую…", "counting…")}</p>
         ) : (
           <>
-            <div className="recap-grid">
+            <div className="receipt-lines">
               {(
                 [
                   [t("питань", enPlural(day.prompts, "question", "questions")), day.prompts],
@@ -215,9 +218,10 @@ export default function RecapPanel({
                   [t("днів поспіль", enPlural(days, "day in a row", "days in a row")), days],
                 ] as [string, number][]
               ).map(([k, v]) => (
-                <div className="recap-stat" key={k}>
-                  <b>{v}</b>
+                <div className="receipt-line" key={k}>
                   <span>{k}</span>
+                  <i aria-hidden />
+                  <b>{v}</b>
                 </div>
               ))}
             </div>

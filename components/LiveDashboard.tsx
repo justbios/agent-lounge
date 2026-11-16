@@ -3,7 +3,7 @@
 import { useEffect, useEffectEvent, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
-import { CalendarDays, Gamepad2, MessageCircle, ShoppingBag, Trophy, X } from "lucide-react";
+import { CalendarDays, Coffee, Gamepad2, MessageCircle, ShoppingBag, Trophy, Users, X } from "lucide-react";
 import { cafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { Two, Ui, useTr, useUi } from "@/lib/i18n";
@@ -68,11 +68,24 @@ import SceneMenu from "./live/SceneMenu";
 import RecapPanel from "./live/RecapPanel";
 import ReplayBar from "./live/ReplayBar";
 import Stage from "./live/Stage";
-import StatBar from "./live/StatBar";
+import Hotbar from "./live/Hotbar";
+import TopBar, { TopProps } from "./TopBar";
+import { fmtTokens } from "./live/tokens";
 import TeamBar from "./live/TeamBar";
 import { ago, logText } from "./live/format";
 
 const PICK_KEY = "relay.session";
+/** the games button says «new» until the games are opened once */
+const GAMES_SEEN_KEY = "relay.games.seen";
+
+function readGamesSeen(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return localStorage.getItem(GAMES_SEEN_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
 const VIEW_KEY = "relay.view";
 const RECENT_MS = 6 * 60 * 60 * 1000;
 /** a chat quiet this long has finished its work and leaves the house; one still asking the user stays */
@@ -184,11 +197,14 @@ export default function LiveDashboard({
   cloud,
   roomKey,
   viewing,
+  top,
 }: {
   feed: LiveFeed;
   cloud: boolean;
   roomKey: string | null;
   viewing: boolean;
+  /** the bar on top: the café puts its counters in it */
+  top: TopProps;
 }) {
   const ui = useUi();
   const t = useTr();
@@ -257,6 +273,18 @@ export default function LiveDashboard({
     recapOpen || gamesOpen,
   );
   const [sheet, setSheet] = useState<"ach" | "myAch" | "shop" | "plan" | "eta" | null>(null);
+  // the agents and the event log: beside the café on a wide screen, a drawer on a narrow one
+  const [side, setSide] = useState<"agents" | "log" | null>(null);
+  const [gamesSeen, setGamesSeen] = useState(readGamesSeen);
+  const openGames = () => {
+    setGamesOpen(true);
+    if (!gamesSeen) {
+      setGamesSeen(true);
+      try {
+        localStorage.setItem(GAMES_SEEN_KEY, "1");
+      } catch {}
+    }
+  };
   const [placing, setPlacing] = useState<Placing | null>(null);
   const rooms = useCafe({ cloud, key: roomKey, room: viewing ? viewRoom : null, events: feed.events, viewing });
   const [replay, setReplay] = useState<Replay | null>(null);
@@ -417,40 +445,36 @@ export default function LiveDashboard({
 
   return (
     <>
-      <StatBar
-        status={feed.status}
-        pill={pill}
-        seats={model.agents.length}
-        seatsLabel={whole ? t("учасників", "teammates") : t("агентів", "agents")}
-        working={working}
-        tokens={spent}
-        eta={<PipelineStat eta={etas?.[0]} now={now} onOpen={() => setSheet("eta")} />}
-        limits={<LimitsMini limits={myLimits} now={now} onOpen={() => setRecapOpen(true)} />}
-      >
-        <button className="btn" onClick={() => setRecapOpen(true)}>
-          <CalendarDays size={14} /> {t("підсумок", "recap")}
-        </button>
-        <JukeboxMenu sound={sound} tracks={openTracks(cafe.earned)} />
+      <TopBar {...top} phone={<JukeboxMenu sound={sound} tracks={openTracks(cafe.earned)} />}>
+        {feed.status !== "open" && (
+          <span className={`live-pill ${offline ? "off" : ""}`}>
+            <span className={`feed-dot feed-${feed.status}`} />
+            {pill}
+          </span>
+        )}
+        <LimitsMini limits={myLimits} now={now} onOpen={() => setRecapOpen(true)} />
+        <PipelineStat eta={etas?.[0]} now={now} onOpen={() => setSheet("eta")} />
         {cafe.progress && (
           <>
             <button
-              className="btn"
+              className="btn hud-beans"
+              onClick={() => setSheet("shop")}
+              title={`${t("кав'ярня: меблі за кавові зерна", "coffee shop: furniture for coffee beans")}${whoseTip}`}
+            >
+              <span className="bean-ic" aria-hidden />
+              {Math.max(0, cafe.beans.left).toLocaleString(ui === "en" ? "en-GB" : "uk-UA")}
+            </button>
+            <button
+              className="btn hud-ach"
               onClick={() => setSheet("ach")}
               title={`${t("досягнення", "achievements")}${whoseTip}`}
             >
               <Trophy size={14} /> {earnedCount}/{cafe.earned.length}
             </button>
-            <button
-              className="btn"
-              onClick={() => setSheet("shop")}
-              title={`${t("кав'ярня: меблі за кавові зерна", "coffee shop: furniture for coffee beans")}${whoseTip}`}
-            >
-              <ShoppingBag size={14} /> ☕ {Math.max(0, cafe.beans.left).toLocaleString(ui === "en" ? "en-GB" : "uk-UA")}
-            </button>
           </>
         )}
         {!viewing && <AlertsMenu cloud={cloud} push={push} asks={own && access ? asks : null} />}
-      </StatBar>
+      </TopBar>
 
       {stale != null && !staleHidden && (
         <div className="notice stale-hooks">
@@ -578,8 +602,8 @@ export default function LiveDashboard({
           onClose={() => setChatOpen(false)}
         />
       )}
-      <InviteToast duels={games.duels} open={gamesOpen} onPlay={() => setGamesOpen(true)} />
-      {!gamesOpen && <TurnToast games={games} onOpen={() => setGamesOpen(true)} />}
+      <InviteToast duels={games.duels} open={gamesOpen} onPlay={openGames} />
+      {!gamesOpen && <TurnToast games={games} onOpen={openGames} />}
       {rooms.fresh.length > 0 && sheet !== "ach" && sheet !== "myAch" && (
         <AchToast
           fresh={rooms.fresh}
@@ -659,7 +683,7 @@ export default function LiveDashboard({
                         },
                       ]
                     : []),
-                  { icon: <Gamepad2 size={14} />, label: t("ігри", "games"), onClick: () => setGamesOpen(true) },
+                  { icon: <Gamepad2 size={14} />, label: t("ігри", "games"), onClick: openGames },
                 ]}
               />
             </>
@@ -685,7 +709,14 @@ export default function LiveDashboard({
                 onAgain={() => setReplay({ ...replay, startedAt: Date.now() })}
               />
             ) : (
-              <span className="muted-sm">
+              <span className="muted-sm stage-count">
+                {model.agents.length} {whole ? t("учасників", "teammates") : t("агентів", "agents")}
+                {" · "}
+                <span className={working ? "count-live" : ""}>
+                  {t(`працюють ${working}`, `${working} working`)}
+                </span>
+                {spent > 0 && ` · ${fmtTokens(spent, ui)} ${t("токенів", "tokens")}`}
+                {" · "}
                 {whole
                   ? `${team.members.length} ${t("за столами", "at desks")}`
                   : session
@@ -724,10 +755,12 @@ export default function LiveDashboard({
           onRecap={() => setRecapOpen(true)}
           onShop={() => setSheet("shop")}
           onPlan={() => setSheet("plan")}
-          onGames={() => setGamesOpen(true)}
+          onGames={openGames}
           placing={placing}
           onPlacing={setPlacing}
           onHouse={houseOn ? () => zoom("house") : undefined}
+          side={side}
+          onSide={setSide}
           gains={gains}
           asleep={asleep}
           agents={
@@ -755,6 +788,68 @@ export default function LiveDashboard({
         />
       )}
       <TunePlayer sound={sound} />
+      <Hotbar
+        items={[
+          {
+            id: "cafe",
+            icon: <Coffee size={18} />,
+            label: t("кафе", "café"),
+            on: !gamesOpen && !sheet && !recapOpen && side == null,
+            onClick: () => {
+              setGamesOpen(false);
+              setSheet(null);
+              setRecapOpen(false);
+              setSide(null);
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            },
+          },
+          {
+            id: "agents",
+            icon: <Users size={18} />,
+            label: t("агенти", "agents"),
+            on: side === "agents",
+            onClick: () => {
+              if (inHouse) zoom("hall");
+              setSide(side === "agents" ? null : "agents");
+            },
+          },
+          {
+            id: "games",
+            icon: <Gamepad2 size={18} />,
+            label: t("ігри", "games"),
+            tone: "play",
+            on: gamesOpen,
+            badge: gamesSeen ? undefined : t("нове", "new"),
+            onClick: openGames,
+          },
+          ...(cafe.progress
+            ? [
+                {
+                  id: "shop",
+                  icon: <ShoppingBag size={18} />,
+                  label: t("кав'ярня", "coffee shop"),
+                  on: sheet === "shop",
+                  onClick: () => setSheet("shop"),
+                },
+                {
+                  id: "ach",
+                  icon: <Trophy size={18} />,
+                  label: t("досягнення", "achievements"),
+                  on: sheet === "ach" || sheet === "myAch",
+                  onClick: () => setSheet("ach"),
+                },
+              ]
+            : []),
+          {
+            id: "recap",
+            icon: <CalendarDays size={18} />,
+            label: t("підсумок", "recap"),
+            on: recapOpen,
+            onClick: () => setRecapOpen(true),
+          },
+        ]}
+        extra={<JukeboxMenu sound={sound} tracks={openTracks(cafe.earned)} />}
+      />
     </>
   );
 }

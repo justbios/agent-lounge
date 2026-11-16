@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Earned, ProgressDay, achText } from "@/lib/live/achievements";
 import { Ui, useTr, useUi } from "@/lib/i18n";
 import { THEMES, themeText } from "@/components/cafe/theme";
@@ -126,14 +127,19 @@ export interface TeamWeek {
   members: Record<string, ProgressDay[]> | null;
 }
 
+type Show = "all" | "got" | "left";
+
 export default function AchPanel({ cafe, week, onClose }: { cafe: CafeState; week: TeamWeek; onClose: () => void }) {
   const t = useTr();
+  const [show, setShow] = useState<Show>("all");
+  const shown = (e: (typeof cafe.earned)[number]) => show === "all" || (show === "got" ? e.done : !e.done);
   const done = cafe.earned.filter((e) => e.done).length;
   const decor = cafe.earned.filter((e) => e.def.decor);
   const learn = cafe.earned.filter((e) => e.def.learn);
   const rest = cafe.earned.filter((e) => !e.def.learn);
   return (
     <Sheet
+      wide
       label={t("досягнення", "achievements")}
       title={t("Досягнення", "Achievements")}
       sub={
@@ -146,20 +152,23 @@ export default function AchPanel({ cafe, week, onClose }: { cafe: CafeState; wee
       }
       onClose={onClose}
     >
-      <p className="alerts-hint">
-        {cafe.kind === "mine" &&
-          t("Твої власні досягнення, лише з твоєї роботи. ", "Your own achievements, from your work only. ")}
-        {cafe.kind === "theirs" &&
-          t(
-            `${cafe.whose}: досягнення лише з власної роботи. `,
-            `${cafe.whose}: achievements from their own work only. `,
+      <details className="shop-rules">
+        <summary>{t("як це рахується", "how it is counted")}</summary>
+        <p className="alerts-hint">
+          {cafe.kind === "mine" &&
+            t("Твої власні досягнення, лише з твоєї роботи. ", "Your own achievements, from your work only. ")}
+          {cafe.kind === "theirs" &&
+            t(
+              `${cafe.whose}: досягнення лише з власної роботи. `,
+              `${cafe.whose}: achievements from their own work only. `,
+            )}
+          {cafe.kind === "lobby" && t("Досягнення всієї команди разом. ", "The whole team's achievements together. ")}
+          {t(
+            "Кожне досягнення рахується з хуків за весь час і дає від 50 до 300 зерен, якщо отримане після нового відліку зерен; квест тижня дає ще 100. Деякі додають у кімнату нову річ, відкривають тему чи платівку на автоматі. Перші шість навчають прийомів Claude Code, яких легко не помітити.",
+            "Every achievement is counted from the hooks over all time and pays 50 to 300 beans if earned after the beans started over; the weekly quest pays another 100. Some add a new piece to the room, or unlock a theme or a record on the jukebox. The first six teach Claude Code tricks that are easy to miss.",
           )}
-        {cafe.kind === "lobby" && t("Досягнення всієї команди разом. ", "The whole team's achievements together. ")}
-        {t(
-          "Кожне досягнення рахується з хуків за весь час і дає від 50 до 300 зерен, якщо отримане після нового відліку зерен; квест тижня дає ще 100. Деякі додають у кімнату нову річ, відкривають тему чи платівку на автоматі. Перші шість навчають прийомів Claude Code, яких легко не помітити.",
-          "Every achievement is counted from the hooks over all time and pays 50 to 300 beans if earned after the beans started over; the weekly quest pays another 100. Some add a new piece to the room, or unlock a theme or a record on the jukebox. The first six teach Claude Code tricks that are easy to miss.",
-        )}
-      </p>
+        </p>
+      </details>
       {cafe.error && (
         <p className="key-paste-bad">
           {t(
@@ -169,22 +178,53 @@ export default function AchPanel({ cafe, week, onClose }: { cafe: CafeState; wee
         </p>
       )}
       {cafe.progress && (
-        <>
-          <DaysMap days={cafe.progress.days} />
-          <WeekQuest days={week.days} members={week.members} />
-          <div className="share-ttl">{t("Спробуй у Claude Code", "Try in Claude Code")}</div>
-          <div className="ach-grid">
-            {learn.map((e) => (
-              <Card key={e.def.id} e={e} />
-            ))}
+        <div className="ach-cols">
+          <div className="ach-side">
+            <DaysMap days={cafe.progress.days} />
+            <WeekQuest days={week.days} members={week.members} />
           </div>
-          <div className="share-ttl">{t("Робота", "Work")}</div>
-          <div className="ach-grid">
-            {rest.map((e) => (
-              <Card key={e.def.id} e={e} />
-            ))}
+          <div className="ach-main">
+            <div className="shop-shelves" role="tablist" aria-label={t("які значки", "which badges")}>
+              {(
+                [
+                  ["all", t("усі", "all")],
+                  ["got", t(`є · ${done}`, `earned · ${done}`)],
+                  ["left", t("ще треба", "still to get")],
+                ] as [Show, string][]
+              ).map(([id, name]) => (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={show === id}
+                  className={`btn ${show === id ? "on" : ""}`}
+                  onClick={() => setShow(id)}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+            {learn.some(shown) && (
+              <>
+                <div className="share-ttl">{t("Спробуй у Claude Code", "Try in Claude Code")}</div>
+                <div className="ach-grid">
+                  {learn.filter(shown).map((e) => (
+                    <Card key={e.def.id} e={e} />
+                  ))}
+                </div>
+              </>
+            )}
+            {rest.some(shown) && (
+              <>
+                <div className="share-ttl">{t("Робота", "Work")}</div>
+                <div className="ach-grid">
+                  {rest.filter(shown).map((e) => (
+                    <Card key={e.def.id} e={e} />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        </>
+        </div>
       )}
       <GuestBook />
     </Sheet>

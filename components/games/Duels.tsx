@@ -207,6 +207,7 @@ export default function Duels({
 }) {
   const ui = useUi();
   const t = useTr();
+  // the board and its buttons go full screen together, so «play again» is there once a game ends
   const board = useRef<HTMLDivElement>(null);
   const pick = useClockPick();
   const [game, setGame] = useState<DuelKind | null>(null);
@@ -230,8 +231,8 @@ export default function Duels({
           ? t(`${duels.away} більше не в кафе`, `${duels.away} left the café`)
           : null;
     return (
-      <div className="duel">
-        <div className="duel-board" ref={board}>
+      <div className="duel" ref={board}>
+        <div className="duel-board">
           {m.kind === "arena" || m.kind === "raid" ? (
             <ArenaDuel
               key={m.id}

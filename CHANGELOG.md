@@ -4,6 +4,23 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.17.0 — not released yet
+
+No database change and no change to `plugin/`. A new look from the Claude Design canvas, same café inside.
+
+- The live screen is built round the café: a slim top bar (beans, limits, achievements, a «…» menu that also holds
+  the jukebox on a phone), the chats as one row of tabs, and on a wide screen the agents and the log beside the
+  scene instead of in drawers. A hotbar at the bottom (кафе, агенти, ігри, кав'ярня, досягнення, підсумок) answers
+  to the keys 1–6; «ігри» shows «нове» until opened.
+- One palette with meanings: cyan works, amber waits for you, pink is games and new things, green is done. Text and
+  buttons are in Golos Text, code in JetBrains Mono; titles and numbers in Tiny5, which reads Cyrillic right
+  (Pixelify Sans drew «д» like «а»).
+- Games: the battle on top, then «З гостями кафе», Денді and «Стратегії», with the table and bets on the side. After a
+  game ends in full screen, «ще раз» is right there, without leaving full screen.
+- The day's recap is a receipt; the shop has shelves (підвіконня, стіна, підлога, особливе) and says how many beans
+  are missing; achievements put the days and the week's task on the left and filter the badges; the connect page
+  marks the easiest way.
+
 ## 0.16.0 — not released yet
 
 No database change: the battle's progress is kept in the browser, and the scores of the battles between people go

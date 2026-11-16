@@ -69,22 +69,11 @@ textarea {
   color: #0a0a12;
 }
 
-.btn,
-.preset,
-.copybtn,
-.limits-mini,
-.team-pill,
-.live,
-.live-pill,
-.level-pill,
 .brand-name,
 .card-ttl,
 .recap-ttl,
 .share-ttl,
 .stat-v,
-.scene-menu-row,
-.viewseg button,
-.speech-pick select,
 .theme-opt b,
 .juke-row b {
   font-family: var(--font-pixel), var(--mono);
@@ -119,4 +108,19 @@ textarea {
 }
 .drawer-body .card {
   box-shadow: none;
+}
+
+.btn,
+.preset,
+.copybtn,
+.limits-mini,
+.team-pill,
+.live,
+.live-pill,
+.level-pill,
+.scene-menu-row,
+.viewseg button,
+.speech-pick select {
+  font-family: var(--sans);
+  font-weight: 600;
 }

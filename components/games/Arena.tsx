@@ -290,8 +290,8 @@ export default function Arena({ agents, roster, rows }: { agents: AgentDef[]; ro
 
       <p className="arena-about arena-together">
         {t(
-          "З іншою людиною в кафе: «Бій загонів» (ваш загін проти її) і «Рейд на моноліт» (удвох проти боса) — у розділі «Удвох і втрьох».",
-          "With someone else in the café: «Squad battle» (your squad against theirs) and «Monolith raid» (the two of you against the boss) are under «For two or three».",
+          "З іншою людиною в кафе: «Бій загонів» (ваш загін проти її) і «Рейд на моноліт» (удвох проти боса) — у розділі «З гостями кафе».",
+          "With someone else in the café: «Squad battle» (your squad against theirs) and «Monolith raid» (the two of you against the boss) are under «With the café's guests».",
         )}
       </p>
 

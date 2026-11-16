@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useEffectEvent, useState } from "react";
+import { ReactNode, useEffect, useEffectEvent, useState, useSyncExternalStore } from "react";
 import {
   Building2,
   Gamepad2,
@@ -38,7 +38,18 @@ type Pop =
   | { kind: "note"; anchor: Anchor; text: string; id: number };
 
 const TOP: Anchor = { x: 0.5, y: 0.08, below: true };
-type Side = "agents" | "log";
+export type Side = "agents" | "log";
+
+/** Wide enough for the agents and the log to stand beside the café rather than slide out over it. */
+const WIDE = "(min-width: 1180px)";
+const onWide = (cb: () => void) => {
+  const m = matchMedia(WIDE);
+  m.addEventListener("change", cb);
+  return () => m.removeEventListener("change", cb);
+};
+function useWide(): boolean {
+  return useSyncExternalStore(onWide, () => matchMedia(WIDE).matches, () => false);
+}
 
 function Drawer({
   side,
@@ -167,6 +178,8 @@ export default function Stage({
   onHouse,
   asleep,
   gains,
+  side,
+  onSide,
 }: {
   title: string;
   sub: ReactNode;
@@ -212,12 +225,19 @@ export default function Stage({
   asleep?: boolean;
   /** what the latest work earned, floating up from the bean sack */
   gains?: Gain[];
+  /** the agents or the log asked for from outside, by the bar along the bottom */
+  side: Side | null;
+  onSide: (s: Side | null) => void;
 }) {
   const ui = useUi();
   const t = useTr();
   const [pop, setPop] = useState<Pop | null>(null);
-  const [drawer, setDrawer] = useState<Side | null>(null);
+  const wide = useWide();
   const [full, toggleFull] = useFullscreen();
+  // beside the café on a wide screen; on a narrow one, and over the full-screen café, they slide out as drawers
+  const beside = wide && !full;
+  const drawer = beside ? null : side;
+  const setDrawer = onSide;
   const theme = themeOf(cafe.settings.theme);
   const halloween = useHalloween();
 
@@ -262,8 +282,12 @@ export default function Stage({
       ? [{ icon: <MessageCircle size={14} />, label: t("чат кафе", "café chat"), onClick: onChat, badge: chatUnread }]
       : []),
     { icon: <Gamepad2 size={14} />, label: t("ігри", "games"), onClick: onGames },
-    { icon: <Users size={14} />, label: t("агенти", "agents"), onClick: () => flip("agents") },
-    { icon: <ScrollText size={14} />, label: t("журнал подій", "event log"), onClick: () => flip("log") },
+    ...(beside
+      ? []
+      : [
+          { icon: <Users size={14} />, label: t("агенти", "agents"), onClick: () => flip("agents") },
+          { icon: <ScrollText size={14} />, label: t("журнал подій", "event log"), onClick: () => flip("log") },
+        ]),
     ...(cafe.editable ? [{ icon: <LayoutGrid size={14} />, label: t("план кафе", "café plan"), onClick: onPlan }] : []),
   ];
   const place = async (p: Placed) => {
@@ -368,80 +392,92 @@ export default function Stage({
     ) : null;
 
   return (
-    <section className={`card stage-card ${full ? "stage-full" : ""} ${onHouse ? "zoomed" : ""}`}>
-      <div className="card-hd">
-        {onHouse && (
-          <button
-            className="btn btn-ic house-back"
-            onClick={onHouse}
-            title={t("до всього будинку", "back to the whole house")}
-          >
-            <Building2 size={14} />
-          </button>
-        )}
-        <span className="card-ttl">{title}</span>
-        <div className="stage-tools">
-          {sub}
-          <Presence guests={guests} />
-          <SceneMenu items={menu} />
-          <button
-            className="btn btn-ic"
-            onClick={toggleFull}
-            title={full ? t("вийти з повного екрана", "exit full screen") : t("на весь екран", "full screen")}
-          >
-            {full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          </button>
+    <div className={`stage-grid ${beside ? "with-side" : ""}`}>
+      <section className={`card stage-card ${full ? "stage-full" : ""} ${onHouse ? "zoomed" : ""}`}>
+        <div className="card-hd">
+          {onHouse && (
+            <button
+              className="btn btn-ic house-back"
+              onClick={onHouse}
+              title={t("до всього будинку", "back to the whole house")}
+            >
+              <Building2 size={14} />
+            </button>
+          )}
+          <span className="card-ttl">{title}</span>
+          <div className="stage-tools">
+            {sub}
+            <Presence guests={guests} />
+            <SceneMenu items={menu} />
+            <button
+              className="btn btn-ic"
+              onClick={toggleFull}
+              title={full ? t("вийти з повного екрана", "exit full screen") : t("на весь екран", "full screen")}
+            >
+              {full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          </div>
         </div>
-      </div>
-      <div className="stage-pad stage-rel">
-        <CafeScene
-          model={model}
-          clock={clock}
-          alert={alert}
-          warns={warns}
-          etas={etas}
-          asleep={asleep}
-          rate={rate}
-          guests={bar}
-          chatUnread={chatUnread}
-          reactions={reactions}
-          onReact={onReact}
-          decor={cafe.decor}
-          catName={cafe.settings.cat_name}
-          theme={theme}
-          onPick={pick}
-          interior={cafe.interior}
-          name={cafe.title}
-          onLook={cafe.editable ? (agent, look) => void cafe.setLook(agent, look) : undefined}
-          dress={dress}
-          placing={placing}
-          onPlacing={cafe.editable ? onPlacing : undefined}
-          onPlace={place}
-          onFurniture={cafe.editable ? (f, anchor) => setPop({ kind: "furniture", ...f, anchor }) : undefined}
-          onMachine={(f, anchor) =>
-            f.item === "arcade" && !cafe.editable ? onGames() : setPop({ kind: "machine", ...f, anchor })
-          }
-          playing={sound.on ? playingName(sound, ui) : null}
-          beans={cafe.beans.left}
-          gains={gains}
-          pops={pops}
-          visitors
-        />
-        {placing && <PlacingBar placing={placing} onCancel={() => onPlacing(null)} />}
-        {empty}
-        {below}
-      </div>
-      <Drawer side="left" title={t("агенти", "agents")} open={drawer === "agents"} onClose={() => setDrawer(null)}>
-        {agents}
-      </Drawer>
-      <Drawer
-        side="right"
-        title={t("журнал подій", "event log")}
-        open={drawer === "log"}
-        onClose={() => setDrawer(null)}
-      >
-        {log}
-      </Drawer>
-    </section>
+        <div className="stage-pad stage-rel">
+          <CafeScene
+            model={model}
+            clock={clock}
+            alert={alert}
+            warns={warns}
+            etas={etas}
+            asleep={asleep}
+            rate={rate}
+            guests={bar}
+            chatUnread={chatUnread}
+            reactions={reactions}
+            onReact={onReact}
+            decor={cafe.decor}
+            catName={cafe.settings.cat_name}
+            theme={theme}
+            onPick={pick}
+            interior={cafe.interior}
+            name={cafe.title}
+            onLook={cafe.editable ? (agent, look) => void cafe.setLook(agent, look) : undefined}
+            dress={dress}
+            placing={placing}
+            onPlacing={cafe.editable ? onPlacing : undefined}
+            onPlace={place}
+            onFurniture={cafe.editable ? (f, anchor) => setPop({ kind: "furniture", ...f, anchor }) : undefined}
+            onMachine={(f, anchor) =>
+              f.item === "arcade" && !cafe.editable ? onGames() : setPop({ kind: "machine", ...f, anchor })
+            }
+            playing={sound.on ? playingName(sound, ui) : null}
+            beans={cafe.beans.left}
+            gains={gains}
+            pops={pops}
+            visitors
+          />
+          {placing && <PlacingBar placing={placing} onCancel={() => onPlacing(null)} />}
+          {empty}
+          {below}
+        </div>
+        {!beside && (
+          <>
+            <Drawer side="left" title={t("агенти", "agents")} open={drawer === "agents"} onClose={() => setDrawer(null)}>
+              {agents}
+            </Drawer>
+            <Drawer
+              side="right"
+              title={t("журнал подій", "event log")}
+              open={drawer === "log"}
+              onClose={() => setDrawer(null)}
+            >
+              {log}
+            </Drawer>
+          </>
+        )}
+      </section>
+      {beside && (
+        <aside className="stage-side" aria-label={t("агенти і стрічка подій", "agents and the event log")}>
+          <div className={side === "agents" ? "side-flash" : ""}>{agents}</div>
+          <div className="side-log">{log}</div>
+        </aside>
+      )}
+    </div>
   );
 }
