@@ -5,7 +5,7 @@ import { tr, uiNow } from "@/lib/i18n";
 import { titleFit } from "@/lib/live/interior";
 import { chip, line, speechNow } from "@/lib/live/speech";
 import { AgentDef } from "@/lib/types";
-import { fixturesOf } from "./room";
+import { fixtures } from "./room";
 
 export interface OverlayInput {
   lay: CafeLayout;
@@ -18,8 +18,6 @@ export interface OverlayInput {
   /** the sign's big line: the café's name, or AGENT LOUNGE */
   title: string;
   watermark: string;
-  /** the scene paints its own sign (the street's pixel neon): no glowing text over it */
-  noSign?: boolean;
 }
 
 const TYPE_MS_PER_CHAR = 22;
@@ -63,7 +61,7 @@ function wrap(ctx: CanvasRenderingContext2D, text: string, max: number): string[
 }
 
 function neon(ctx: CanvasRenderingContext2D, o: OverlayInput, s: number, k: number) {
-  const { SIGN } = fixturesOf(o.lay);
+  const { SIGN } = fixtures(o.lay.width);
   const cx = (SIGN.x + SIGN.w / 2) * s;
   const cy = (SIGN.y + SIGN.h / 2) * s;
   const main = 3.4 * k * s * (o.lay.width / 100);
@@ -99,10 +97,8 @@ function names(ctx: CanvasRenderingContext2D, o: OverlayInput, s: number, W: num
   o.agents.forEach((a, i) => {
     if (talking.has(i)) return;
     const d = o.lay.desks[i];
-    const pod = o.lay.pods[d.pod];
     const x = d.x * s;
-    // the hall's plates: over the head in the far row, under the chair in the near one
-    const y = !pod ? (d.top - 2) * s : d.face === "front" ? (pod.d - 14) * s : (pod.d + 42) * s + size * 1.2;
+    const y = (d.top - 2) * s;
     if (o.alert?.kind === "ask" && o.alert.agent === i) {
       const text = fit(ctx, `${a.name.toLowerCase()} · ${o.alert.text}`, W * 0.26);
       const w = ctx.measureText(text).width + size * 0.9;
@@ -219,8 +215,8 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, o: OverlayInput, s: n
   const W = o.lay.width * s;
   const H = o.lay.height * s;
   const k = 384 / o.lay.width;
-  const talking = new Set(o.bubbles.filter((b) => b.seated && o.lay.desks[b.agent]?.face !== "back").map((b) => b.agent));
-  if (!o.noSign) neon(ctx, o, s, k);
+  const talking = new Set(o.bubbles.filter((b) => b.seated).map((b) => b.agent));
+  neon(ctx, o, s, k);
   names(ctx, o, s, W, talking);
   for (const c of o.cats) catName(ctx, c, s, W);
   for (const b of o.bubbles) bubble(ctx, b, o.agents[b.agent], s, W);

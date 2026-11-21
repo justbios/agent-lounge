@@ -5,7 +5,7 @@ import { Cat, Coat } from "./cat";
 import { Costume } from "./halloween";
 import { Look, drawPerson, drawSeated, lookFor } from "./people";
 import { Ctx, LINE, glow, px } from "./pixel";
-import { barSeats, doorOf } from "./room";
+import { BAR_SEATS, doorOf } from "./room";
 
 export const GOLD_COAT: Coat = { fur: "#e8b830", dark: "#b8862a", belly: "#fff1b0" };
 const COURIER: Look = lookFor(3, "#d9534f", { style: 3, accent: "#ffd25a", accentDark: "#c9962a" });
@@ -21,23 +21,20 @@ export interface VisitorFrame {
   seat: Point;
 }
 
-/** The stool a visitor takes: the bistro table's last one, which those with the café open fill only when all six are there. */
-export function visitorSeat(guests: number, lay?: CafeLayout): Point | null {
-  const seats = barSeats(lay?.width, lay?.front);
-  return guests < seats.length ? seats[seats.length - 1] : null;
-}
+/** The stool a visitor takes: the last one, which those with the café open fill only when all six are there. */
+export const visitorSeat = (guests: number): Point | null =>
+  guests < BAR_SEATS.length ? BAR_SEATS[BAR_SEATS.length - 1] : null;
 
 const paths = new WeakMap<CafeLayout, Point[]>();
 
-/** In at the door, along the front aisle and up to the stool. */
+/** In at the door, up the aisles to the counter's band, along it to the stool. */
 function pathIn(lay: CafeLayout, seat: Point): Point[] {
   const known = paths.get(lay);
-  if (known && known[known.length - 1].x === seat.x) return known;
+  if (known) return known;
   const d = doorOf(lay);
   const last = lay.walkY.length - 1;
   const door = { x: d.x + d.w / 2, y: lay.walkY[last] };
-  const stop = { x: seat.x, y: seat.y + 9 };
-  const p = [{ x: door.x, y: lay.height + 2 }, ...route(lay, door, last, stop, last)];
+  const p = [{ x: door.x, y: lay.height + 2 }, ...route(lay, door, last, { x: seat.x, y: lay.walkY[0] }, 0)];
   paths.set(lay, p);
   return p;
 }

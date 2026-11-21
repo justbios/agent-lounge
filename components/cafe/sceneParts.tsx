@@ -1,12 +1,12 @@
 import { CSSProperties } from "react";
-import { CafeLayout, seatBox } from "@/lib/cafe/layout";
+import { CafeLayout } from "@/lib/cafe/layout";
 import { CafeModel } from "@/lib/cafe/model";
 import { Bubble, CafeTimeline, agentView } from "@/lib/cafe/timeline";
 import { Point } from "@/lib/layout";
 import { ItemId } from "@/lib/live/interior";
 import { chip, line, useSpeech } from "@/lib/live/speech";
 import { FixtureKind } from "./hit";
-import { doorOf, fixturesOf } from "./room";
+import { doorOf, fixtures } from "./room";
 
 const TYPE_MS_PER_CHAR = 22;
 
@@ -52,22 +52,19 @@ export function fixtureAnchor(lay: CafeLayout, kind: FixtureKind, p: Point): Anc
     const d = doorOf(lay);
     return anchorAt(lay, d.x + d.w / 2, d.y - 8, d.y);
   }
-  const fx = fixturesOf(lay);
   if (kind === "vending") {
-    const v = fx.VENDING;
+    const v = fixtures(lay.width).VENDING;
     return anchorAt(lay, v.x + v.w / 2, v.y, v.y + v.h);
   }
-  if (kind === "bar") return anchorAt(lay, p.x, p.y - 10, p.y + 12);
-  if (kind === "games") return anchorAt(lay, fx.ARCADE.x + 9, fx.ARCADE.y, fx.ARCADE.y + fx.ARCADE.h);
-  return anchorAt(lay, p.x, 4, 46);
+  if (kind === "bar") return anchorAt(lay, 24, 63, 126);
+  return anchorAt(lay, p.x, 4, 36);
 }
 
 export function agentAnchor(model: CafeModel, tl: CafeTimeline, lay: CafeLayout, i: number, clock: number): Anchor {
   const w = agentView(model, tl, lay, i, clock).walker;
-  const b = seatBox(lay, i);
   const x = w ? w.x : lay.desks[i].x;
-  const top = w ? w.y - 26 : b.y;
-  const bottom = w ? w.y + 2 : b.y + b.h;
+  const top = w ? w.y - 26 : lay.desks[i].top - 4;
+  const bottom = w ? w.y + 2 : lay.desks[i].top + 46;
   const below = top < lay.height * 0.5;
   return { x: x / lay.width, y: (below ? top : bottom) / lay.height, below, beside: x > lay.width / 2 ? "left" : "right" };
 }

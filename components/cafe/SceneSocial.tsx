@@ -24,7 +24,7 @@ export function GuestTags({ seats, more, pos }: { seats: GuestSeat[]; more: numb
         </span>
       ))}
       {more > 0 && (
-        <span className="cafe-guest" style={pos(40, 118)}>
+        <span className="cafe-guest" style={pos(23, 127)}>
           +{more}
         </span>
       )}
@@ -36,7 +36,7 @@ export function GuestTags({ seats, more, pos }: { seats: GuestSeat[]; more: numb
 export function ChatTag({ unread, pos }: { unread: number; pos: Pos }) {
   if (!unread) return null;
   return (
-    <span className="cafe-chat" style={pos(44, 70)}>
+    <span className="cafe-chat" style={pos(33, 54)}>
       💬 {unread}
     </span>
   );

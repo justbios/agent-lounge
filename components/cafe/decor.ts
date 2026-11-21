@@ -33,7 +33,8 @@ function drawGarland(ctx: Ctx, width: number, t: number, lit: boolean) {
 }
 
 function drawTrophy(ctx: Ctx, width: number) {
-  const x = fixtures(width).SHELVES.x + 41;
+  const { VENDING } = fixtures(width);
+  const x = VENDING.x + 1;
   paint(
     ctx,
     [[x, 34, 7, 3], [x + 3, 32, 1, 2], [x + 1, 27, 5, 5], [x, 28, 1, 2], [x + 6, 28, 1, 2]],
@@ -143,7 +144,7 @@ export function drawAquarium(ctx: Ctx, t: number, x: number, b: number) {
 }
 
 function drawExtinguisher(ctx: Ctx, width: number) {
-  const x = width - 20;
+  const x = fixtures(width).VENDING.x - 9;
   paint(
     ctx,
     [[x, 39, 5, 9], [x + 1, 37, 3, 2]],
@@ -171,6 +172,6 @@ export function drawDecorLights(ctx: Ctx, lay: CafeLayout, decor: DecorSet, t: n
   if (!decor.size) return;
   ctx.globalCompositeOperation = "lighter";
   if (decor.has("garland")) drawGarland(ctx, lay.width, t, true);
-  if (decor.has("goldMachine")) glow(ctx, 25, 50, 14, GOLD, 0.12);
+  if (decor.has("goldMachine")) glow(ctx, 10, 56, 14, GOLD, 0.12);
   ctx.globalCompositeOperation = "source-over";
 }

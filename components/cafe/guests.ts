@@ -3,7 +3,7 @@ import { Guest } from "@/lib/live/social";
 import { COSTUMES } from "./halloween";
 import { Look, drawSeated, lookFor } from "./people";
 import { Ctx } from "./pixel";
-import { BAR_SEATS, barSeats } from "./room";
+import { BAR_SEATS } from "./room";
 
 const COATS = ["#5aa9e6", "#f4a259", "#9b5de5", "#43aa8b", "#e5989b", "#c9b458"];
 
@@ -25,15 +25,11 @@ function hashOf(s: string): number {
   return Math.abs(h);
 }
 
-/**
- * The first six take the seats, four at the counter and two at the bistro table, each with a look that stays the same
- * for that tab; the rest only count.
- */
-export function seatGuests(guests: Guest[], ui: Ui = "uk", width = 320, front = 184): GuestSeat[] {
-  const seats = barSeats(width, front);
-  return guests.slice(0, seats.length).map((g, i) => {
+/** The first six take the seats at the bar, each with a look that stays the same for that tab; the rest only count. */
+export function seatGuests(guests: Guest[], ui: Ui = "uk"): GuestSeat[] {
+  return guests.slice(0, BAR_SEATS.length).map((g, i) => {
     const h = hashOf(g.id);
-    const { x, y } = seats[i];
+    const { x, y } = BAR_SEATS[i];
     const tag = g.me ? (ui === "en" ? "you" : "ти") : g.name;
     return { id: g.id, name: g.name, x, y, me: !!g.me, tag, look: lookFor(h, COATS[h % COATS.length]) };
   });
