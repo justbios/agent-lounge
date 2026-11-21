@@ -147,6 +147,27 @@ function lastEnd(stints: { start: number; end: number }[], clock: number): numbe
   return end;
 }
 
+/** What an agent's name plate says it is doing. */
+export type Status = "work" | "wait" | "done" | "idle";
+export const STATUS_COLOR: Record<Status, string> = { work: "#62f0ff", wait: "#ffc456", done: "#8ee59b", idle: "#b3a6cf" };
+/** a finished agent keeps its «done» this long before it counts as resting */
+const DONE_MS = 60_000;
+
+/** The status of agent `i`: working (or carrying work), asking the user, just done, or resting. */
+export function seatStatus(
+  model: CafeModel,
+  v: AgentView,
+  i: number,
+  clock: number,
+  alert?: { agent: number; kind: "ask" | "done" },
+): Status {
+  if (alert?.agent === i && alert.kind === "ask") return "wait";
+  if (v.screen === "work" || v.screen === "incoming" || v.walker) return "work";
+  if (alert?.agent === i && alert.kind === "done") return "done";
+  if (v.screen === "done") return clock - lastEnd(model.stints[i] ?? [], clock) < DONE_MS ? "done" : "idle";
+  return "idle";
+}
+
 interface Station {
   pastime: Pastime;
   /** off at the bar, on the couch, at the arcade */

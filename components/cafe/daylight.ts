@@ -17,7 +17,7 @@ export function phaseAt(d: Date): Phase {
   return "night";
 }
 
-const scaleAlpha = (rgba: string, k: number) =>
+export const scaleAlpha = (rgba: string, k: number) =>
   rgba.replace(/rgba\(([^)]+),\s*([\d.]+)\)/, (_, rgb: string, a: string) =>
     `rgba(${rgb},${(Number(a) * k).toFixed(3)})`);
 

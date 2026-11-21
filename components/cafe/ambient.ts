@@ -1,5 +1,6 @@
 import { CafeLayout } from "@/lib/cafe/layout";
 import { AgentView } from "@/lib/cafe/timeline";
+import { scaleAlpha } from "./daylight";
 import { drawPerson, lookFor } from "./people";
 import { Ctx, LINE, glow, px, rand } from "./pixel";
 import { Fixtures, fixtures } from "./room";
@@ -77,8 +78,14 @@ export function drawCupSteam(ctx: Ctx, x: number, y: number, t: number) {
 }
 
 const WINDOW_LIGHT = { day: ["#fff1cc", 0.2], dawn: ["#ffb27a", 0.12], dusk: ["#ff9a6a", 0.1] } as const;
+/** how much of the theme's darkness an open café keeps at night: its lamps are on */
+const NIGHT_DIM = 0.92;
 
-/** Dims the room, then adds every light source on top; a closed café keeps only screens, windows and the machine. */
+/**
+ * Dims the room, then adds every light source on top; a closed café keeps only screens, windows and the machine.
+ * An open café at night is a little less dark and gets pools of light where the light is: around the lamps, under
+ * the windows and on every desk.
+ */
 export function drawLights(
   ctx: Ctx,
   lay: CafeLayout,
@@ -88,7 +95,9 @@ export function drawLights(
   th: Theme = THEMES.cafe,
   closed = false,
 ) {
-  ctx.fillStyle = th.dim;
+  // a theme as written is night
+  const night = !th.light && !closed;
+  ctx.fillStyle = night ? scaleAlpha(th.dim, NIGHT_DIM) : th.dim;
   ctx.fillRect(0, 0, lay.width, lay.height);
   if (closed) {
     ctx.fillStyle = "rgba(3,2,10,0.38)";
@@ -104,11 +113,14 @@ export function drawLights(
   glow(ctx, sx, sy, 74, "#ff4fa3", 0.16 * flick * sign);
   glow(ctx, sx, sy - 3, 44, "#5ce1ff", 0.1 * flick * sign);
   if (!closed) for (const x of SCONCES) glow(ctx, x, 13, 34, th.lampGlow, 0.22);
+  if (night) for (const x of SCONCES) glow(ctx, x, 24, 56, th.lampGlow, 0.09);
   const lit = !keepsSky(th) && th.light && th.light !== "night" ? WINDOW_LIGHT[th.light] : null;
   const [wc, wa] = lit ?? [th.windowGlow, 0.06];
   for (const w of WINDOWS) glow(ctx, w.x + w.w / 2, 20, 40, wc, wa);
+  if (night) for (const w of WINDOWS) glow(ctx, w.x + w.w / 2, 44, 46, th.windowGlow, 0.07);
   glow(ctx, VENDING.x + 12, VENDING.y + 22, 36, "#59d8ff", 0.15);
-  if (!closed) for (const top of lay.bands) glow(ctx, lay.width / 2, top + 30, 160, th.warm, 0.045);
+  if (!closed) for (const top of lay.bands) glow(ctx, lay.width / 2, top + 30, 160, th.warm, night ? 0.055 : 0.045);
+  if (night) for (const d of lay.desks) glow(ctx, d.x, d.top + 23, 27, th.warm, 0.1);
 
   views.forEach((v, i) => {
     const d = lay.desks[i];

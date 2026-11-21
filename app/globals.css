@@ -1303,21 +1303,258 @@ body {
     0 0 6px #ff4fa3,
     0 0 14px #ff4fa3;
 }
-.cafe-name {
+/* an agent's name plate over its monitor: the name, and under it what the agent is doing, in that state's colour.
+   components/cafe/plates.ts keeps the plates clear of each other and of everyone's head and monitor */
+.cafe-plate {
   position: absolute;
   transform: translate(-50%, -100%);
-  max-width: calc(17cqw * var(--k, 1));
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-width: 11em;
+  font-family: var(--sans);
+  font-size: max(16px, calc(1.1574cqw * var(--k, 1)));
+  white-space: nowrap;
+  color: #f4eeff;
+  background: #120e1c;
+  border: max(2px, 0.15em) solid var(--c);
+  box-shadow: 2px 2px 0 #07050d;
+}
+/* placed by plates.ts: its own spot, width and size */
+.cafe-plate.placed {
+  transform: none;
+  font-size: var(--pf);
+}
+.cafe-plate.placed i {
+  font-size: var(--sf);
+}
+.cafe-plate b {
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: clamp(7px, 1.3cqw, 13px);
-  line-height: 1;
-  letter-spacing: 0.04em;
+  padding: 0.2em 0.6em 0.15em;
+  font-size: 1em;
+  font-weight: 600;
+  line-height: 1.2;
+  background: #1a1428;
+}
+.cafe-plate i {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.0625em 0.75em 0.3125em;
+  font-size: max(13px, 0.8em);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--c);
+}
+.cafe-plate i::before {
+  content: "";
+  display: inline-block;
+  width: 0.5em;
+  height: 0.5em;
+  margin-right: 0.4375em;
+  background: var(--c);
+}
+/* a phone has no room for plates, and they do not shrink: numbers in the picture, the names in a list under it */
+@container (max-width: 559px) {
+  .cafe-plate {
+    display: none;
+  }
+}
+.cafe-badge {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  min-width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 16px;
+  color: #120e1c;
+  background: var(--c);
+  border: 2px solid #120e1c;
+  box-shadow: 2px 2px 0 #07050d;
+}
+.cafe-badge.warn {
+  outline: 2px solid #ff9f43;
+}
+.cafe-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  font-family: var(--sans);
+}
+.cafe-legend ol {
+  margin: 0;
+  padding: 0 2px;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 5px 16px;
+}
+.cafe-legend li > button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 20px;
   white-space: nowrap;
-  opacity: 0.92;
-  text-shadow:
-    1px 1px 0 #07050d,
-    -1px 0 0 #07050d,
-    0 -1px 0 #07050d;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.cafe-legend .cl-n {
+  flex: none;
+  min-width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  padding: 0 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #120e1c;
+  background: var(--c);
+  border: 1px solid var(--c);
+}
+.cafe-legend li b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+  color: #f4eeff;
+}
+.cafe-legend li i {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: normal;
+  color: var(--c);
+}
+.cafe-legend button.warn .cl-n {
+  outline: 2px solid #ff9f43;
+}
+/* the question, where the picture has no room for its card */
+.cafe-ask-flat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 20px;
+  text-align: left;
+  color: #f4eeff;
+  background: #221a34;
+  border: 2px solid #ffc456;
+  box-shadow: 2px 2px 0 #07050d;
+  cursor: pointer;
+}
+.cafe-ask-flat .cl-n {
+  --c: #ffc456;
+}
+.cafe-ask-flat b {
+  font-weight: 600;
+  color: #ffc456;
+}
+/* the question card beside the asking agent, or over its monitor in place of its plate; placed by plates.ts */
+.cafe-ui {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+.cafe-ask {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  box-sizing: border-box;
+  padding: 0.7em 0.8em 0.8em;
+  pointer-events: auto;
+  cursor: pointer;
+  text-align: left;
+  white-space: normal;
+  font-family: var(--sans);
+  font-size: var(--pf, 16px);
+  color: #f4eeff;
+  background: #221a34;
+  border: max(2px, 0.15em) solid #ffc456;
+  box-shadow: 2px 2px 0 #07050d;
+}
+/* a square tab towards the agent */
+.cafe-ask::after {
+  content: "";
+  position: absolute;
+  width: 0.5em;
+  height: 0.5em;
+  background: #ffc456;
+}
+.cafe-ask.right::after {
+  top: 0.75em;
+  right: 100%;
+  margin-right: max(2px, 0.15em);
+}
+.cafe-ask.left::after {
+  top: 0.75em;
+  left: 100%;
+  margin-left: max(2px, 0.15em);
+}
+.cafe-ask.above::after {
+  top: 100%;
+  left: calc(var(--tail) - 0.25em - max(2px, 0.15em));
+  margin-top: max(2px, 0.15em);
+}
+.cafe-ask b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85em;
+  font-weight: 600;
+  line-height: 1.18;
+  white-space: nowrap;
+  color: #ffc456;
+}
+.cafe-ask span {
+  display: -webkit-box;
+  -webkit-line-clamp: var(--lines, 4);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 1em;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.cafe-ask:hover {
+  background: #2a2040;
+}
+/* a question keeps the slow amber ring the old asking name had */
+.cafe-ask,
+.cafe-ask-flat {
+  animation: ask-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ask-pulse {
+  50% {
+    box-shadow:
+      2px 2px 0 #07050d,
+      0 0 0 4px rgba(255, 196, 86, 0.28);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cafe-ask,
+  .cafe-ask-flat {
+    animation: none;
+  }
 }
 .cafe-bubble {
   --bg: #f7f2e6;
@@ -1397,6 +1634,13 @@ body {
   border-radius: 2px;
   background: var(--ink);
   color: var(--c);
+}
+/* the agent's number, where numbers stand in for the name plates */
+.cb-n {
+  padding: 0.05em 0.4em;
+  font-weight: 700;
+  background: var(--ink);
+  color: var(--bg);
 }
 .cafe-bubble.warn {
   box-shadow:
@@ -1584,31 +1828,6 @@ body {
   50% {
     box-shadow: 0 0 0 4px rgba(255, 210, 90, 0.25);
   }
-}
-.cafe-name.ask {
-  max-width: calc(26cqw * var(--k, 1));
-  padding: 0.25em 0.45em;
-  border-radius: 3px;
-  background: #ffd25a;
-  color: #1d1708 !important;
-  text-shadow: none;
-  opacity: 1;
-  animation: flag-pulse 1.4s ease-in-out infinite;
-}
-.cafe-name.ask b {
-  font-weight: 600;
-}
-.cafe-name.warn {
-  max-width: calc(26cqw * var(--k, 1));
-  padding: 0.25em 0.45em;
-  border-radius: 3px;
-  background: #ff9f43;
-  color: #2a1505 !important;
-  text-shadow: none;
-  opacity: 1;
-}
-.cafe-name.warn b {
-  font-weight: 600;
 }
 .alerts {
   position: relative;
@@ -2540,6 +2759,10 @@ body {
 
 /* ---------- clickable scene, drawers, full screen ---------- */
 .cafe-wrap {
+  position: relative;
+}
+/* the picture alone, without the list of names a phone gets under it: popovers are placed over this */
+.cafe-room {
   position: relative;
 }
 .cafe-pops {
@@ -4906,13 +5129,6 @@ body {
 .ac-nick input:focus {
   outline: none;
   border-color: var(--c, var(--border-2));
-}
-.cafe-name.plate {
-  padding: 1px 3px;
-  border: 1px solid currentColor;
-  border-radius: 2px;
-  background: rgba(7, 5, 13, 0.82);
-  text-shadow: none;
 }
 .shop-name {
   display: flex;
@@ -7856,21 +8072,21 @@ body {
   justify-content: center;
 }
 
-/* the stage and, on a wide screen, the agents and the log beside it */
+/* the stage and, on a wide screen, the agents and the log under it, side by side: the room takes the whole width */
 .stage-grid.with-side {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
-  align-items: start;
-}
-.stage-side {
-  position: sticky;
-  top: 70px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  max-height: calc(100dvh - 180px);
-  min-height: 0;
+  gap: 0;
+}
+.stage-side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 16px;
+}
+.stage-side .side-log {
+  max-height: 520px;
 }
 .stage-side > div {
   min-height: 0;

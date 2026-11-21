@@ -30,12 +30,13 @@ import { BLACK_CAT, Cat, DOG } from "./cat";
 import { clipFrame, clipWanted, sceneMounted } from "./clip";
 import { themeAt, usePhase } from "./daylight";
 import { DecorSet } from "./decor";
-import { Ghost, drawFrame } from "./frame";
+import { Ghost, STATUS_COLOR, Status, drawFrame, seatStatus } from "./frame";
 import { CAT2 } from "./furniture";
 import { GuestSeat, barOverflow, seatGuests } from "./guests";
 import { HIT_HINT, Hit, hitTest } from "./hit";
 import { lookFor, pickedLook } from "./people";
 import { Standing, spotAt, standing, standingAt, toPlaced } from "./placement";
+import { PlateIn, placeAsk, placePlates, seatBox } from "./plates";
 import { buildRoom, doorOf, fixtures } from "./room";
 import {
   Anchor,
@@ -64,6 +65,19 @@ const SIGN_TEXT: Two = { uk: "інтернет-кафе", en: "internet café" }
 const LATE_TEXT: Two = { uk: "нічна зміна", en: "night shift" };
 const CLOSED_TEXT: Two = { uk: "зачинено до ранку", en: "closed till morning" };
 const MACHINES: ItemId[] = ["jukebox", "arcade"];
+/** Below this width the name plates turn into numbers, with the names in a list under the picture. */
+const NARROW_PX = 560;
+const STATUS_TEXT: Record<Status, Two> = {
+  work: { uk: "працює", en: "working" },
+  wait: { uk: "питає тебе", en: "asking you" },
+  done: { uk: "готово", en: "done" },
+  idle: { uk: "відпочиває", en: "resting" },
+};
+const ASKS: Two = { uk: "питає тебе", en: "is asking you" };
+const OPEN_CARD: Two = { uk: "відкрити картку агента", en: "open the agent's card" };
+const LEGEND_LABEL: Two = { uk: "агенти в залі", en: "agents in the room" };
+/** a stuck agent's plate, the orange its small name used to turn */
+const WARN_COLOR = "#ff9f43";
 /** the hint for anyone, then for the owner, who may also drag the machine */
 const JUKE_HINT: Two[] = [
   { uk: "музичний автомат: вибрати мелодію", en: "jukebox: pick a tune" },
@@ -182,6 +196,13 @@ export default function CafeScene({
 }) {
   const ui = useUi();
   const [sel, setSel] = useState<string | null>(null);
+  /** the picture's width on screen, 0 until it has been measured */
+  const [wide, setWide] = useState(0);
+  /** the plates' typeface, read once the page has it, for measuring them */
+  const [family, setFamily] = useState<string | null>(null);
+  /** bumped when a web font arrives, so the plates are measured again in the real typeface */
+  const [fontsIn, setFontsIn] = useState(0);
+  const roomRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const catRef = useRef<HTMLSpanElement>(null);
   const cat2Ref = useRef<HTMLSpanElement>(null);
@@ -242,6 +263,25 @@ export default function CafeScene({
   }, [placing]);
 
   useEffect(() => sceneMounted(), []);
+
+  useEffect(() => {
+    const read = () => {
+      widths.clear();
+      setFamily(getComputedStyle(document.body).getPropertyValue("--sans").trim() || "sans-serif");
+      setFontsIn((n) => n + 1);
+    };
+    read();
+    document.fonts?.addEventListener("loadingdone", read);
+    return () => document.fonts?.removeEventListener("loadingdone", read);
+  }, []);
+
+  useEffect(() => {
+    const el = roomRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(([e]) => setWide(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -315,11 +355,70 @@ export default function CafeScene({
   }, [model, agents, lay, tl, cat, cat2, goldCat, th, looks, worn]);
 
   const nameOf = (i: number) => agentName(agents[i], lookOf(looks, agents[i]));
+  const asking = alert?.kind === "ask" && lay.desks[alert.agent] ? alert.agent : -1;
+  const narrow = wide > 0 && wide < NARROW_PX;
+  /** screen pixels to a room pixel */
+  const scale = wide / lay.width;
+  /** what each plate says under the name, and in which colour */
+  const tags = agents.map((_, i) => {
+    const st = seatStatus(model, views[i], i, clock, alert);
+    const warn = st === "wait" ? undefined : warns?.get(i);
+    return { warn, color: warn ? WARN_COLOR : STATUS_COLOR[st], state: warn ? `! ${warn.short}` : STATUS_TEXT[st][ui] };
+  });
+  /** everyone's head and monitor, which no plate may cover */
+  const heads = lay.desks.map((d) => seatBox(d.x, d.top));
+  const planKey = `${fontsIn}|${wide}|${lay.width}|${family}`;
+  /** the plates kept clear of each other, of heads and of monitors; numbers only on a phone, or when even that fails */
+  const plan = (() => {
+    if (narrow || !wide || !family) return undefined;
+    const usual = Object.values(STATUS_TEXT).map((t) => t[ui]);
+    const list: PlateIn[] = agents.map((a, i) => {
+      const d = lay.desks[i];
+      return { key: a.id, x: d.x, top: d.top, row: d.row, name: nameOf(i), state: tags[i].state, states: usual };
+    });
+    return cached(`plan|${planKey}|${JSON.stringify(list)}`, () =>
+      placePlates(list, scale, lay.width, heads, family, measureText),
+    );
+  })();
+  /** the question card beside the asking agent or over its monitor; null when it has to go under the picture */
+  const askSpot = (() => {
+    if (!plan || !family || asking < 0 || !alert) return null;
+    const d = lay.desks[asking];
+    const ask = { key: agents[asking].id, x: d.x, top: d.top, title: `${nameOf(asking)} ${ASKS[ui]}`, text: alert.text };
+    return cached(`ask|${planKey}|${JSON.stringify([ask, [...plan.spots]])}`, () =>
+      placeAsk(ask, plan, scale, lay.width, lay.height, heads, family, measureText),
+    );
+  })();
+  /** the asking agent's plate gives its place to a question card that sits over the monitor */
+  const noPlate = askSpot?.where === "above" ? asking : -1;
+  const spots = agents.map((a, i) => (i === noPlate ? undefined : plan?.spots.get(a.id)));
+  // the question card already says what the asking agent wants
+  const said = agents
+    .map((_, i) => bubbleFor(model, tl, lay, i, views[i], clock))
+    .filter((b): b is Bubble => b != null && !(b.seated && askSpot && b.agent === asking));
+  /**
+   * agents speaking from a plate too close to the top wall to fit their speech over it: the speech takes the plate's
+   * place, as it took the old name's
+   */
+  const cramped = new Set(
+    said.filter((b) => b.seated && (spots[b.agent]?.t ?? Infinity) < bubbleRoom(wide)).map((b) => b.agent),
+  );
+  /** each agent's plate on screen, in screen pixels from the room's top left; none until the plates are down */
+  const plates = spots.map((b, i) => (cramped.has(i) ? undefined : b));
+  const badges = narrow || plan === null;
+  const flatAsk = asking >= 0 && (badges || (plan !== undefined && !askSpot));
   const pointAt = (e: MouseEvent | PointerEvent): Point => {
     const r = e.currentTarget.getBoundingClientRect();
     return { x: ((e.clientX - r.left) / r.width) * lay.width, y: ((e.clientY - r.top) / r.height) * lay.height };
   };
   const hitAt = (p: Point): Hit | null => {
+    // a plate lies over whoever walks behind it, and is its agent to click
+    const x = p.x * scale;
+    const y = p.y * scale;
+    for (let i = 0; i < plates.length; i++) {
+      const b = plates[i];
+      if (b && x >= b.l && x < b.r && y >= b.t && y < b.b) return { kind: "agent", agent: i };
+    }
     const at = agents.map((_, i) => agentView(model, tl, lay, i, clockRef.current));
     return hitTest(lay, at, cat.pos, p, beans != null);
   };
@@ -438,124 +537,243 @@ export default function CafeScene({
     left: `${(x / lay.width) * 100}%`,
     top: `${(y / lay.height) * 100}%`,
   });
-  const bubbles = agents
-    .map((_, i) => bubbleFor(model, tl, lay, i, views[i], clock))
-    .filter((b): b is Bubble => b != null);
+  /** the top of an agent's plate in the room's own pixels, once the plates are down */
+  const plateTop = (i: number) => {
+    const b = plates[i];
+    return b ? b.t / scale : undefined;
+  };
+  // everyone at a desk speaks from over their plate
+  const bubbles = said.map((b) => (b.seated ? { ...b, y: (plateTop(b.agent) ?? b.y + 2) - 2 } : b));
   const door = doorOf(lay);
   const talking = new Set(bubbles.filter((b) => b.seated).map((b) => b.agent));
   const reactAt = (i: number) => {
     const w = agentView(model, tl, lay, i, clock).walker;
-    return w ? { x: w.x, y: w.y - 24 } : { x: lay.desks[i].x, y: lay.desks[i].top - 6 };
+    return w ? { x: w.x, y: w.y - 24 } : { x: lay.desks[i].x, y: (plateTop(i) ?? lay.desks[i].top - 4) - 2 };
+  };
+  /** a plate's place and size from the plan; until the room has been measured the CSS puts it over the monitor */
+  const placed = (i: number): CSSProperties | null => {
+    const b = plates[i];
+    if (!plan || !b) return null;
+    return {
+      left: `${(b.l / wide) * 100}%`,
+      top: `${(b.t / (lay.height * scale)) * 100}%`,
+      width: b.r - b.l,
+      "--pf": `${plan.font}px`,
+      "--sf": `${plan.small}px`,
+    } as CSSProperties;
   };
 
   return (
     <div className="cafe-wrap" style={{ "--ar": lay.width / lay.height } as CSSProperties}>
-      <div className="arcade cafe" style={{ "--k": 384 / lay.width } as CSSProperties}>
-        <canvas
-          ref={canvasRef}
-          width={lay.width}
-          height={lay.height}
-          onClick={click}
-          onPointerDown={down}
-          onPointerMove={move}
-          onPointerUp={up}
-          onPointerCancel={cancel}
-          onPointerLeave={() => {
-            if (!dragRef.current?.on) ghostRef.current = null;
-          }}
-          aria-label={sceneLabel(ui, dog)}
-        />
-        <div className="cafe-overlay" aria-hidden>
-          <div className={`cafe-neon ${closed ? "off" : ""}`} style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
-            <span className="cafe-neon-main" style={{ "--fit": titleFit(title) } as CSSProperties}>
-              {title}
-            </span>
-            <span className="cafe-neon-sub">{sub}</span>
-          </div>
-          {closed && (
-            <span className="cafe-closed" style={pos(door.x + door.w / 2, door.y - 3)}>
-              {tr(ui, "зачинено", "closed")}
-            </span>
-          )}
-          <span className={`cafe-meter ${rate > 0 ? "on" : ""}`} style={pos(METER.x + METER.w / 2, METER.y + METER.h / 2)}>
-            {`${rate > 0 ? fmtTokens(rate, ui) : "0"} ${tr(ui, "ток/хв", "tok/min")}`}
-          </span>
-          {agents.map((a, i) => {
-            if (talking.has(i)) return null;
-            const ask = alert?.kind === "ask" && alert.agent === i;
-            const warn = ask ? undefined : warns?.get(i);
-            const nick = lookOf(looks, a)?.name && nameOf(i);
-            return (
-              <span
-                key={a.id}
-                className={`cafe-name ${ask ? "ask" : warn ? "warn" : ""} ${nick ? "plate" : ""}`}
-                style={{ ...pos(lay.desks[i].x, lay.desks[i].top - 2), color: a.color }}
-              >
-                {warn && "! "}
-                {nick ?? a.name.toLowerCase()}
-                {ask && <b> · {alert.text}</b>}
-                {warn && <b> · {warn.short}</b>}
+      <div className="cafe-room">
+        <div className="arcade cafe" ref={roomRef} style={{ "--k": 384 / lay.width } as CSSProperties}>
+          <canvas
+            ref={canvasRef}
+            width={lay.width}
+            height={lay.height}
+            onClick={click}
+            onPointerDown={down}
+            onPointerMove={move}
+            onPointerUp={up}
+            onPointerCancel={cancel}
+            onPointerLeave={() => {
+              if (!dragRef.current?.on) ghostRef.current = null;
+            }}
+            aria-label={sceneLabel(ui, dog)}
+          />
+          <div className="cafe-overlay" aria-hidden>
+            <div className={`cafe-neon ${closed ? "off" : ""}`} style={pos(SIGN.x + SIGN.w / 2, SIGN.y + SIGN.h / 2)}>
+              <span className="cafe-neon-main" style={{ "--fit": titleFit(title) } as CSSProperties}>
+                {title}
               </span>
-            );
-          })}
-          <GuestTags seats={seats} more={barOverflow(guests ?? [])} pos={pos} />
-          <VisitorTag lay={lay} guests={seats.length} on={visitors && !closed} pos={pos} />
-          <ChatTag unread={chatUnread} pos={pos} />
-          <BeanSack beans={beans} pos={pos} />
-          {beans != null && <BeanGains list={gains} pos={pos} />}
-          <JukeTag playing={playing} at={shown.find((s) => s.item === "jukebox")} pos={pos} />
-          {reactions && <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />}
-          {catName && (
-            <span ref={catRef} className="cafe-cat">
-              {catName}
+              <span className="cafe-neon-sub">{sub}</span>
+            </div>
+            {closed && (
+              <span className="cafe-closed" style={pos(door.x + door.w / 2, door.y - 3)}>
+                {tr(ui, "зачинено", "closed")}
+              </span>
+            )}
+            <span className={`cafe-meter ${rate > 0 ? "on" : ""}`} style={pos(METER.x + METER.w / 2, METER.y + METER.h / 2)}>
+              {`${rate > 0 ? fmtTokens(rate, ui) : "0"} ${tr(ui, "ток/хв", "tok/min")}`}
             </span>
+            {agents.map((a, i) => {
+              const d = lay.desks[i];
+              const { warn, color, state } = tags[i];
+              if (badges) {
+                // on a phone a talking agent's number rides in its speech bubble
+                if (talking.has(i)) return null;
+                return (
+                  <span
+                    key={a.id}
+                    className={`cafe-badge ${warn ? "warn" : ""}`}
+                    style={{ ...pos(d.x, d.top - 2), "--c": color } as CSSProperties}
+                  >
+                    {i + 1}
+                  </span>
+                );
+              }
+              if (i === noPlate || cramped.has(i)) return null;
+              const spot = placed(i);
+              return (
+                <span
+                  key={a.id}
+                  className={`cafe-plate ${spot ? "placed" : ""}`}
+                  style={{ ...(spot ?? pos(d.x, d.top - 3)), "--c": color } as CSSProperties}
+                >
+                  <b>{nameOf(i)}</b>
+                  <i>{state}</i>
+                </span>
+              );
+            })}
+            <GuestTags seats={seats} more={barOverflow(guests ?? [])} pos={pos} />
+            <VisitorTag lay={lay} guests={seats.length} on={visitors && !closed} pos={pos} />
+            <ChatTag unread={chatUnread} pos={pos} />
+            <BeanSack beans={beans} pos={pos} />
+            {beans != null && <BeanGains list={gains} pos={pos} />}
+            <JukeTag playing={playing} at={shown.find((s) => s.item === "jukebox")} pos={pos} />
+            {reactions && <ReactionLayer list={reactions} anchor={reactAt} pos={pos} />}
+            {catName && (
+              <span ref={catRef} className="cafe-cat">
+                {catName}
+              </span>
+            )}
+            {cat2Name && (
+              <span ref={cat2Ref} className="cafe-cat">
+                {cat2Name}
+              </span>
+            )}
+            {bubbles.map((b) => (
+              <CafeBubble
+                key={b.key}
+                b={b}
+                name={nameOf(b.agent)}
+                color={agents[b.agent].color}
+                style={pos(b.x, b.y)}
+                warn={alert?.kind === "ask" && alert.agent === b.agent ? undefined : warns?.get(b.agent)}
+                n={badges && b.seated ? b.agent + 1 : undefined}
+              />
+            ))}
+          </div>
+          {askSpot && plan && (
+            <div className="cafe-ui">
+              <button
+                className={`cafe-ask ${askSpot.where}`}
+                style={
+                  {
+                    left: `${(askSpot.l / wide) * 100}%`,
+                    top: `${(askSpot.t / (lay.height * scale)) * 100}%`,
+                    width: askSpot.r - askSpot.l,
+                    "--pf": `${plan.font}px`,
+                    "--lines": askSpot.lines,
+                    "--tail": `${askSpot.tail}px`,
+                  } as CSSProperties
+                }
+                onClick={() => setSel(agents[asking].id)}
+                title={OPEN_CARD[ui]}
+              >
+                <b>
+                  {nameOf(asking)} {ASKS[ui]}
+                </b>
+                <span>{alert?.text}</span>
+              </button>
+            </div>
           )}
-          {cat2Name && (
-            <span ref={cat2Ref} className="cafe-cat">
-              {cat2Name}
-            </span>
+        </div>
+        <div className="cafe-pops">
+          {selIdx >= 0 && (
+            <ScenePop
+              anchor={agentAnchor(model, tl, lay, selIdx, clock)}
+              color={agents[selIdx].color}
+              label={nameOf(selIdx)}
+              onClose={() => setSel(null)}
+            >
+              <AgentCard
+                model={model}
+                view={agentView(model, tl, lay, selIdx, clock)}
+                agent={selIdx}
+                clock={clock}
+                eta={etas?.[selIdx] ?? null}
+                nameOf={nameOf}
+                asking={alert?.kind === "ask" && alert.agent === selIdx ? alert.text : undefined}
+                stuck={warns?.get(selIdx)?.long}
+                onPick={(i) => setSel(agents[i].id)}
+                onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
+                look={lookOf(looks, agents[selIdx])}
+                onLook={onLook && ((pick) => onLook(agents[selIdx], pick))}
+                costume={worn?.[selIdx] ?? null}
+                wardrobe={dress?.owned}
+                onDress={dress?.set && ((c) => dress.set?.(selIdx, c))}
+              />
+            </ScenePop>
           )}
-          {bubbles.map((b) => (
-            <CafeBubble
-              key={b.key}
-              b={b}
-              name={nameOf(b.agent)}
-              color={agents[b.agent].color}
-              style={pos(b.x, b.y)}
-              warn={alert?.kind === "ask" && alert.agent === b.agent ? undefined : warns?.get(b.agent)}
-            />
-          ))}
+          {pops}
         </div>
       </div>
-      <div className="cafe-pops">
-        {selIdx >= 0 && (
-          <ScenePop
-            anchor={agentAnchor(model, tl, lay, selIdx, clock)}
-            color={agents[selIdx].color}
-            label={nameOf(selIdx)}
-            onClose={() => setSel(null)}
-          >
-            <AgentCard
-              model={model}
-              view={agentView(model, tl, lay, selIdx, clock)}
-              agent={selIdx}
-              clock={clock}
-              eta={etas?.[selIdx] ?? null}
-              nameOf={nameOf}
-              asking={alert?.kind === "ask" && alert.agent === selIdx ? alert.text : undefined}
-              stuck={warns?.get(selIdx)?.long}
-              onPick={(i) => setSel(agents[i].id)}
-              onReact={onReact && ((emoji) => onReact(selIdx, emoji))}
-              look={lookOf(looks, agents[selIdx])}
-              onLook={onLook && ((pick) => onLook(agents[selIdx], pick))}
-              costume={worn?.[selIdx] ?? null}
-              wardrobe={dress?.owned}
-              onDress={dress?.set && ((c) => dress.set?.(selIdx, c))}
-            />
-          </ScenePop>
-        )}
-        {pops}
-      </div>
+      {(badges || flatAsk) && (
+        <div className="cafe-legend" role="group" aria-label={LEGEND_LABEL[ui]}>
+          {badges && (
+            <ol>
+              {agents.map((a, i) => (
+                <li key={a.id}>
+                  <button
+                    className={tags[i].warn ? "warn" : ""}
+                    style={{ "--c": tags[i].color } as CSSProperties}
+                    onClick={() => setSel(sel === a.id ? null : a.id)}
+                    title={OPEN_CARD[ui]}
+                  >
+                    <span className="cl-n">{i + 1}</span>
+                    <b>{nameOf(i)}</b>
+                    <i>— {tags[i].state}</i>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+          {flatAsk && (
+            <button className="cafe-ask-flat" onClick={() => setSel(agents[asking].id)} title={OPEN_CARD[ui]}>
+              {badges && <span className="cl-n">{asking + 1}</span>}
+              <span>
+                <b>{nameOf(asking)}:</b> {alert?.text}
+              </span>
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+/**
+ * Screen pixels a speech bubble needs over its anchor in a room this wide to show its name row and a line or two of
+ * text, tail included, after the CSS in globals.css (.cafe-bubble).
+ */
+function bubbleRoom(wide: number): number {
+  const font = Math.min(13, Math.max(7, wide * 0.0132));
+  return font * 5 + 6;
+}
+
+let measurer: CanvasRenderingContext2D | null = null;
+const widths = new Map<string, number>();
+/** How wide a line of text is in this font, for keeping the plates apart. */
+function measureText(text: string, font: string): number {
+  const key = `${font}|${text}`;
+  const known = widths.get(key);
+  if (known != null) return known;
+  measurer ??= document.createElement("canvas").getContext("2d");
+  if (!measurer) return text.length * 10;
+  measurer.font = font;
+  const w = measurer.measureText(text).width;
+  if (widths.size > 2000) widths.clear();
+  widths.set(key, w);
+  return w;
+}
+
+const plans = new Map<string, unknown>();
+/** The scene draws many times a second and its plates seldom change: the last few layouts are kept by what went in. */
+function cached<T>(key: string, make: () => T): T {
+  if (plans.has(key)) return plans.get(key) as T;
+  const made = make();
+  if (plans.size > 24) plans.clear();
+  plans.set(key, made);
+  return made;
 }

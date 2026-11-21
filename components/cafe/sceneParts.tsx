@@ -78,12 +78,15 @@ export function CafeBubble({
   color,
   style,
   warn,
+  n,
 }: {
   b: Bubble;
   name: string;
   color: string;
   style: CSSProperties;
   warn?: SceneWarn;
+  /** the agent's number, where numbers stand in for the name plates */
+  n?: number;
 }) {
   const sp = useSpeech();
   const text = line(b, sp);
@@ -95,6 +98,7 @@ export function CafeBubble({
       style={{ ...style, "--c": color } as CSSProperties}
     >
       <div className="cb-hd">
+        {n != null && <span className="cb-n">{n}</span>}
         <span className="cb-who">{name}</span>
         {warn ? <span className="cb-warn">! {warn.short}</span> : tool && <span className="cb-tool">{tool}</span>}
       </div>
