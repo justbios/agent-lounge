@@ -211,7 +211,7 @@ export type SfxName = keyof typeof SOUNDS;
 let ctx: AudioContext | null = null;
 let noiseBuf: AudioBuffer | null = null;
 let on: boolean | null = null;
-const last = new Map<SfxName, number>();
+const last = new Map<string, number>();
 const listeners = new Set<() => void>();
 
 function readOn(): boolean {
@@ -280,23 +280,43 @@ function envelope(ac: AudioContext, t: number, dur: number, vol: number): GainNo
   return g;
 }
 
+/** how a game's own sound is bent as it plays: a rally's bounce climbing in pitch, a soft tap against a hard one */
+export interface SfxBend {
+  /** multiplies every pitch; 1 leaves it alone */
+  pitch?: number;
+  /** multiplies the loudness; 1 leaves it alone */
+  vol?: number;
+}
+
+export type { Spec as SfxSpec, Tone as SfxTone, Noise as SfxNoise };
+export { arp };
+
 /** Plays one of the games' sounds, unless they are off or audio is still locked: then it is dropped, not queued. */
 export function sfx(name: SfxName) {
+  sfxPlay(name, SOUNDS[name]);
+}
+
+/**
+ * Plays a sound a game keeps in its own file, with the same switch, the same lock and the same guard against a
+ * rattle as the shared ones. `id` names it for that guard, so give each sound its own.
+ */
+export function sfxPlay(id: string, spec: Spec, bend?: SfxBend) {
   if (typeof window === "undefined" || !snap()) return;
   const now = performance.now();
-  if (now - (last.get(name) ?? -Infinity) < AGAIN_MS) return;
-  last.set(name, now);
+  if (now - (last.get(id) ?? -Infinity) < AGAIN_MS) return;
+  last.set(id, now);
   const ac = audio();
   if (!ac || ac.state !== "running") return;
-  const spec: Spec = SOUNDS[name];
+  const pitch = bend?.pitch ?? 1;
+  const vol = bend?.vol ?? 1;
   const t0 = ac.currentTime + 0.005;
   for (const n of spec.tones ?? []) {
     const t = t0 + n.at;
     const osc = ac.createOscillator();
     osc.type = n.wave ?? "square";
-    osc.frequency.setValueAtTime(n.f, t);
-    if (n.to) osc.frequency.exponentialRampToValueAtTime(n.to, t + n.dur);
-    osc.connect(envelope(ac, t, n.dur, n.vol ?? 0.12));
+    osc.frequency.setValueAtTime(n.f * pitch, t);
+    if (n.to) osc.frequency.exponentialRampToValueAtTime(n.to * pitch, t + n.dur);
+    osc.connect(envelope(ac, t, n.dur, (n.vol ?? 0.12) * vol));
     osc.start(t);
     osc.stop(t + n.dur + 0.02);
   }
@@ -307,7 +327,7 @@ export function sfx(name: SfxName) {
     const lp = ac.createBiquadFilter();
     lp.type = "lowpass";
     lp.frequency.value = n.cut;
-    src.connect(lp).connect(envelope(ac, t, n.dur, n.vol ?? 0.2));
+    src.connect(lp).connect(envelope(ac, t, n.dur, (n.vol ?? 0.2) * vol));
     src.start(t);
     src.stop(t + n.dur + 0.02);
   }
