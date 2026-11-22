@@ -1,3 +1,4 @@
+import { KICKOFF_MS } from "../../components/games/beats";
 import { Side } from "./duel";
 import { Rules, hashNums } from "./rollback";
 
@@ -9,15 +10,23 @@ export const GOAL_W = 32;
 export const WIN_AT = 5;
 const FRICTION = 0.00025;
 const BOUNCE = 0.9;
-const MAX_PUCK = 0.22;
 export const MAX_MALLET = 0.35;
 /** ms a step stands for, played as SUBS moves of the mallets and the puck */
 export const STEP_MS = 8;
 const SUBS = 2;
 const SUB_MS = STEP_MS / SUBS;
-/** the countdown before the first puck, and the pause after a goal, in steps */
-export const FIRST_STEPS = 188;
-const NEXT_STEPS = 150;
+/** the first puck comes when every real-time game's does, and the next one once a goal has had its moment; in steps */
+export const FIRST_STEPS = Math.round(KICKOFF_MS / STEP_MS);
+export const NEXT_STEPS = 250;
+/**
+ * A puck nobody scores with warms up: every HEAT_STEPS it has been in play it may fly faster and loses less on the
+ * boards, three times over. A goal cools the next one down. So a match between two good defenders still ends.
+ */
+export const HEAT_STEPS = 1250;
+export const HEAT_TOP = 3;
+/** the fastest a puck goes at each heat, units/ms, and how much of its speed it keeps off a wall */
+export const PUCK_TOP: readonly number[] = [0.22, 0.26, 0.3, 0.35];
+const WALL_KEEPS: readonly number[] = [BOUNCE, 0.93, 0.96, 1];
 /** where a mallet is aimed at, in steps of 1/AIM units, so every screen reads the same number */
 const AIM = 8;
 const SIDES: readonly Side[] = ["x", "o"];
@@ -63,7 +72,7 @@ export function aimAt(s: Side, x: number, y: number): Aim {
 
 const inMouth = (x: number) => Math.abs(x - W / 2) < GOAL_W / 2;
 
-function hit(p: Puck, m: Mallet): Puck {
+function hit(p: Puck, m: Mallet, top: number): Puck {
   const dx = p.x - m.x;
   const dy = p.y - m.y;
   const d = Math.sqrt(dx * dx + dy * dy);
@@ -79,25 +88,26 @@ function hit(p: Puck, m: Mallet): Puck {
     vy -= (1 + BOUNCE) * rel * ny;
   }
   const v = Math.sqrt(vx * vx + vy * vy);
-  const k = v > MAX_PUCK ? MAX_PUCK / v : 1;
+  const k = v > top ? top / v : 1;
   return { x: m.x + nx * min, y: m.y + ny * min, vx: vx * k, vy: vy * k };
 }
 
 /**
  * The puck a few ms on: friction, both mallets, the side walls and the end walls beside each goal. `goal` is the side
- * whose goal it went into.
+ * whose goal it went into. `heat` is how warm the puck is, 0 to HEAT_TOP.
  */
-export function glide(p0: Puck, dt: number, ms: readonly Mallet[]): { p: Puck; goal: Side | null } {
+export function glide(p0: Puck, dt: number, ms: readonly Mallet[], heat = 0): { p: Puck; goal: Side | null } {
   const slow = Math.max(0, 1 - FRICTION * dt);
+  const keeps = WALL_KEEPS[heat];
   let p: Puck = { x: p0.x + p0.vx * dt, y: p0.y + p0.vy * dt, vx: p0.vx * slow, vy: p0.vy * slow };
-  for (const m of ms) p = hit(p, m);
-  if (p.x < PUCK_R) p = { ...p, x: 2 * PUCK_R - p.x, vx: Math.abs(p.vx) * BOUNCE };
-  else if (p.x > W - PUCK_R) p = { ...p, x: 2 * (W - PUCK_R) - p.x, vx: -Math.abs(p.vx) * BOUNCE };
+  for (const m of ms) p = hit(p, m, PUCK_TOP[heat]);
+  if (p.x < PUCK_R) p = { ...p, x: 2 * PUCK_R - p.x, vx: Math.abs(p.vx) * keeps };
+  else if (p.x > W - PUCK_R) p = { ...p, x: 2 * (W - PUCK_R) - p.x, vx: -Math.abs(p.vx) * keeps };
   if (inMouth(p.x)) {
     if (p.y > H + PUCK_R) return { p, goal: "x" };
     if (p.y < -PUCK_R) return { p, goal: "o" };
-  } else if (p.y < PUCK_R) p = { ...p, y: 2 * PUCK_R - p.y, vy: Math.abs(p.vy) * BOUNCE };
-  else if (p.y > H - PUCK_R) p = { ...p, y: 2 * (H - PUCK_R) - p.y, vy: -Math.abs(p.vy) * BOUNCE };
+  } else if (p.y < PUCK_R) p = { ...p, y: 2 * PUCK_R - p.y, vy: Math.abs(p.vy) * keeps };
+  else if (p.y > H - PUCK_R) p = { ...p, y: 2 * (H - PUCK_R) - p.y, vy: -Math.abs(p.vy) * keeps };
   return { p, goal: null };
 }
 
@@ -126,7 +136,15 @@ export interface HockeyState {
   serve: number;
   /** whose half it comes on: whoever let the last goal in */
   to: 0 | 1;
+  /** steps this puck has been in play; it warms up with them */
+  hot: number;
   over: boolean;
+}
+
+/** How warm the puck in play is: 0 as it comes on, up to HEAT_TOP. */
+export function heatOf(s: Pick<HockeyState, "hot">): number {
+  const h = Math.floor(s.hot / HEAT_STEPS);
+  return h > HEAT_TOP ? HEAT_TOP : h;
 }
 
 const copyState = (s: HockeyState): HockeyState => ({
@@ -136,6 +154,7 @@ const copyState = (s: HockeyState): HockeyState => ({
   score: [s.score[0], s.score[1]],
   serve: s.serve,
   to: s.to,
+  hot: s.hot,
   over: s.over,
 });
 
@@ -161,6 +180,7 @@ export const HOCKEY: Rules<HockeyState, Aim> = {
     score: [0, 0],
     serve: FIRST_STEPS,
     to: 0,
+    hot: 0,
     over: false,
   }),
   step(s, aims) {
@@ -169,17 +189,20 @@ export const HOCKEY: Rules<HockeyState, Aim> = {
     if (s.serve && s.n >= s.serve) {
       s.puck = { ...startAt(SIDES[s.to]), vx: 0, vy: 0 };
       s.serve = 0;
-    }
+      s.hot = 0;
+    } else if (s.puck) s.hot += 1;
+    const heat = heatOf(s);
     for (let k = 0; k < SUBS; k++) {
       reach(s.mal[0], "x", aims[0]);
       reach(s.mal[1], "o", aims[1]);
       if (!s.puck) continue;
-      const g = glide(s.puck, SUB_MS, s.mal);
+      const g = glide(s.puck, SUB_MS, s.mal, heat);
       s.puck = g.p;
       if (!g.goal) continue;
       const lost = g.goal === "x" ? 0 : 1;
       s.score[1 - lost] += 1;
       s.puck = null;
+      s.hot = 0;
       s.to = lost;
       if (s.score[1 - lost] >= WIN_AT) s.over = true;
       else s.serve = s.n + NEXT_STEPS;
@@ -215,6 +238,7 @@ export const HOCKEY: Rules<HockeyState, Aim> = {
       ...s.score,
       s.serve,
       s.to,
+      s.hot,
       s.over ? 1 : 0,
     ]);
   },
@@ -228,6 +252,7 @@ export const HOCKEY: Rules<HockeyState, Aim> = {
     const [a, b] = s.score;
     if ((s.puck !== null && !puck) || !m0 || !m1 || !fin(a, 0, WIN_AT) || !fin(b, 0, WIN_AT)) return null;
     if (!fin(s.serve, 0, 1e8) || (s.to !== 0 && s.to !== 1) || typeof s.over !== "boolean") return null;
-    return { n: s.n, puck, mal: [m0, m1], score: [a, b], serve: s.serve, to: s.to, over: s.over };
+    if (!fin(s.hot, 0, 1e8) || !Number.isInteger(s.hot)) return null;
+    return { n: s.n, puck, mal: [m0, m1], score: [a, b], serve: s.serve, to: s.to, hot: s.hot, over: s.over };
   },
 };

@@ -1,5 +1,20 @@
 import { AHEAD, BrainFor } from "../botLine";
-import { Aim, GOAL_W, H, HockeyState, MALLET_R, MAX_MALLET, PUCK_R, Puck, STEP_MS, W, aimAt, glide, keepIn } from "../hockey";
+import {
+  Aim,
+  GOAL_W,
+  H,
+  HockeyState,
+  MALLET_R,
+  MAX_MALLET,
+  PUCK_R,
+  Puck,
+  STEP_MS,
+  W,
+  aimAt,
+  glide,
+  heatOf,
+  keepIn,
+} from "../hockey";
 import type { Level } from "../solo";
 
 interface Skill {
@@ -13,6 +28,9 @@ interface Skill {
   wall: number;
   /** how often a quick shot catches it flat-footed: it then stands where it was going until the shot is past */
   fooled: number;
+  /** a warm puck is harder to read: how much more often one catches it out, and how much further off it blocks, per heat */
+  rattled: number;
+  melt: number;
   /** how far off its shots go, as a turn of the shot in radians */
   spread: number;
   /** how often it plays the puck off a side wall */
@@ -33,6 +51,8 @@ const SKILL: Record<Level, Skill> = {
     guard: 9,
     wall: 12,
     fooled: 0.5,
+    rattled: 0.15,
+    melt: 0.5,
     spread: 0.3,
     bank: 0,
     picks: false,
@@ -46,6 +66,8 @@ const SKILL: Record<Level, Skill> = {
     guard: 5,
     wall: 7,
     fooled: 0.1,
+    rattled: 0.1,
+    melt: 0.3,
     spread: 0.12,
     bank: 0.2,
     picks: false,
@@ -59,6 +81,8 @@ const SKILL: Record<Level, Skill> = {
     guard: 2,
     wall: 3,
     fooled: 0.05,
+    rattled: 0.06,
+    melt: 0.2,
     spread: 0.04,
     bank: 0.35,
     picks: true,
@@ -93,13 +117,13 @@ interface P {
 const len = (x: number, y: number) => Math.sqrt(x * x + y * y);
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/** The puck's way on from `p` with no mallet in it, step by step; it ends early on a goal. */
-function read(p: Puck, steps: number): Puck[] {
+/** The puck's way on from `p` with no mallet in it, step by step, as warm as it is; it ends early on a goal. */
+function read(p: Puck, steps: number, heat: number): Puck[] {
   const way: Puck[] = [p];
   let q = p;
   for (let k = 0; k < steps; k++) {
     for (let sub = 0; sub < 2; sub++) {
-      const g = glide(q, STEP_MS / 2, []);
+      const g = glide(q, STEP_MS / 2, [], heat);
       q = g.p;
       if (g.goal) return way;
     }
@@ -161,7 +185,8 @@ export const hockeyBot: BrainFor<HockeyState, Aim> = (seat, level, rnd) => {
     const back = now.y > H / 2 && old.y > H / 2 ? Math.min(past.length - 1, 2) : past.length - 1;
     const from = past[past.length - 1 - back] ?? old;
     // where it takes the puck to be when its mallet gets there, and on from that
-    const way = read(from, back + AHEAD + READ).slice(back + AHEAD);
+    const heat = heatOf(s);
+    const way = read(from, back + AHEAD + READ, heat).slice(back + AHEAD);
     const p = way[0] ?? from;
     const foe = s.mal[1 - seat];
     const rest: P = { x: W / 2 + (p.x - W / 2) * 0.35, y: GUARD_Y };
@@ -170,8 +195,8 @@ export const hockeyBot: BrainFor<HockeyState, Aim> = (seat, level, rnd) => {
     if (inbound && !coming) {
       // a new shot at its goal: how well it reads this one
       const bounced = way.some((q, k) => k > 0 && q.vx * way[k - 1].vx < 0 && q.y < GUARD_Y);
-      slip = (rnd() * 2 - 1) * (skill.guard + (bounced ? skill.wall : 0));
-      frozen = len(p.vx, p.vy) > 0.12 && rnd() < skill.fooled;
+      slip = (rnd() * 2 - 1) * (skill.guard + (bounced ? skill.wall : 0)) * (1 + heat * skill.melt);
+      frozen = len(p.vx, p.vy) > 0.12 && rnd() < skill.fooled + heat * skill.rattled;
     }
     coming = inbound;
     if (frozen && inbound && p.y < hand.y) return move(last, skill.pace);
