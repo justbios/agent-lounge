@@ -4020,175 +4020,102 @@ body {
   color: var(--text);
 }
 .bgame.ttt-game {
-  width: min(280px, 82vw);
+  width: min(340px, 88vw);
 }
-/* Tic-tac-toe: a slate with the # drawn in chalky lines, and a stroke through three in a row. */
+/* Tic-tac-toe: the café's chalk board, drawn on a canvas; over it nine buttons, one a square. */
 .ttt-board {
   position: relative;
-  padding: 8px;
   border: 2px solid #07050d;
-  background: #121829;
-  box-shadow:
-    3px 3px 0 var(--px-drop),
-    inset 2px 2px 0 rgba(255, 255, 255, 0.08),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.4);
+  background: #1d2a25;
+  box-shadow: 3px 3px 0 var(--px-drop);
+  line-height: 0;
 }
 .ttt-board.go {
   border-color: #ffd25a;
 }
+.ttt-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 112 / 122;
+}
 .ttt-grid {
+  position: absolute;
+  top: 16.39%;
+  right: 9.82%;
+  bottom: 9.84%;
+  left: 9.82%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  background: #46527c;
+  grid-template-rows: repeat(3, 1fr);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .ttt-grid button {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
+  min-width: 0;
   padding: 0;
   border: 0;
-  background: #121829 repeating-conic-gradient(rgba(255, 255, 255, 0.025) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .ttt-grid button:enabled {
   cursor: pointer;
 }
-.ttt-grid button:enabled:hover {
-  background-color: #19213a;
-}
-.ttt-grid .mark {
-  width: 62%;
-  height: 62%;
-  filter: drop-shadow(2px 2px 0 #07050d);
-}
-.ttt-grid .ghost {
-  opacity: 0;
-}
-.ttt-grid button:enabled:hover .ghost {
-  opacity: 0.3;
-}
-.ttt-grid .last .mark {
-  animation: mark-pop 260ms steps(5, end) both;
-}
-.ttt-grid .win {
-  background-color: #16301f;
-}
-.ttt-grid .dim .mark {
-  opacity: 0.3;
-}
-@keyframes mark-pop {
-  from {
-    transform: scale(0.2);
-  }
-  60% {
-    transform: scale(1.18);
-  }
-}
-.ttt-line {
-  position: absolute;
-  inset: 8px;
-  width: calc(100% - 16px);
-  height: calc(100% - 16px);
-  overflow: visible;
+.ttt-grid button:disabled {
   pointer-events: none;
 }
-.ttt-line line {
-  stroke-linecap: square;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: ttt-stroke 360ms steps(8, end) 140ms forwards;
-}
-@keyframes ttt-stroke {
-  to {
-    stroke-dashoffset: 0;
-  }
+.ttt-grid button:focus-visible {
+  outline: 2px solid #ffd25a;
+  outline-offset: -3px;
 }
 
-/* Four in a row: seven columns of dark slots in a navy frame; a disc falls down its column and lands with a hop. */
+/* Four in a row: an upright frame on a café table, drawn on a canvas; over it seven buttons, one a column. */
 .bgame.four-game {
-  width: min(340px, 86vw);
+  width: min(388px, 92vw);
 }
 .four-board {
   position: relative;
-  padding: 8px;
   border: 2px solid #07050d;
-  background: #1b2f63;
-  box-shadow:
-    3px 3px 0 var(--px-drop),
-    inset 2px 2px 0 rgba(255, 255, 255, 0.12),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.4);
+  background: #191330;
+  box-shadow: 3px 3px 0 var(--px-drop);
+  line-height: 0;
 }
 .four-board.go {
   border-color: #ffd25a;
 }
+.four-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 128 / 130;
+}
 .four-grid {
+  position: absolute;
+  top: 0;
+  right: 6.25%;
+  bottom: 6%;
+  left: 6.25%;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  overflow: hidden;
+  touch-action: pan-y;
+  -webkit-tap-highlight-color: transparent;
 }
 .four-col {
-  display: grid;
-  gap: 4px;
+  min-width: 0;
   padding: 0;
   border: 0;
   background: none;
+  -webkit-tap-highlight-color: transparent;
 }
 .four-col:enabled {
   cursor: pointer;
 }
-.four-cell {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 1;
-  background: #0a0f1f;
-  box-shadow:
-    inset 2px 2px 0 rgba(0, 0, 0, 0.55),
-    inset -1px -1px 0 rgba(255, 255, 255, 0.08);
+.four-col:disabled {
+  pointer-events: none;
 }
-.four-col:enabled:hover .four-cell,
-.four-col:focus-visible .four-cell {
-  background-color: #121b38;
-}
-.four-cell .disc {
-  width: 84%;
-  height: 84%;
-  filter: drop-shadow(1px 1px 0 #07050d);
-}
-.four-cell .ghost {
-  opacity: 0;
-}
-.four-col:enabled:hover .ghost,
-.four-col:focus-visible .ghost {
-  opacity: 0.35;
-}
-.four-cell.last .disc {
-  animation: four-drop calc(110ms + var(--row) * 45ms) ease-in both;
-}
-.four-cell.win {
-  background-color: #16301f;
-}
-.four-cell.win .disc {
-  animation: four-win 900ms steps(2, end) 400ms infinite;
-}
-.four-cell.dim .disc {
-  opacity: 0.35;
-}
-@keyframes four-drop {
-  from {
-    transform: translateY(calc(var(--row) * -122%));
-  }
-  80% {
-    transform: translateY(0);
-  }
-  90% {
-    transform: translateY(-12%);
-  }
-}
-@keyframes four-win {
-  50% {
-    filter: drop-shadow(1px 1px 0 #07050d) brightness(1.4);
-  }
+.four-col:focus-visible {
+  outline: 2px solid #ffd25a;
+  outline-offset: -2px;
 }
 
 /* Chess and draughts squares: maple and walnut; the latest move stays lit. */

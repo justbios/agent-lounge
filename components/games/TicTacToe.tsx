@@ -1,41 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { KeyboardEvent, PointerEvent, useEffect, useRef, useState } from "react";
 import { useTr } from "@/lib/i18n";
 import { Side, sideOf } from "@/lib/live/duel";
-import { sfx } from "@/lib/live/sfx";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import Finale, { Mood } from "./Finale";
 import Seat, { BoardSay } from "./Seat";
 import { Sprite } from "./Sprite";
+import { ChalkView, H, W } from "./drop/chalkView";
+import { pairKey } from "./drop/stage";
 import { MARKS, MARK_COLORS } from "./sprites";
-import { useNewMoves } from "./useNewMoves";
 
 const SIGN = { x: "✕", o: "◯" } as const;
+/** a finger's tap is answered when it lifts; the click the browser makes of it afterwards is not answered again */
+const TAP_MS = 700;
+/** a finger may stray this far off the squares, px, and still mean one of them */
+const SLACK = 20;
 
 const Mark = ({ side, className = "mark" }: { side: Side; className?: string }) => (
   <Sprite rows={MARKS[side]} palette={MARK_COLORS[side]} className={className} />
 );
 
-/** The middle of a square in the 3 by 3 board's own units, a line's end pushed this far past it. */
-const mid = (i: number) => [(i % 3) + 0.5, Math.floor(i / 3) + 0.5];
-const PAST = 0.32;
-
-/** The stroke through three in a row, drawn from end to end in the winner's colour. */
-function WinLine({ line, side }: { line: number[]; side: Side }) {
-  const [x1, y1] = mid(line[0]);
-  const [x2, y2] = mid(line[2]);
-  const len = Math.hypot(x2 - x1, y2 - y1);
-  const [dx, dy] = [((x2 - x1) / len) * PAST, ((y2 - y1) / len) * PAST];
-  const ends = { x1: x1 - dx, y1: y1 - dy, x2: x2 + dx, y2: y2 + dy, pathLength: 1 };
-  return (
-    <svg className="ttt-line" viewBox="0 0 3 3" aria-hidden>
-      <line {...ends} stroke="#07050d" strokeWidth={0.17} />
-      <line {...ends} stroke={MARK_COLORS[side].w} strokeWidth={0.09} />
-    </svg>
-  );
-}
-
+/**
+ * Noughts and crosses on the café's chalk board. The slate, the chalk and all that moves are one drawing
+ * ({@link ChalkView}); over it lie nine plain buttons, one a square, so the game is played the same by mouse,
+ * finger or keys.
+ */
 export default function TicTacToe({ ttt, self, note }: { ttt: Ttt; self: string; note: string | null }) {
   const t = useTr();
   const m = ttt.match!;
@@ -45,12 +35,11 @@ export default function TicTacToe({ ttt, self, note }: { ttt: Ttt; self: string;
   const rival = m.x.id === self ? m.o : m.x;
   const ply = b.cells.filter(Boolean).length;
   const [opened] = useState(ply);
-
-  useNewMoves(b, ply, (now, _, soon) => {
-    sfx("move");
-    if (now.winner) soon(now.winner === "draw" ? "draw" : now.winner === mine ? "win" : "lose", 260);
-    else if (now.turn === mine) soon("turn", 200);
-  });
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const grid = useRef<HTMLDivElement>(null);
+  const view = useRef<ChalkView | null>(null);
+  const tapped = useRef(-TAP_MS);
+  const byKey = useRef(false);
 
   const status =
     b.winner === "draw"
@@ -65,32 +54,105 @@ export default function TicTacToe({ ttt, self, note }: { ttt: Ttt; self: string;
   const end: Mood | null = b.winner ? (b.winner === "draw" ? "draw" : b.winner === mine ? "win" : "lose") : null;
   const mood = end ?? (go ? "go" : null);
   const verdict = { win: t("Перемога!", "You win!"), lose: t("Поразка", "You lose"), draw: t("Нічия", "Draw") };
+
+  const { id } = m;
+  const [xId, oId] = [m.x.id, m.o.id];
+  useEffect(() => {
+    const v = new ChalkView(canvas.current!, id, pairKey("ttt", xId, oId), { x: xId, o: oId });
+    view.current = v;
+    let raf = requestAnimationFrame(function loop(now) {
+      v.frame(now);
+      raf = requestAnimationFrame(loop);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      v.dispose();
+      view.current = null;
+    };
+  }, [id, xId, oId]);
+  useEffect(() => {
+    view.current?.sync({ cells: b.cells, last: b.last, ply, turn: b.turn, winner: b.winner, line: b.line, mine, go, live });
+  }, [b, ply, mine, go, live, id]);
+
+  /** the square under a pointer, a little slack round the nine; null when it is somewhere else */
+  const cellAt = (e: { clientX: number; clientY: number }): number | null => {
+    const r = grid.current?.getBoundingClientRect();
+    if (!r) return null;
+    const [x, y] = [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height];
+    const [sx, sy] = [SLACK / r.width, SLACK / r.height];
+    if (x < -sx || x > 1 + sx || y < -sy || y > 1 + sy) return null;
+    const at = (v: number) => Math.max(0, Math.min(2, Math.floor(v * 3)));
+    return at(y) * 3 + at(x);
+  };
+  /** a mark into `cell`, or the mark that is there already shaking its head */
+  const pick = (cell: number) => {
+    if (!go) return;
+    if (b.cells[cell]) return view.current?.nope(cell);
+    ttt.move(cell);
+  };
+  const point = (e: PointerEvent) => view.current?.hover(cellAt(e), e.pointerType !== "mouse");
+  // a finger shows the mark where it comes down, may slide to another square, and leaves it where it lifts
+  const lift = (e: PointerEvent) => {
+    if (e.pointerType === "mouse") return;
+    const cell = cellAt(e);
+    tapped.current = performance.now();
+    if (cell !== null) pick(cell);
+    if (cell === null || !go || b.cells[cell]) view.current?.hover(null);
+  };
+  const keys = (e: KeyboardEvent) => {
+    const step = ({ ArrowLeft: -1, ArrowRight: 1, ArrowUp: -3, ArrowDown: 3 } as Record<string, number>)[e.key];
+    const cells = [...(grid.current?.querySelectorAll<HTMLButtonElement>("button") ?? [])];
+    const at = cells.indexOf(document.activeElement as HTMLButtonElement);
+    if (!step || at < 0) return;
+    const row = (i: number) => Math.floor(i / 3);
+    for (let c = at + step; c >= 0 && c < 9 && (Math.abs(step) === 3 || row(c) === row(at)); c += step) {
+      if (cells[c].disabled) continue;
+      cells[c].focus();
+      e.preventDefault();
+      break;
+    }
+  };
+
   return (
     <div className="bgame ttt-game">
       <Seat name={rival.name} on={live && b.turn === theirs} won={b.winner === theirs} mark={<Mark side={theirs} />} />
       <div className={`ttt-board${go ? " go" : ""}`}>
-        <div className="ttt-grid" role="grid" aria-label={t("поле хрестиків-нуликів", "tic-tac-toe board")}>
-          {b.cells.map((c, i) => {
-            const cls = [b.line?.includes(i) ? "win" : b.line ? "dim" : "", b.last === i ? "last" : ""]
-              .filter(Boolean)
-              .join(" ");
-            return (
-              <button
-                key={i}
-                className={cls}
-                disabled={!go || !!c}
-                onClick={() => ttt.move(i)}
-                aria-label={c ? SIGN[c] : t(`клітинка ${i + 1}`, `square ${i + 1}`)}
-              >
-                {c ? <Mark side={c} /> : go && <Mark side={mine} className="mark ghost" />}
-              </button>
-            );
-          })}
+        <canvas ref={canvas} className="ttt-canvas" width={W * 3} height={H * 3} aria-hidden />
+        <div
+          ref={grid}
+          className="ttt-grid"
+          role="group"
+          aria-label={t("поле хрестиків-нуликів", "tic-tac-toe board")}
+          onPointerMove={point}
+          onPointerDown={point}
+          onPointerUp={lift}
+          onPointerLeave={(e) => e.pointerType === "mouse" && view.current?.hover(null)}
+          onPointerCancel={() => view.current?.hover(null)}
+          onClick={(e) => {
+            // a taken square's button is switched off, so its click lands on the grid itself
+            const cell = e.target === e.currentTarget ? cellAt(e) : null;
+            if (cell !== null && performance.now() - tapped.current > TAP_MS) pick(cell);
+          }}
+          onKeyDown={keys}
+        >
+          {b.cells.map((c, i) => (
+            <button
+              key={i}
+              disabled={!go || !!c}
+              onClick={() => performance.now() - tapped.current > TAP_MS && pick(i)}
+              onFocus={(e) => {
+                byKey.current = e.currentTarget.matches(":focus-visible");
+                if (byKey.current) view.current?.hover(i);
+              }}
+              onBlur={() => {
+                if (byKey.current) view.current?.hover(null);
+                byKey.current = false;
+              }}
+              aria-label={c ? SIGN[c] : t(`клітинка ${i + 1}`, `square ${i + 1}`)}
+            />
+          ))}
         </div>
-        {b.line && b.winner && b.winner !== "draw" && <WinLine line={b.line} side={b.winner} />}
-        {end && ply !== opened && (
-          <Finale mood={end} text={verdict[end]} />
-        )}
+        {end && ply !== opened && <Finale mood={end} text={verdict[end]} />}
       </div>
       <Seat
         name={m.x.id === self ? m.x.name : m.o.name}
