@@ -103,6 +103,74 @@ const SOUNDS = {
     tones: [{ at: 0, dur: 0.07, f: 900, to: 260, wave: "sawtooth", vol: 0.07 }],
     noise: [{ at: 0, dur: 0.08, cut: 5200, vol: 0.22 }],
   },
+  /** the arena: a blade through the air, before it meets anything */
+  swing: {
+    tones: [{ at: 0, dur: 0.09, f: 520, to: 190, wave: "sine", vol: 0.08 }],
+    noise: [{ at: 0, dur: 0.1, cut: 2400, vol: 0.16 }],
+  },
+  /** a blow lands on a body, and a heavy one */
+  thud: {
+    tones: [{ at: 0, dur: 0.09, f: 190, to: 70, wave: "triangle", vol: 0.42 }],
+    noise: [{ at: 0, dur: 0.06, cut: 1500, vol: 0.3 }],
+  },
+  thudBig: {
+    tones: [
+      { at: 0, dur: 0.18, f: 140, to: 42, wave: "triangle", vol: 0.5 },
+      { at: 0, dur: 0.06, f: 320, to: 110, wave: "square", vol: 0.08 },
+    ],
+    noise: [{ at: 0, dur: 0.14, cut: 1100, vol: 0.42 }],
+  },
+  /** a fighter's foot comes down on a hex */
+  step: {
+    tones: [{ at: 0, dur: 0.045, f: 150, to: 85, wave: "triangle", vol: 0.26 }],
+    noise: [{ at: 0, dur: 0.03, cut: 900, vol: 0.2 }],
+  },
+  /** an arrow off the string */
+  arrow: {
+    tones: [{ at: 0, dur: 0.06, f: 760, to: 300, wave: "triangle", vol: 0.16 }],
+    noise: [{ at: 0.01, dur: 0.12, cut: 6500, vol: 0.1 }],
+  },
+  /** a fallen fighter breaks apart */
+  shatter: {
+    tones: [
+      ...arp([940, 620, 410, 290], 0.028, 0.04, "square", 0.07),
+      { at: 0, dur: 0.16, f: 150, to: 50, wave: "triangle", vol: 0.34 },
+    ],
+    noise: [{ at: 0, dur: 0.2, cut: 5200, vol: 0.26 }],
+  },
+  /** the arena hands the turn to the person; the pointer settles on something it can do */
+  ready: { tones: arp([659, 988], 0.06, 0.09, "square", 0.07) },
+  aim: { tones: [{ at: 0, dur: 0.025, f: 1320, wave: "square", vol: 0.035 }] },
+  /** the two sides slam together as a battle opens */
+  slam: {
+    tones: [
+      { at: 0, dur: 0.34, f: 120, to: 44, wave: "triangle", vol: 0.5 },
+      { at: 0, dur: 0.07, f: 880, to: 440, wave: "square", vol: 0.07 },
+    ],
+    noise: [{ at: 0, dur: 0.28, cut: 1000, vol: 0.4 }],
+  },
+  /** a battle won: a call, and the chord it lands on; a battle lost: it sinks away */
+  fanfare: {
+    tones: [
+      ...arp([392, 523, 659], 0.085, 0.1, "square", 0.09),
+      { at: 0.27, dur: 0.75, f: 784, wave: "square", vol: 0.09 },
+      { at: 0.27, dur: 0.75, f: 1047, wave: "square", vol: 0.07 },
+      { at: 0.27, dur: 0.8, f: 1319, wave: "triangle", vol: 0.12 },
+      { at: 0.27, dur: 0.8, f: 262, wave: "triangle", vol: 0.26 },
+    ],
+    noise: [{ at: 0.27, dur: 0.3, cut: 7000, vol: 0.07 }],
+  },
+  dirge: {
+    tones: [
+      ...arp([392, 370, 311], 0.2, 0.22, "triangle", 0.2),
+      { at: 0.6, dur: 0.8, f: 262, to: 196, wave: "triangle", vol: 0.22 },
+      { at: 0.6, dur: 0.8, f: 131, to: 98, wave: "triangle", vol: 0.24 },
+    ],
+    noise: [{ at: 0.6, dur: 0.7, cut: 500, vol: 0.2 }],
+  },
+  /** the second and third star, each a step higher than the first */
+  star2: { tones: arp([1175, 1760], 0.05, 0.12, "triangle", 0.14) },
+  star3: { tones: arp([1319, 1976, 2637], 0.05, 0.14, "triangle", 0.14) },
   /** a bowstring, a cannon, a spore let go */
   shoot: {
     tones: [{ at: 0, dur: 0.09, f: 420, to: 900, wave: "triangle", vol: 0.16 }],

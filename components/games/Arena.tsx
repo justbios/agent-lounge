@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
-import { Check, Crown, Lock, Star, Swords, Users } from "lucide-react";
+import { Check, Crown, Lock, Play, Skull, Star, Swords, Users } from "lucide-react";
 import type { Level } from "@/lib/arena/ai";
 import { AGENT_KINDS, LEADER_KINDS, SQUAD_MAX, kindOf } from "@/lib/arena/content";
 import { Dice, seedOf } from "@/lib/arena/rng";
@@ -12,9 +12,11 @@ import { type Recruit, firstSquad, recruits } from "@/lib/arena/squad";
 import type { Fighter } from "@/lib/arena/types";
 import { type Ui, tr, useTr, useUi } from "@/lib/i18n";
 import type { HourRow } from "@/lib/live/recap";
+import { sfx, unlockSfx } from "@/lib/live/sfx";
 import { useHalloween } from "@/lib/live/season";
 import type { AgentDef } from "@/lib/types";
 import type { Intro, Outcome } from "./arena/ArenaView";
+import { KindIcon } from "./arena/icons";
 import { type PlaceId, placeFor } from "./arena/scenery";
 
 /*
@@ -94,6 +96,13 @@ function rivals(squad: Fighter[], id: string, ui: Ui): Fighter[] {
 
 const RESERVE = { uk: "Запасний", en: "Reserve" };
 
+/** Who a sprint battle is remembered by: the bug furthest above the squad, the toughest of those. */
+function bossOf(sc: Scenario): Pick<Fighter, "body" | "color" | "name"> | null {
+  const top = [...sc.bugs].sort((a, b) => b[1] - a[1] || (kindOf(b[0])?.hp ?? 0) - (kindOf(a[0])?.hp ?? 0))[0];
+  const k = top && kindOf(top[0]);
+  return k ? { body: k.body, color: "#9be36b", name: k.name.en } : null;
+}
+
 /** The squad's agents: as saved, or the first pick; the leader always among them. */
 function squadKeys(all: Recruit[], saved: string[] | undefined): string[] {
   const kept = (saved ?? []).filter((k) => all.some((r) => r.key === k));
@@ -131,11 +140,18 @@ export default function Arena({ agents, roster, rows }: { agents: AgentDef[]; ro
     });
 
   const toggle = (key: string) => {
-    if (keys.includes(key)) keep({ squad: keys.filter((k) => k !== key) });
-    else if (keys.length < SQUAD_MAX) keep({ squad: [...keys, key] });
+    unlockSfx();
+    if (keys.includes(key)) {
+      sfx("steer");
+      keep({ squad: keys.filter((k) => k !== key) });
+    } else if (keys.length < SQUAD_MAX) {
+      sfx("select");
+      keep({ squad: [...keys, key] });
+    }
   };
 
   const start = (mode: Mode) => {
+    unlockSfx();
     const id = fightId(mode.kind);
     const ours = t("Агенти", "Agents");
     if (mode.kind === "sprint") {
@@ -189,19 +205,19 @@ export default function Arena({ agents, roster, rows }: { agents: AgentDef[]; ro
     return sc ? { name: sc.name[ui], go: () => start({ kind: "sprint", sc }) } : undefined;
   };
 
+  const stars = (sc: Scenario) => (won.has(sc.id) ? (saved.stars?.[sc.id] ?? 1) : 0);
+  // the sprint battle to fight next: the first one not yet won, while there is one
+  const nextSc = SPRINT.find((sc, i) => !won.has(sc.id) && (i === 0 || won.has(SPRINT[i - 1].id)));
+
   return (
     <div className="arena">
-      <p className="arena-about">
-        {t(
-          "Покрокова битва на гексах: ваші агенти проти багів. Клас бійця — з назви агента, рівень — з того, скільки він працював за тиждень. У кожного своє вміння, а лідер (головний агент чату) має ультимейт.",
-          "A turn-based battle on hexes: your agents against the bugs. A fighter's class comes from the agent's name, its level from how much it worked this week. Each has its own skill, and the leader (the chat's main agent) has an ultimate.",
-        )}
-      </p>
-
       <div className="arena-hd">
-        <span className="muted-sm">
-          {t("Загін", "Squad")} {keys.length}/{SQUAD_MAX}
-        </span>
+        <p className="arena-about">
+          {t(
+            "Покрокова битва на гексах: ваші агенти проти багів. Зберіть загін, пройдіть спринт із п'яти боїв і дійдіть до моноліту.",
+            "A turn-based battle on hexes: your agents against the bugs. Pick a squad, fight through a sprint of five battles and reach the monolith.",
+          )}
+        </p>
         <div className="viewseg" role="radiogroup" aria-label={t("складність", "difficulty")}>
           {LEVELS.map(([id, uk, en]) => (
             <button key={id} role="radio" aria-checked={level === id} className={level === id ? "on" : ""} onClick={() => keep({ level: id })}>
@@ -211,6 +227,19 @@ export default function Arena({ agents, roster, rows }: { agents: AgentDef[]; ro
         </div>
       </div>
 
+      <div className="arena-lbl">
+        <b>{t("Твій загін", "Your squad")}</b>
+        <span className={keys.length >= SQUAD_MAX ? "full" : ""}>
+          {keys.length}/{SQUAD_MAX}
+        </span>
+        <small>
+          {t(
+            "клас — з назви агента, рівень — з його роботи за тиждень; лідер має ультимейт",
+            "class from the agent's name, level from its week of work; the leader has an ultimate",
+          )}
+        </small>
+      </div>
+
       <div className="arena-recruits">
         {all.map((r) => {
           const k = kindOf(r.kind);
@@ -218,7 +247,7 @@ export default function Arena({ agents, roster, rows }: { agents: AgentDef[]; ro
           return (
             <button
               key={r.key}
-              className={`arena-recruit${on ? " on" : ""}${r.reserve ? " reserve" : ""}`}
+              className={`arena-recruit${on ? " on" : ""}${r.reserve ? " reserve" : ""}${r.leader ? " lead" : ""}`}
               aria-pressed={on}
               disabled={r.leader || (!on && keys.length >= SQUAD_MAX)}
               onClick={() => toggle(r.key)}
@@ -226,69 +255,90 @@ export default function Arena({ agents, roster, rows }: { agents: AgentDef[]; ro
                 .filter(Boolean)
                 .join("\n")}
             >
-              <Face f={r} />
+              <span className="arena-portrait" style={{ "--c": r.color } as React.CSSProperties}>
+                <Face f={r} />
+                <i className="arena-lv" title={tr(ui, `рівень ${r.level}`, `level ${r.level}`)}>
+                  {r.level}
+                </i>
+                {on && <Check className="arena-tick" size={12} />}
+              </span>
               <b>
                 {r.leader && <Crown size={11} />} {r.name}
               </b>
               <small>
-                {k?.name[ui]} · {tr(ui, `рів. ${r.level}`, `lv ${r.level}`)}
+                <KindIcon kind={r.kind} size={11} /> {k?.name[ui]}
               </small>
               <span className="arena-skill">{r.leader ? k?.ult?.name[ui] : k?.skill?.name[ui]}</span>
-              {on && <Check className="arena-tick" size={13} />}
             </button>
           );
         })}
       </div>
 
-      <div className="arena-sprint">
-        <div className="muted-sm">
-          {t("Спринт", "The sprint")} · {won.size}/{SPRINT.length}
-          {won.size > 0 && (
-            <span className="arena-stars-sum">
-              <Star size={11} /> {SPRINT.reduce((n, sc) => n + (won.has(sc.id) ? (saved.stars?.[sc.id] ?? 1) : 0), 0)}/{SPRINT.length * 3}
-            </span>
-          )}
-        </div>
-        <ol>
-          {SPRINT.map((sc, i) => {
-            const open = i === 0 || won.has(SPRINT[i - 1].id) || won.has(sc.id);
-            const done = won.has(sc.id);
-            return (
-              <li key={sc.id}>
-                <button
-                  className={`arena-node${done ? " done" : ""}${open && !done ? " open" : ""}`}
-                  disabled={!open || !squad.length}
-                  onClick={() => start({ kind: "sprint", sc })}
-                >
-                  <span className="arena-node-n">{done ? <Check size={13} /> : open ? i + 1 : <Lock size={12} />}</span>
-                  {sc.name[ui]}
-                  {done && (
-                    <span className="arena-node-stars" aria-label={t(`зірок: ${saved.stars?.[sc.id] ?? 1}`, `${saved.stars?.[sc.id] ?? 1} stars`)}>
-                      {[0, 1, 2].map((k) => (
-                        <Star key={k} size={10} className={k < (saved.stars?.[sc.id] ?? 1) ? "on" : ""} />
-                      ))}
-                    </span>
-                  )}
-                </button>
-              </li>
-            );
-          })}
-        </ol>
+      <div className="arena-lbl">
+        <b>{t("Спринт", "The sprint")}</b>
+        <span className={won.size >= SPRINT.length ? "full" : ""}>
+          {won.size}/{SPRINT.length}
+        </span>
+        <span className="arena-stars-sum">
+          <Star size={11} /> {SPRINT.reduce((n, sc) => n + stars(sc), 0)}/{SPRINT.length * 3}
+        </span>
       </div>
 
-      <div className="arena-btns">
-        <button className="btn" disabled={!squad.length} onClick={() => start({ kind: "quick" })}>
-          <Swords size={14} /> {t("Швидкий бій з багами", "Quick fight with bugs")}
-        </button>
-        <button className="btn" disabled={!squad.length} onClick={() => start({ kind: "spar" })}>
-          <Users size={14} /> {t("Спаринг з чужими агентами", "Spar with other agents")}
-        </button>
-        {(saved.played ?? 0) > 0 && (
-          <span className="muted-sm">{t(`Перемог: ${saved.wins ?? 0} з ${saved.played}`, `Won ${saved.wins ?? 0} of ${saved.played}`)}</span>
+      <ol className="arena-map">
+        {SPRINT.map((sc, i) => {
+          const open = i === 0 || won.has(SPRINT[i - 1].id) || won.has(sc.id);
+          const done = won.has(sc.id);
+          const boss = bossOf(sc);
+          const last = i === SPRINT.length - 1;
+          return (
+            <li key={sc.id} className={`${done ? "done" : open ? "open" : "locked"}${last ? " boss" : ""}`}>
+              <button
+                className={`arena-node${done ? " done" : ""}${open && !done ? " open" : ""}`}
+                disabled={!open || !squad.length}
+                onClick={() => start({ kind: "sprint", sc })}
+                title={open ? sc.story[ui] : t("спершу виграйте попередній бій", "win the battle before it first")}
+              >
+                <span className="arena-node-pic">
+                  {boss && <Face f={boss} />}
+                  <span className="arena-node-n">{done ? <Check size={12} /> : open ? i + 1 : <Lock size={11} />}</span>
+                  {last && <Skull className="arena-node-boss" size={13} />}
+                </span>
+                <b>{sc.name[ui]}</b>
+                <span className="arena-node-stars" aria-label={t(`зірок: ${stars(sc)}`, `${stars(sc)} stars`)}>
+                  {[0, 1, 2].map((k) => (
+                    <Star key={k} size={11} className={k < stars(sc) ? "on" : ""} />
+                  ))}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="arena-modes">
+        {nextSc && (
+          <button className="arena-mode primary" disabled={!squad.length} onClick={() => start({ kind: "sprint", sc: nextSc })}>
+            <Play size={20} />
+            <b>{t("До бою", "To battle")}</b>
+            <small>{nextSc.name[ui]}</small>
+          </button>
         )}
+        <button className="arena-mode" disabled={!squad.length} onClick={() => start({ kind: "quick" })}>
+          <Swords size={20} />
+          <b>{t("Швидкий бій з багами", "Quick fight with bugs")}</b>
+          <small>{t("випадкові баги рівня вашого загону", "random bugs at your squad's level")}</small>
+        </button>
+        <button className="arena-mode" disabled={!squad.length} onClick={() => start({ kind: "spar" })}>
+          <Users size={20} />
+          <b>{t("Спаринг з чужими агентами", "Spar with other agents")}</b>
+          <small>{t("такий самий загін під орудою бота", "a squad like yours, led by the bot")}</small>
+        </button>
       </div>
 
       <p className="arena-about arena-together">
+        {(saved.played ?? 0) > 0 && (
+          <b className="arena-tally">{t(`Перемог: ${saved.wins ?? 0} з ${saved.played}`, `Won ${saved.wins ?? 0} of ${saved.played}`)}</b>
+        )}
         {t(
           "З іншою людиною в кафе: «Бій загонів» (ваш загін проти її) і «Рейд на моноліт» (удвох проти боса) — у розділі «З гостями кафе».",
           "With someone else in the café: «Squad battle» (your squad against theirs) and «Monolith raid» (the two of you against the boss) are under «With the café's guests».",

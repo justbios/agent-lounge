@@ -102,7 +102,11 @@ export interface Outcome {
 /** a battle won within this many rounds earns its third star */
 const PAR = 6;
 /** how long the two sides face each other before the battle */
-const VS_SECS = 2.2;
+const VS_SECS = 3;
+/** when in the opening VS lands: as the camera leaves the second line */
+const VS_SLAM = 2.08;
+/** how long the battle's end stands over the field before the account of it comes */
+const END_SECS = 2.4;
 
 type Mode = "act" | "skill" | "ult";
 
@@ -325,7 +329,13 @@ export default function ArenaView({
   const [started, setStarted] = useState(!intro);
   // the two sides face each other for a moment while the camera sweeps in
   const [vs, setVs] = useState(true);
+  // the field has been drawn once: only then does the opening start, so a slow first frame takes nothing from it
+  const [ready, setReady] = useState(false);
   const vsTimer = useRef(0);
+  const slamTimer = useRef(0);
+  // the battle's end: its name and stars over the field first, the account of it after
+  const [reveal, setReveal] = useState(false);
+  const revealTimer = useRef(0);
   const [speed, setSpeed] = useState(savedSpeed);
   const [result, setResult] = useState<Outcome | null>(null);
   const [quit, setQuit] = useState(false);
@@ -368,10 +378,14 @@ export default function ArenaView({
       stars: [won, won && lost === 0, won && (b.goal.kind === "wipe" ? b.round <= PAR : health > 0.5)],
       crew: ours.map((u) => ({ id: u.id, dealt: dealt.current.get(u.id) ?? 0 })).sort((x, y) => y.dealt - x.dealt),
     };
-    sfx(out.winner === "draw" ? "draw" : people.includes(out.winner) ? "win" : "lose");
-    // the stars ring in one by one as they light up on the screen
-    if (people.length === 1) out.stars.forEach((got, i) => void (got && window.setTimeout(() => sfx("star"), 900 + i * 320)));
+    sfx(out.winner === "draw" ? "draw" : people.includes(out.winner) ? "fanfare" : "dirge");
+    // the stars ring in one by one as they land on the screen, each a step higher
+    if (people.length === 1)
+      out.stars.forEach((got, i) => void (got && window.setTimeout(() => sfx((["star", "star2", "star3"] as const)[i]), 760 + i * 330)));
     setResult(out);
+    setReveal(false);
+    window.clearTimeout(revealTimer.current);
+    revealTimer.current = window.setTimeout(() => setReveal(true), END_SECS * 1000);
     onEnd(out);
   };
 
@@ -458,7 +472,7 @@ export default function ArenaView({
               : won
                 ? t("Перемога!", "Victory!")
                 : t("Поразка", "Defeat");
-        shout(text, won || people.length > 1 ? "win" : "lose");
+        // the field and the screen's end say it; the log keeps it
         return say(text, "round");
       }
     }
@@ -513,15 +527,16 @@ export default function ArenaView({
       return;
     }
     if (who === "me" && !autoRef.current) {
-      sfx("select");
+      sfx("ready");
       return;
     }
     window.clearTimeout(timer.current);
+    // the bot takes a breath, no more: long enough to see whose turn it is, short enough not to be waited on
     timer.current = window.setTimeout(() => {
       if (stage.current !== st || battle.current !== b || busyRef.current) return;
-      if (who === "me" && !autoRef.current) return sfx("select");
+      if (who === "me" && !autoRef.current) return sfx("ready");
       run(decide(b, who === "me" ? "hard" : net ? NET_LEVEL : level), who);
-    }, 280 / st.clock.speed);
+    }, 170 / st.clock.speed);
   };
   // the beats have played, the other person's command came, or they left and the bot took their side over
   const nudgeEv = useEffectEvent(() => {
@@ -591,10 +606,20 @@ export default function ArenaView({
 
   const endVs = () => {
     window.clearTimeout(vsTimer.current);
+    window.clearTimeout(slamTimer.current);
+    stage.current?.endIntro();
     setVs(false);
     if (started) begin();
   };
   const endVsEv = useEffectEvent(endVs);
+  const readyEv = useEffectEvent((st: Stage) => {
+    if (stage.current !== st) return;
+    setReady(true);
+    st.flyIn(VS_SECS);
+    sfx("ult");
+    slamTimer.current = window.setTimeout(() => sfx("slam"), VS_SLAM * 1000);
+    vsTimer.current = window.setTimeout(() => endVsEv(), VS_SECS * 1000);
+  });
 
   useEffect(() => {
     const el = host.current;
@@ -603,6 +628,8 @@ export default function ArenaView({
       host: el,
       words: wordsEv(),
       colors: TEAM_COLORS,
+      me,
+      onReady: () => readyEv(st),
       onHover: (h, x, z, sx, sy) => hoverEv(h, x, z, sx, sy),
       onClick: (h, x, z, right, sx, sy) => clickEv(h, x, z, right, sx, sy),
     });
@@ -611,17 +638,22 @@ export default function ArenaView({
     battle.current = first.battle;
     opening.current = first;
     st.load(first.battle, place);
-    st.flyIn(VS_SECS + 0.4);
-    sfx("ult");
-    vsTimer.current = window.setTimeout(() => endVsEv(), VS_SECS * 1000);
     return () => {
       window.clearTimeout(vsTimer.current);
+      window.clearTimeout(slamTimer.current);
+      window.clearTimeout(revealTimer.current);
       window.clearTimeout(timer.current);
       window.clearTimeout(bannerTimer.current);
       stage.current = null;
       st.dispose();
     };
-  }, [first, place]);
+  }, [first, place, me]);
+
+  // a tick as the pointer settles on someone it can strike or cast at
+  const aimed = aim && aim.cursor !== "move" ? `${aim.cursor}:${pointer?.h}` : "";
+  useEffect(() => {
+    if (aimed) sfx("aim");
+  }, [aimed]);
 
   useEffect(() => {
     const st = stage.current;
@@ -691,6 +723,11 @@ export default function ArenaView({
       else if (help) setHelp(false);
       else if (result) onExit();
       else setQuit((q) => !q);
+      return;
+    }
+    if (result && !reveal && (e.code === "Space" || e.code === "Enter")) {
+      e.preventDefault();
+      setReveal(true);
       return;
     }
     if (e.metaKey || e.ctrlKey || e.altKey || !started || result) return;
@@ -775,10 +812,21 @@ export default function ArenaView({
     return null;
   })();
 
+  const wonIt = !!result && result.winner !== "draw" && people.includes(result.winner);
+  const endTitle = !result
+    ? ""
+    : result.winner === "draw"
+      ? t("Нічия", "A draw")
+      : people.length > 1
+        ? t(`Перемогли ${sides[result.winner]}`, `${sides[result.winner]} win`)
+        : wonIt
+          ? t("Перемога", "Victory")
+          : t("Поразка", "Defeat");
+
   const view = (
     <div
       ref={root}
-      className={`ar-root${busy ? " busy" : ""}`}
+      className={`ar-root${busy ? " busy" : ""}${vs ? " intro" : ""}${ready ? "" : " unready"}${result ? " over" : ""}`}
       data-cursor={cursor}
       data-mode={mode}
       onContextMenu={(e) => e.preventDefault()}
@@ -885,15 +933,17 @@ export default function ArenaView({
         </div>
       )}
 
-      {b && peek && <Card b={b} u={peek} ui={ui} className="ar-peek" />}
-
       {b && (
         <div className="ar-bottom">
           {active && <Card b={b} u={active} ui={ui} className="ar-now" />}
           {opts ? (
             <div className="ar-actions">
-              {mode !== "act" && (
+              {mode !== "act" ? (
                 <div className="ar-hint">{t("Оберіть ціль · правий клік чи Esc скасує", "Pick a target · right click or Esc cancels")}</div>
+              ) : (
+                <div className="ar-yours" key={`${b.round}:${opts.unit.id}:${played}`}>
+                  <span>{t("Твій хід", "Your turn")}</span>
+                </div>
               )}
               {opts.skill && (
                 <button
@@ -958,7 +1008,7 @@ export default function ArenaView({
                     : t("Хід суперника", "The other side's turn"))}
             </div>
           )}
-          {logOpen && <Log lines={lines} box={logBox} />}
+          {peek ? <Card b={b} u={peek} ui={ui} className="ar-peek" /> : logOpen && <Log lines={lines} box={logBox} />}
         </div>
       )}
 
@@ -1010,15 +1060,15 @@ export default function ArenaView({
         </div>
       )}
 
-      {vs && shown && (
+      {vs && ready && shown && (
         <div className="ar-vs-intro" onClick={endVs}>
-          <VsSide b={shown} team={0} name={sides[0]} ui={ui} />
+          <i className="ar-vs-flash" />
+          <VsSide b={shown} team={me} name={sides[me]} ui={ui} order="first" />
           <div className="ar-vs-mid">
-            {intro && <small>{intro.title}</small>}
             <span>VS</span>
-            <small>{PLACES[place].name[ui]}</small>
+            <small>{intro ? intro.title : PLACES[place].name[ui]}</small>
           </div>
-          <VsSide b={shown} team={1} name={sides[1]} ui={ui} />
+          <VsSide b={shown} team={me === 0 ? 1 : 0} name={sides[me === 0 ? 1 : 0]} ui={ui} order="second" />
         </div>
       )}
 
@@ -1068,9 +1118,25 @@ export default function ArenaView({
         </div>
       )}
 
-      {result && (
-        <div className="ar-modal">
-          <div className={`ar-panel ar-result ${result.winner !== "draw" && people.includes(result.winner) ? "won" : "lost"}`}>
+      {result && !reveal && (
+        <div className={`ar-end ${wonIt ? "won" : "lost"}`} onClick={() => setReveal(true)}>
+          <h2>{endTitle}</h2>
+          {people.length === 1 && wonIt && (
+            <div className="ar-stars">
+              {result.stars.map((got, i) => (
+                <Star key={i} className={got ? "on" : ""} style={{ "--i": i } as React.CSSProperties} size={i === 1 ? 84 : 64} />
+              ))}
+            </div>
+          )}
+          {people.length === 1 && !wonIt && result.winner !== "draw" && (
+            <p>{t("Не цього разу.", "Not this time.")}</p>
+          )}
+        </div>
+      )}
+
+      {result && reveal && (
+        <div className={`ar-modal ar-modal-end${me === 1 ? " left" : ""}`}>
+          <div className={`ar-panel ar-result ${wonIt ? "won" : "lost"}`}>
             {people.length === 1 && (
               <div className="ar-stars" aria-label={t(`Зірок: ${result.stars.filter(Boolean).length} з 3`, `${result.stars.filter(Boolean).length} of 3 stars`)}>
                 {result.stars.map((got, i) => (
@@ -1078,15 +1144,15 @@ export default function ArenaView({
                 ))}
               </div>
             )}
-            <h3>
-              {result.winner === "draw"
-                ? t("Нічия", "A draw")
-                : people.length > 1
-                  ? t(`Перемогли ${sides[result.winner]}`, `${sides[result.winner]} win`)
-                  : people.includes(result.winner)
-                    ? t("Перемога", "Victory")
-                    : t("Поразка", "Defeat")}
-            </h3>
+            <h3>{endTitle}</h3>
+            {people.length === 1 && !net && !wonIt && result.winner !== "draw" && (
+              <p className="ar-result-hint">
+                {t(
+                  "Спробуйте інший склад, легший рівень або бийте спершу по стрільцях.",
+                  "Try another squad, an easier level, or go for their shooters first.",
+                )}
+              </p>
+            )}
             {people.length === 1 && (
               <ul className="ar-stars-why">
                 {result.stars.map((got, i) => (
@@ -1170,22 +1236,31 @@ function leadOf(b: Battle, team: Team): Unit | undefined {
   return all.find((u) => u.leader) ?? [...all].sort((x, y) => y.maxHp - x.maxHp)[0];
 }
 
-/** One side as the battle opens: its leader's face, big, its name and how many it brings. */
-function VsSide({ b, team, name, ui }: { b: Battle; team: Team; name: string; ui: Ui }) {
+/** One side as the battle opens: its name, big, and the faces of everyone it brings, its leader's first. */
+function VsSide({ b, team, name, ui, order }: { b: Battle; team: Team; name: string; ui: Ui; order: "first" | "second" }) {
   const lead = leadOf(b, team);
-  const n = b.units.filter((u) => u.team === team && !u.summoned && !still(u)).length;
+  const all = b.units.filter((u) => u.team === team && !u.summoned && !still(u));
+  const line = [...(lead ? [lead] : []), ...all.filter((u) => u !== lead)];
+  const FACES = 8;
+  const faces = line.length > FACES ? line.slice(0, FACES - 1) : line;
   return (
-    <div className={`ar-vs-side ar-t${team}`}>
-      {lead && (
-        <span className="ar-vs-face" style={{ "--c": lead.color } as React.CSSProperties}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={faceOf(lead)} alt="" />
-          <KindIcon kind={lead.kind} size={16} />
-        </span>
-      )}
+    <div className={`ar-vs-side ar-t${team} ${order}`}>
       <b>{name}</b>
+      <ul className="ar-vs-faces">
+        {faces.map((u, i) => (
+          <li key={u.id} className={u === lead && u.leader ? "lead" : ""} style={{ "--c": u.color, "--i": i } as React.CSSProperties}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={faceOf(u)} alt="" />
+          </li>
+        ))}
+        {line.length > faces.length && (
+          <li className="more" style={{ "--i": faces.length } as React.CSSProperties}>
+            +{line.length - faces.length}
+          </li>
+        )}
+      </ul>
       <small>
-        {lead && nameOf(lead, ui)} · {tr(ui, `бійців: ${n}`, `${n} fighters`)}
+        {lead && nameOf(lead, ui)} · {tr(ui, `бійців: ${all.length}`, `${all.length} fighters`)}
       </small>
     </div>
   );
@@ -1207,6 +1282,7 @@ function Side({ b, team, name, ui }: { b: Battle; team: Team; name: string; ui: 
       <div className="ar-side-txt">
         <b>{name}</b>
         <span className="ar-side-hp" title={`${hp} HP`}>
+          <i className="lag" style={{ width: `${Math.min(1, hp / max) * 100}%` }} />
           <i style={{ width: `${Math.min(1, hp / max) * 100}%` }} />
         </span>
         <small>
