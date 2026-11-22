@@ -11,10 +11,13 @@ export const FLOE_R = 62;
 const FLOE_MIN = 10;
 /** ms a step stands for */
 export const STEP_MS = 10;
-/** the countdown before the first round, the pause before each next one, and the fall shown in between, in steps */
-export const FIRST_STEPS = 150;
-const READY_STEPS = 100;
-const SHOW_STEPS = 120;
+/**
+ * The wait before the first round, the pause before each next one, and the fall shown in between, in steps. The
+ * first wait is the match's kickoff (KICKOFF_MS in components/games/beats.ts): the intro, then the wrestlers' ritual.
+ */
+export const FIRST_STEPS = 300;
+export const READY_STEPS = 100;
+export const SHOW_STEPS = 120;
 /** the floe holds this many steps after the start, then melts by MELT units a step */
 export const MELT_AFTER = 500;
 const MELT = 0.02;
@@ -246,6 +249,8 @@ export function sumoRules(seats: number): Rules<SumoState, Push> {
       if (s.n > s.go + MELT_AFTER) s.r = Math.max(FLOE_MIN, s.r - MELT);
       for (let k = 0; k < seats; k++) if (!s.fell[k]) steer(s, k, push[k]);
       for (let k = 0; k < seats; k++) {
+        // one in the water stays where they went in: the screen shows the rest of the fall
+        if (s.fell[k]) continue;
         const b = s.body[k];
         b.x += b.vx * STEP_MS;
         b.y += b.vy * STEP_MS;
