@@ -5634,14 +5634,288 @@ body {
     animation: none;
   }
 }
+/* air hockey: its own board over the rink, a column exactly as wide as the rink, big words over the ice */
 .hockey {
+  --rink: min(calc(64vh * 102 / 168), 344px, calc(100vw - 52px));
   align-items: stretch;
-  max-width: 440px;
+  width: var(--rink);
+  max-width: none;
 }
-.pong.hockey canvas {
-  width: auto;
-  height: min(64vh, 560px, calc((100vw - 52px) * 160 / 100));
-  aspect-ratio: 100 / 160;
+.lab .duel .pong.hockey.hk,
+.duel:fullscreen .pong.hockey.hk {
+  --rink: min(calc((100dvh - 204px) * 102 / 168), calc(100vw - 48px));
+}
+.pong.hockey canvas,
+.lab .duel .pong.hockey.hk canvas,
+.duel:fullscreen .pong.hockey.hk canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 102 / 168;
+  background: #07050d;
+  cursor: none;
+  touch-action: none;
+}
+.hk-screen {
+  position: relative;
+  overflow: hidden;
+  border: 2px solid #07050d;
+  box-shadow:
+    3px 3px 0 var(--px-drop),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.hk-pop {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-pixel), var(--mono);
+  font-size: calc(var(--rink) * 0.2);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow:
+    3px 3px 0 #07050d,
+    -1px -1px 0 #07050d,
+    0 0 22px currentColor;
+  pointer-events: none;
+}
+.hk-line {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  color: rgba(233, 242, 234, 0.5);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.hk-say {
+  min-height: 1.4em;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* the board: a name and a lamp for every goal on each side, the two scores on split flaps between them */
+.hk-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 5px;
+}
+.hk-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 4px 8px 5px;
+  border: 2px solid #07050d;
+  background: var(--panel-2);
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset 2px 2px 0 var(--px-hi),
+    inset 0 -3px 0 color-mix(in srgb, var(--c) 45%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.hk-side.them {
+  align-items: flex-end;
+}
+.hk-side.won {
+  background: color-mix(in srgb, var(--c) 16%, var(--panel-2));
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset 2px 2px 0 var(--px-hi),
+    inset 0 -3px 0 var(--c);
+}
+.hk-side.lost {
+  color: var(--dim);
+}
+.hk-who {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  min-width: 0;
+}
+.hk-side.them .hk-who {
+  flex-direction: row-reverse;
+}
+.hk-who i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--c);
+  box-shadow:
+    0 0 0 2px #07050d,
+    0 0 8px var(--c);
+}
+.hk-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hk-pips {
+  display: flex;
+  gap: 3px;
+}
+.hk-side.them .hk-pips {
+  flex-direction: row-reverse;
+}
+.hk-pips i {
+  width: 9px;
+  height: 5px;
+  background: #0d0916;
+  box-shadow: 0 0 0 1px #07050d;
+}
+.hk-pips i.on {
+  background: var(--c);
+  box-shadow:
+    0 0 0 1px #07050d,
+    0 0 7px var(--c);
+}
+.hk-pips i.next {
+  animation: hk-next 900ms steps(2, jump-none) infinite;
+}
+@keyframes hk-next {
+  from {
+    background: #0d0916;
+  }
+  to {
+    background: color-mix(in srgb, var(--c) 70%, #0d0916);
+  }
+}
+.hk-mid {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 7px;
+  border: 2px solid #07050d;
+  background: #0d0916;
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+.hk-mid b {
+  display: block;
+  color: var(--c);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 55%, transparent));
+}
+.hk-flip {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 23px;
+  height: 33px;
+  padding: 4px;
+  background: #171126;
+  box-shadow: 0 0 0 1px #07050d;
+}
+.hk-flip > span {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  padding: 4px;
+  background: #171126;
+}
+.hk-flip::after {
+  position: absolute;
+  top: calc(50% - 1px);
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(7, 5, 13, 0.75);
+  content: "";
+}
+.hk-digit {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+.hk-flip > .hk-was-bot {
+  clip-path: inset(50% 0 0 0);
+  animation: hk-gone 1ms 300ms forwards;
+}
+.hk-flip > .hk-was-top {
+  clip-path: inset(0 0 50% 0);
+  animation: hk-fold 150ms steps(3, end) forwards;
+}
+.hk-flip > .hk-now-bot {
+  clip-path: inset(50% 0 0 0);
+  animation: hk-unfold 150ms steps(3, end) 150ms both;
+}
+@keyframes hk-fold {
+  to {
+    transform: scaleY(0);
+    filter: brightness(0.5);
+  }
+}
+@keyframes hk-unfold {
+  from {
+    transform: scaleY(0);
+    filter: brightness(1.6);
+  }
+}
+@keyframes hk-gone {
+  to {
+    visibility: hidden;
+  }
+}
+.hk-to {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* how warm the puck is: three cells filling one after another, orange to red */
+.hk-heat {
+  display: flex;
+  gap: 2px;
+}
+.hk-heat i {
+  position: relative;
+  width: 9px;
+  height: 5px;
+  background: #1c1530;
+  box-shadow: 0 0 0 1px #07050d;
+}
+.hk-heat i::before {
+  position: absolute;
+  inset: 0;
+  background: #ffa53a;
+  transform: scaleX(clamp(0, calc(var(--h, 0) - var(--i)), 1));
+  transform-origin: left;
+  content: "";
+}
+.hk-heat i:nth-child(2)::before {
+  background: #ff7a33;
+}
+.hk-heat i:nth-child(3)::before {
+  background: #ff4d6d;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hk-flip > .hk-was-bot,
+  .hk-flip > .hk-was-top,
+  .hk-flip > .hk-now-bot {
+    display: none;
+  }
+  .hk-pips i.next {
+    animation: none;
+    background: color-mix(in srgb, var(--c) 45%, #0d0916);
+  }
 }
 /* sumo: a window on the night sea with the floe in its middle, wide on a wide screen and tall on a phone */
 .pong.sumo {
