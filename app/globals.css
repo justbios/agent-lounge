@@ -8072,21 +8072,21 @@ body {
   justify-content: center;
 }
 
-/* the stage and, on a wide screen, the agents and the log under it, side by side: the room takes the whole width */
+/* the stage and, on a wide screen, the agents and the log beside it */
 .stage-grid.with-side {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-.stage-side {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 16px;
   align-items: start;
-  margin-bottom: 16px;
 }
-.stage-side .side-log {
-  max-height: 520px;
+.stage-side {
+  position: sticky;
+  top: 70px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100dvh - 180px);
+  min-height: 0;
 }
 .stage-side > div {
   min-height: 0;
