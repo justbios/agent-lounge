@@ -4849,6 +4849,158 @@ body {
   content: "";
   pointer-events: none;
 }
+/* ping-pong: a lamp on the scoreboard for every point, the table in a tube with a bezel round it, and on a phone the
+   table on end with a rail under it to slide a thumb along */
+.ping-pips {
+  display: flex;
+  flex: 0 1 auto;
+  gap: 3px;
+  min-width: 0;
+}
+.ping-p .arc-name {
+  min-width: 3ch;
+}
+.ping-p.them .ping-pips {
+  flex-direction: row-reverse;
+}
+.ping-pips span {
+  box-sizing: border-box;
+  flex: 0 1 auto;
+  width: 14px;
+  min-width: 5px;
+  height: 14px;
+  border: 2px solid #07050d;
+  background: color-mix(in srgb, var(--c) 16%, #120e1c);
+}
+.ping-pips .on {
+  background: var(--c);
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.55),
+    0 0 8px var(--c);
+  animation: ping-pip 420ms steps(6, end);
+}
+.ping-pips .next {
+  animation: ping-next 900ms steps(1, end) infinite;
+}
+@keyframes ping-pip {
+  from {
+    transform: scale(2.4);
+    filter: brightness(2);
+  }
+}
+@keyframes ping-next {
+  50% {
+    background: color-mix(in srgb, var(--c) 65%, #120e1c);
+    box-shadow: 0 0 8px var(--c);
+  }
+}
+.pong.ping[data-point] .arc-say {
+  color: #ff6aa8;
+}
+.pong.ping[data-point="1"] .arc-say {
+  color: #ffd25a;
+}
+.pong.ping[data-point="2"] .arc-say {
+  color: #8fb3ff;
+}
+.ping-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  touch-action: none;
+}
+.pong.ping .arc-screen {
+  /* the big words grow in from over twice their size: they stay inside the tube and never widen the page */
+  overflow: hidden;
+  padding: 6px;
+  background: #1a1428;
+  box-shadow:
+    3px 3px 0 var(--px-drop),
+    inset 2px 2px 0 var(--px-hi),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.45);
+}
+.pong.ping .arc-screen canvas {
+  outline: 2px solid #07050d;
+}
+.pong.ping .arc-screen::after {
+  inset: 6px;
+  background:
+    linear-gradient(118deg, rgba(255, 255, 255, 0.055), transparent 26%),
+    radial-gradient(ellipse at center, transparent 56%, rgba(0, 0, 0, 0.42)),
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.16) 0 1px, transparent 1px 3px);
+}
+.pong.ping.tall {
+  width: min-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
+.pong.ping.tall .arc-to {
+  display: none;
+}
+.pong.ping.tall .ping-pips {
+  gap: 2px;
+}
+.pong.ping.tall .ping-pips span {
+  width: 11px;
+  height: 11px;
+}
+.pong.ping.tall .arc-screen canvas {
+  width: auto;
+  height: min(56dvh, 560px, calc((100vw - 60px) * 1.6));
+  aspect-ratio: 100 / 160;
+}
+.lab .duel .pong.ping.tall,
+.duel:fullscreen .pong.ping.tall {
+  max-width: 100%;
+}
+.pong.ping.tall .arc-pop {
+  width: 92%;
+  font-size: clamp(22px, 8.5vw, 40px);
+  text-align: center;
+  white-space: normal;
+}
+.ping-rail {
+  position: relative;
+  height: 44px;
+  margin-inline: 6px;
+  overflow: hidden;
+  border: 2px solid #07050d;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 10px, rgba(255, 255, 255, 0.045) 10px 12px),
+    var(--panel-2);
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset 2px 2px 0 var(--px-hi);
+}
+.ping-rail i {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+.ping-rail i::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -10%;
+  width: 20%;
+  box-sizing: border-box;
+  border: 2px solid #07050d;
+  background: #ffd25a;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.5),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.22),
+    0 0 10px rgba(255, 210, 90, 0.55);
+  content: "";
+}
+@media (prefers-reduced-motion: reduce) {
+  .ping-pips .on,
+  .ping-pips .next {
+    animation: none;
+  }
+  .ping-pips .next {
+    background: color-mix(in srgb, var(--c) 45%, #120e1c);
+  }
+}
 .arc-line {
   position: absolute;
   right: 5px;
