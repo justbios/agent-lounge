@@ -4809,14 +4809,265 @@ body {
   height: min(64vh, 560px, calc((100vw - 52px) * 160 / 100));
   aspect-ratio: 100 / 160;
 }
-/* sumo's floe is round: a square screen, as tall as it fits */
+/* sumo: a window on the night sea with the floe in its middle, wide on a wide screen and tall on a phone */
+.pong.sumo {
+  max-width: 560px;
+}
 .pong.sumo .arc-screen {
-  align-self: center;
+  align-self: stretch;
+  overflow: hidden;
+  background: #0a1524;
+}
+/* no tube over it: the sea is its own picture */
+.pong.sumo .arc-screen::after {
+  content: none;
 }
 .pong.sumo canvas {
-  width: auto;
-  height: min(60vh, 480px, calc(100vw - 52px));
-  aspect-ratio: 1;
+  width: 100%;
+  height: min(62vh, 492px, calc((100vw - 52px) * 1.3));
+  aspect-ratio: auto;
+  background: #0a1524;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* on the whole window the sea goes on to the sides */
+.lab .duel .duel-board .pong.sumo,
+.duel:fullscreen .duel-board .pong.sumo {
+  width: 100%;
+  max-width: calc((100dvh - 210px) * 2.1);
+}
+.lab .duel .duel-board .pong.sumo canvas,
+.duel:fullscreen .duel-board .pong.sumo canvas {
+  height: min(calc(100dvh - 210px), calc((100vw - 48px) * 1.3));
+}
+/* sumo's scoreboard: a name each, and a star for every round taken */
+.sumo-hud {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+.sumo-p {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 4px 10px;
+  border: 2px solid #07050d;
+  background: var(--panel-2);
+  box-shadow:
+    2px 2px 0 var(--px-drop),
+    inset 2px 2px 0 var(--px-hi),
+    inset 0 -3px 0 color-mix(in srgb, var(--c) 45%, transparent);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.sumo-p.them {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.sumo-p i {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  background: var(--c);
+  box-shadow:
+    0 0 0 2px #07050d,
+    0 0 10px var(--c);
+}
+.sumo-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sumo-pips {
+  display: flex;
+  flex: none;
+  gap: 4px;
+}
+.sumo-pip {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: #07050d;
+  filter: drop-shadow(1px 1px 0 rgba(255, 255, 255, 0.07));
+}
+.sumo-pip.on {
+  fill: var(--c);
+  filter: drop-shadow(2px 2px 0 #07050d);
+  animation: sumo-pip-in 520ms steps(6, end) both;
+}
+/* one round from the match: the star still to take blinks */
+.sumo-p.point .sumo-pip.next {
+  animation: sumo-pip-next 760ms steps(2, jump-none) infinite;
+}
+.sumo-to {
+  align-self: center;
+  flex: none;
+  color: var(--dim);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sumo-hud.three .sumo-to {
+  display: none;
+}
+@media (max-width: 480px) {
+  .sumo-hud.three .sumo-p {
+    gap: 5px;
+    padding: 4px 6px;
+  }
+  .sumo-hud.three .sumo-p i {
+    display: none;
+  }
+  .sumo-hud.three .sumo-pips {
+    gap: 2px;
+  }
+}
+@keyframes sumo-pip-in {
+  0% {
+    fill: #ffffff;
+    transform: scale(2.4);
+  }
+  45% {
+    fill: #ffffff;
+    transform: scale(0.8);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes sumo-pip-next {
+  from {
+    fill: #07050d;
+  }
+  to {
+    fill: color-mix(in srgb, var(--c) 55%, #07050d);
+  }
+}
+/* the words over the floe: the round's plate let down from the top, a word where somebody went in, the warning */
+.sumo-plate {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 16px 6px;
+  border: 2px solid #07050d;
+  background: var(--card, #221a34);
+  box-shadow:
+    3px 3px 0 #07050d,
+    inset 2px 2px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -3px 0 #4a3c6b;
+  opacity: 0;
+  transform: translate(-50%, -180%);
+  font-family: var(--font-pixel), var(--mono);
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* the two cords it hangs on */
+.sumo-plate::before,
+.sumo-plate::after {
+  position: absolute;
+  bottom: 100%;
+  width: 2px;
+  height: 60px;
+  background: #07050d;
+  content: "";
+}
+.sumo-plate::before {
+  left: 10px;
+}
+.sumo-plate::after {
+  right: 10px;
+}
+.sumo-plate b {
+  color: #f4eeff;
+  font-size: clamp(22px, 5.2vw, 34px);
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-shadow: 2px 2px 0 #07050d;
+}
+.sumo-plate i {
+  color: #ffc456;
+  font-size: clamp(13px, 3vw, 17px);
+  font-style: normal;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #07050d;
+  text-transform: uppercase;
+}
+/* the word a bout starts on has to read on white ice */
+.pong.sumo .arc-pop {
+  text-shadow:
+    3px 3px 0 #07050d,
+    2px 0 0 #07050d,
+    -2px 0 0 #07050d,
+    0 2px 0 #07050d,
+    0 -2px 0 #07050d,
+    2px -2px 0 #07050d,
+    -2px 2px 0 #07050d,
+    -2px -2px 0 #07050d;
+}
+.sumo-word {
+  position: absolute;
+  z-index: 1;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  color: #dff7ff;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: clamp(18px, 4.4vw, 28px);
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow:
+    2px 2px 0 #07050d,
+    -1px -1px 0 #07050d,
+    1px -1px 0 #07050d,
+    -1px 1px 0 #07050d;
+  pointer-events: none;
+}
+.sumo-word.big {
+  color: #ffc456;
+  font-size: clamp(28px, 7vw, 48px);
+  text-shadow:
+    3px 3px 0 #07050d,
+    -1px -1px 0 #07050d,
+    1px -1px 0 #07050d,
+    -1px 1px 0 #07050d;
+}
+.sumo-tag {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 1;
+  padding: 3px 9px 4px;
+  border: 2px solid #07050d;
+  background: #ff6aa8;
+  box-shadow: 2px 2px 0 #07050d;
+  opacity: 0;
+  transform: translateX(-50%);
+  color: #07050d;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: clamp(13px, 3vw, 16px);
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sumo-pip.on,
+  .sumo-p.point .sumo-pip.next {
+    animation: none;
+  }
+  .sumo-p.point .sumo-pip.next {
+    fill: color-mix(in srgb, var(--c) 55%, #07050d);
+  }
 }
 /* the games to pick from as tiles, then who to play with and the invite */
 .gtiles {
