@@ -4039,14 +4039,17 @@ body {
   }
 }
 
-/* Chess and draughts squares: maple and walnut; the latest move stays lit. */
+/* Chess and draughts squares: maple and walnut with a pixel grain; the latest move stays lit. */
 .chess-grid,
 .chk-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   width: 100%;
   aspect-ratio: 1;
+  user-select: none;
+  -webkit-user-select: none;
 }
+/* a square is its wood, its grain, and over them the tint of whatever is happening on it */
 .chess-grid button,
 .chk-grid button {
   position: relative;
@@ -4055,7 +4058,13 @@ body {
   padding: 0;
   border: 0;
   aspect-ratio: 1;
+  background-color: var(--wood);
+  background-image: linear-gradient(var(--tint, transparent), var(--tint, transparent)), var(--grain);
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.1),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.1);
   text-shadow: none;
+  -webkit-tap-highlight-color: transparent;
 }
 /* a square's piece, the one just taken and the move dot share the one spot in its middle */
 .chess-grid button > *,
@@ -4066,94 +4075,269 @@ body {
 }
 .chess-grid .lt,
 .chk-grid .lt {
-  background-color: #ead4a7;
+  --wood: #ead4a7;
+  --grain: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.09) 0 1px,
+    transparent 1px 5px,
+    rgba(150, 105, 55, 0.08) 5px 6px,
+    transparent 6px 11px
+  );
 }
 .chess-grid .dk,
 .chk-grid .dk {
-  background-color: #a9774d;
+  --wood: #a9774d;
+  --grain: repeating-linear-gradient(
+    90deg,
+    rgba(60, 28, 8, 0.12) 0 1px,
+    transparent 1px 6px,
+    rgba(255, 220, 170, 0.07) 6px 7px,
+    transparent 7px 13px
+  );
 }
 .chess-grid .was,
 .chk-grid .was {
-  box-shadow: inset 0 0 0 100vmax rgba(205, 215, 30, 0.34);
+  --tint: rgba(205, 215, 30, 0.32);
 }
 .chk-grid .via {
-  box-shadow: inset 0 0 0 100vmax rgba(205, 215, 30, 0.22);
+  --tint: rgba(205, 215, 30, 0.2);
 }
 .chess-grid .now,
 .chk-grid .now {
-  box-shadow: inset 0 0 0 100vmax rgba(205, 215, 30, 0.5);
+  --tint: rgba(205, 215, 30, 0.5);
 }
 .chk-grid .gone {
-  box-shadow: inset 0 0 0 100vmax rgba(255, 70, 70, 0.24);
+  --tint: rgba(255, 70, 70, 0.22);
 }
 .chess-grid .sel,
 .chk-grid .pick {
-  box-shadow: inset 0 0 0 100vmax rgba(30, 140, 70, 0.45);
+  --tint: rgba(30, 140, 70, 0.45);
 }
 .chess-grid button:enabled,
 .chk-grid button:enabled {
   cursor: pointer;
+}
+.chess-grid .can:enabled,
+.chk-grid .can:enabled {
+  cursor: grab;
+}
+.chess-grid[data-drag] button,
+.chk-grid[data-drag] button {
+  cursor: grabbing;
 }
 .chess-grid button:enabled:hover,
 .chk-grid button.dk:enabled:hover {
   outline: 2px solid rgba(255, 255, 255, 0.55);
   outline-offset: -2px;
 }
-/* where the picked piece can go: a round pixel dot, and corner wedges round a piece it can take */
+/* a square the picked piece can go to answers the pointer: it greens, and the piece shows itself standing there */
+.chess-grid .to:hover,
+.chess-grid .hit:hover,
+.chk-grid .to:hover,
+.chess-grid .over,
+.chk-grid .over {
+  --tint: rgba(30, 140, 70, 0.38);
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: -2px;
+}
+/* where the picked piece can go: a round pixel dot that pops up, and a reticle round a piece it can take */
 .chess-grid .to::after,
 .chk-grid .to::after {
   content: "";
   z-index: 1;
   width: 30%;
   height: 30%;
-  background: rgba(20, 60, 24, 0.5);
+  background: rgba(20, 60, 24, 0.55);
   clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+  animation: dot-in 150ms steps(3, end) both;
 }
-.chess-grid .to:hover::after,
-.chk-grid .to:hover::after {
-  width: 38%;
-  height: 38%;
-  background: rgba(20, 60, 24, 0.72);
-}
-.chess-grid .hit::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(135deg, rgba(20, 60, 24, 0.62) 0 21%, transparent 21%),
-    linear-gradient(225deg, rgba(20, 60, 24, 0.62) 0 21%, transparent 21%),
-    linear-gradient(315deg, rgba(20, 60, 24, 0.62) 0 21%, transparent 21%),
-    linear-gradient(45deg, rgba(20, 60, 24, 0.62) 0 21%, transparent 21%);
-}
-.chess-grid .chk::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 3px solid rgba(255, 70, 70, 0.9);
-  background: radial-gradient(circle, #ff3a3a 0 34%, rgba(235, 25, 25, 0.8) 56%, rgba(235, 25, 25, 0.42) 100%);
-  animation: chk-pulse 0.9s steps(3, end) infinite alternate;
-}
-@keyframes chk-pulse {
+@keyframes dot-in {
   from {
-    opacity: 0.55;
+    transform: scale(0);
+  }
+  60% {
+    transform: scale(1.3);
   }
 }
+.chess-grid .to:hover::after,
+.chess-grid .to.over::after,
+.chk-grid .to:hover::after,
+.chk-grid .to.over::after {
+  opacity: 0;
+}
+.chess-grid .chess-ghost,
+.chk-grid .chk-ghost {
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+}
+.chess-grid .chess-ghost {
+  width: 86%;
+  height: 86%;
+}
+.chk-grid .chk-ghost {
+  width: 92%;
+  height: 92%;
+}
+.chess-grid .to:hover .chess-ghost,
+.chess-grid .to.over .chess-ghost,
+.chk-grid .to:hover .chk-ghost,
+.chk-grid .to.over .chk-ghost {
+  opacity: 0.5;
+}
+.chess-grid .hit::after,
+.chk-grid .prey::after {
+  --c: #ff4f7b;
+  --w: 3px;
+  --l: 30%;
+  content: "";
+  position: absolute;
+  inset: 3%;
+  z-index: 1;
+  background:
+    linear-gradient(var(--c), var(--c)) left top / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) left top / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) right top / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) right top / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) left bottom / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) left bottom / var(--w) var(--l) no-repeat,
+    linear-gradient(var(--c), var(--c)) right bottom / var(--l) var(--w) no-repeat,
+    linear-gradient(var(--c), var(--c)) right bottom / var(--w) var(--l) no-repeat;
+  filter: drop-shadow(1px 1px 0 rgba(7, 5, 13, 0.6));
+  pointer-events: none;
+  animation:
+    ring-in 160ms steps(3, end) both,
+    ring-beat 0.8s steps(2, end) 160ms infinite alternate;
+}
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@keyframes ring-beat {
+  to {
+    transform: scale(0.9);
+  }
+}
+.chess-grid .hit:hover::after,
+.chess-grid .hit.over::after {
+  --c: #fff;
+  animation: none;
+  transform: scale(0.88);
+}
+/* the pawn that would be taken in passing */
+.chess-grid .passed {
+  --tint: rgba(255, 79, 123, 0.34);
+}
+/* check: the king's square burns red, a ring keeps running out from it, and the king starts */
+.chess-grid .chk {
+  --tint: rgba(255, 58, 58, 0.58);
+  z-index: 1;
+}
+.chess-grid[data-live] .chk,
+.chess-grid[data-live] .mated {
+  animation: ray-on 1ms steps(1, end) var(--land, 0ms) backwards;
+}
+.chess-grid .chk::before,
+.chess-grid .mated::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid #ff3a3a;
+  opacity: 0;
+  pointer-events: none;
+  animation: chk-ring 0.9s steps(5, end) var(--land, 0ms) infinite;
+}
+@keyframes chk-ring {
+  from {
+    opacity: 1;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+.chess-grid[data-live] .chk .piece {
+  animation: chk-start 300ms steps(4, end) var(--land, 0ms) backwards;
+}
+@keyframes chk-start {
+  25% {
+    transform: translate(-3px, -2px);
+  }
+  50% {
+    transform: translate(3px, -3px);
+  }
+  75% {
+    transform: translate(-2px, 0);
+  }
+}
+/* and the board says so, over the king */
+.chess-call {
+  position: absolute;
+  top: calc(var(--y) * 12.5%);
+  left: calc((var(--x) + 0.5) * 12.5%);
+  z-index: 5;
+  padding: 1px 8px 3px;
+  border: 2px solid #07050d;
+  background: #ff3a3a;
+  box-shadow: 2px 2px 0 var(--px-drop);
+  color: #fff;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 16px;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #7a1f24;
+  text-transform: uppercase;
+  white-space: nowrap;
+  translate: -50% -78%;
+  pointer-events: none;
+  animation: call-pop 1150ms linear var(--land, 0ms) both;
+}
+.chess-call.under {
+  top: calc((var(--y) + 1) * 12.5%);
+  translate: -50% -22%;
+}
+@keyframes call-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+  9% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+  16% {
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+/* the pieces stand a little off the wood, and lift under the pointer and in the hand */
 .chess-grid .piece,
 .chk-grid .man {
   position: relative;
   filter: drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
+  transform-origin: 50% 88%;
   transition:
-    transform 80ms steps(2, end),
-    filter 80ms steps(2, end);
+    transform 90ms cubic-bezier(0.2, 0.8, 0.3, 1),
+    filter 90ms;
 }
 .chess-grid .piece {
   width: 86%;
   height: 86%;
 }
-.chk-grid .man,
-.chk-grid .ghost {
-  width: 78%;
-  height: 78%;
+.chk-grid .man {
+  width: 92%;
+  height: 92%;
+  overflow: visible;
 }
 .chess-grid .can:hover .piece,
 .chk-grid .can:hover .man {
@@ -4162,104 +4346,350 @@ body {
 }
 .chess-grid .sel .piece,
 .chk-grid .pick .man {
-  filter: drop-shadow(4px 7px 0 rgba(7, 5, 13, 0.28));
-  animation: piece-bob 0.7s steps(2, end) infinite alternate;
+  transform: translateY(-5px) scale(1.1);
+  filter: drop-shadow(4px 8px 0 rgba(7, 5, 13, 0.26));
+  animation:
+    piece-lift 130ms cubic-bezier(0.2, 0.8, 0.3, 1.5) both,
+    piece-bob 0.7s steps(2, end) 130ms infinite alternate;
 }
-@keyframes piece-bob {
+@keyframes piece-lift {
   from {
-    transform: translateY(-4px) scale(1.06);
-  }
-  to {
-    transform: translateY(-6px) scale(1.06);
-  }
-}
-/* a man that must move (draughts take whenever they can) wears a gold rim */
-.chk-grid .can .man {
-  filter: drop-shadow(2px 0 0 #ffd25a) drop-shadow(-2px 0 0 #ffd25a) drop-shadow(0 2px 0 #ffd25a)
-    drop-shadow(0 -2px 0 #ffd25a) drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
-}
-.chk-grid .can:hover .man {
-  filter: drop-shadow(2px 0 0 #ffd25a) drop-shadow(-2px 0 0 #ffd25a) drop-shadow(0 2px 0 #ffd25a)
-    drop-shadow(0 -2px 0 #ffd25a) drop-shadow(3px 5px 0 rgba(7, 5, 13, 0.3));
-}
-/* a piece just taken: it flashes and bursts as the taker lands; a draughts man stays a faint ghost a moment longer */
-.chk-grid .ghost {
-  position: relative;
-  display: grid;
-  place-items: center;
-}
-.chk-grid .ghost:not(.poof) {
-  opacity: 0.35;
-}
-.chk-grid .poof-piece {
-  width: 100%;
-  height: auto;
-}
-.chess-grid .poof {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-}
-.chess-grid .poof-piece {
-  width: 86%;
-  height: 86%;
-  animation: poof-out 380ms steps(5, end) var(--wait, 200ms) both;
-}
-.chk-grid .poof .poof-piece {
-  animation: poof-settle 420ms steps(5, end) var(--wait, 120ms) both;
-}
-@keyframes poof-out {
-  35% {
-    transform: scale(1.15);
-    opacity: 1;
-    filter: brightness(2.4);
-  }
-  to {
-    transform: scale(1.5);
-    opacity: 0;
-    filter: brightness(3);
-  }
-}
-@keyframes poof-settle {
-  35% {
-    transform: scale(1.15);
-    filter: brightness(2.4);
-  }
-  to {
-    opacity: 0.35;
-  }
-}
-.spark {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 4px;
-  height: 4px;
-  margin: -2px;
-  background: #fff3c4;
-  box-shadow: 1px 1px 0 #07050d;
-  opacity: 0;
-  animation: spark-fly 440ms steps(6, end) var(--wait, 200ms) both;
-}
-@keyframes spark-fly {
-  from {
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
     transform: none;
   }
+}
+@keyframes piece-bob {
   to {
-    opacity: 0;
-    transform: translate(var(--sx), var(--sy));
+    transform: translateY(-7px) scale(1.1);
   }
 }
-.seat-man {
+/* dragged, a piece is moved by the hand alone */
+.chess-grid[data-drag] .sel .piece,
+.chk-grid[data-drag] .pick .man {
+  transform: none;
+}
+/* a new game: once the two sides have been shown, the pieces come to attention, file by file */
+.chess-grid[data-ready] .piece,
+.chk-grid[data-ready] .man {
+  animation: piece-ready 320ms cubic-bezier(0.3, 0, 0.3, 1) calc(var(--f) * 45ms + var(--r) * 14ms) backwards;
+}
+@keyframes piece-ready {
+  40% {
+    transform: translateY(-16%);
+  }
+  80% {
+    transform: scale(1.07, 0.9);
+  }
+}
+/*
+ * a piece just taken: the board draws it only as a pattern on its square; a copy on a layer over the board stands
+ * there until it is hit, then flies to the tray of whoever took it, whatever is played meanwhile
+ */
+.chess-grid .poof,
+.chk-grid .poof {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  visibility: hidden;
+  pointer-events: none;
+}
+.board-fly {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+.board-fly .poof {
+  position: absolute;
+  display: grid;
+  place-items: center;
+}
+.poof-piece {
+  width: 86%;
+  height: 86%;
+  filter: drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
+}
+.poof-piece.disc {
+  width: 92%;
+  height: 92%;
+}
+/* a pawn that has just become a piece walks in as the pawn it was, and the piece bursts out of it */
+.chess-grid .shed {
+  pointer-events: none;
+}
+/* mate: the board holds its breath and goes dark but for the king and what mates it; then the king goes over */
+.chess-grid .dim {
+  filter: brightness(0.72) saturate(0.8);
+}
+/* dark while the king falls, then lighter again as the result comes in, so the last position can be read */
+.chess-grid[data-live] .dim {
+  animation: mate-dim 2400ms linear var(--land, 0ms) backwards;
+}
+@keyframes mate-dim {
+  from {
+    filter: none;
+    animation-timing-function: steps(4, end);
+  }
+  10%,
+  62% {
+    filter: brightness(0.4) saturate(0.55);
+    animation-timing-function: steps(5, end);
+  }
+}
+.chess-grid .mated {
+  --tint: rgba(255, 58, 58, 0.62);
+  z-index: 2;
+}
+.chess-grid .mater {
+  --tint: rgba(255, 210, 90, 0.6);
+  z-index: 1;
+}
+.chess-grid .mater .piece {
+  filter: drop-shadow(2px 0 0 #ffd25a) drop-shadow(-2px 0 0 #ffd25a) drop-shadow(0 2px 0 #ffd25a) drop-shadow(0 -2px 0 #ffd25a)
+    drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.5));
+}
+.chess-grid .ray {
+  --tint: rgba(255, 58, 58, 0.42);
+}
+.chess-grid[data-live] .mater,
+.chess-grid[data-live] .ray {
+  animation: ray-on 140ms steps(2, end) calc(var(--land, 0ms) + 300ms + var(--i) * 70ms) backwards;
+}
+@keyframes ray-on {
+  from {
+    --tint: transparent;
+  }
+}
+.chess-grid .mated .piece {
+  transform-origin: 50% 100%;
+  transform: translate(calc(var(--fall) * -46%), -34%) rotate(calc(var(--fall) * 90deg));
+  transition: none;
+}
+.chess-grid[data-live] .mated .piece {
+  animation: king-fall 520ms linear calc(var(--land, 0ms) + 640ms) backwards;
+}
+@keyframes king-fall {
+  from {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+  16% {
+    transform: rotate(calc(var(--fall) * -9deg));
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.5);
+  }
+  56% {
+    transform: translate(calc(var(--fall) * -46%), -34%) rotate(calc(var(--fall) * 90deg));
+    animation-timing-function: ease-out;
+  }
+  72% {
+    transform: translate(calc(var(--fall) * -42%), -40%) rotate(calc(var(--fall) * 76deg));
+    animation-timing-function: ease-in;
+  }
+}
+/* a draw: the colour drains out of the board, and each king keeps half a point */
+.chess-grid:is([data-end="stalemate"], [data-end="fifty"], [data-end="material"], [data-end="repeat"]),
+.chk-grid[data-end="draw"] {
+  filter: saturate(0.3) brightness(0.92);
+}
+.chess-grid[data-live]:is([data-end="stalemate"], [data-end="fifty"], [data-end="material"], [data-end="repeat"]),
+.chk-grid[data-live][data-end="draw"] {
+  animation: draw-fade 800ms ease-out var(--land, 0ms) backwards;
+}
+@keyframes draw-fade {
+  from {
+    filter: none;
+  }
+}
+.chess-half {
+  position: absolute;
+  top: -7%;
+  right: -7%;
+  z-index: 3;
+  padding: 1px 4px;
+  border: 2px solid #07050d;
+  background: #1f2548;
+  box-shadow: 2px 2px 0 var(--px-drop);
+  color: #d0d8ff;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  animation: half-in 300ms steps(4, end) calc(var(--land, 0ms) + 500ms) backwards;
+}
+@keyframes half-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+/* out of time: the king of the side whose flag fell hangs its head */
+.chess-grid .flagged .piece {
+  transform: rotate(-20deg) translateY(4%);
+  filter: grayscale(0.7) brightness(0.8) drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
+}
+.chess-grid[data-live] .flagged .piece {
+  animation: king-droop 600ms cubic-bezier(0.5, 0, 0.3, 1.4) 260ms backwards;
+}
+@keyframes king-droop {
+  from {
+    transform: none;
+    filter: drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
+  }
+}
+/* draughts: a man that may move wears an amber rim, and one that must take shows it louder */
+.chk-grid .man .rim {
+  display: none;
+}
+.chk-grid .can .man .rim {
+  display: inline;
+  fill: #ffc456;
+}
+.chk-grid .must .man .rim {
+  animation: rim-beat 0.7s steps(2, end) infinite alternate;
+}
+@keyframes rim-beat {
+  to {
+    fill: #ff4f7b;
+  }
+}
+/* what the piece in hand has jumped so far waits, marked, to be taken off when the move is made */
+.chk-grid .doomed {
+  --tint: rgba(255, 58, 58, 0.4);
+}
+.chk-grid .doomed .man {
+  filter: grayscale(0.7) brightness(0.75);
+  opacity: 0.6;
+}
+.chk-grid .prey::after {
+  --l: 24%;
+}
+.chk-grid .man .crown,
+.chk-grid .poof-piece .crown {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+/* the end of a draughts game: what is left of the side that lost goes grey */
+.chk-grid[data-end] .lost .man {
+  filter: grayscale(0.85) brightness(0.62);
+}
+.chk-grid[data-live][data-end] .lost .man {
+  animation: chk-lost 400ms steps(4, end) var(--land, 0ms) backwards;
+}
+@keyframes chk-lost {
+  from {
+    filter: drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chess-grid .to::after,
+  .chk-grid .to::after,
+  .chess-grid .hit::after,
+  .chk-grid .prey::after,
+  .chess-grid .chk::before,
+  .chess-grid .mated::before,
+  .chess-grid[data-live] .chk,
+  .chess-grid[data-live] .mated,
+  .chess-grid[data-live] .chk .piece,
+  .chess-grid[data-live] .dim,
+  .chess-grid[data-live] .mater,
+  .chess-grid[data-live] .ray,
+  .chess-grid[data-live] .mated .piece,
+  .chess-grid[data-live] .flagged .piece,
+  .chess-grid[data-live][data-end],
+  .chk-grid[data-live][data-end],
+  .chk-grid[data-live][data-end] .lost .man,
+  .chk-grid .must .man .rim,
+  .chess-call,
+  .chess-half {
+    animation: none;
+  }
+  .chess-grid .shed,
+  .board-fly,
+  .board-fx {
+    display: none;
+  }
+}
+/* what each side has taken, lined up by its seat: like beside like, and how far ahead it is */
+.took-tray {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+/* the rack is a strip of the board's own walnut, so pieces of either colour read on it */
+.took-rack {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  padding: 0 4px 0 3px;
+  border: 2px solid #07050d;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(60, 28, 8, 0.12) 0 1px,
+      transparent 1px 6px,
+      rgba(255, 220, 170, 0.07) 6px 7px,
+      transparent 7px 13px
+    ),
+    #a9774d;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 220, 170, 0.28),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.3);
+}
+.took-tray .took {
+  flex: none;
   width: 20px;
   height: 20px;
+  margin-left: -9px;
+  filter: drop-shadow(1px 1px 0 rgba(7, 5, 13, 0.4));
+}
+.took-tray .took:first-child {
+  margin-left: 0;
+}
+.took-tray .took.gap {
+  margin-left: 1px;
+}
+.took-tray .took.disc {
+  width: 18px;
+  height: 18px;
+  margin-left: -11px;
+}
+.took-tray .took.disc:first-child {
+  margin-left: 0;
+}
+/* on a phone the pieces stand closer, so a long game's catch still fits beside the clock */
+@media (max-width: 480px) {
+  .took-tray .took:not(.disc) {
+    width: 18px;
+    height: 18px;
+    margin-left: -10px;
+  }
+  .took-tray .took:not(.disc):first-child {
+    margin-left: 0;
+  }
+  .took-tray .took.gap:not(.disc) {
+    margin-left: -1px;
+  }
+}
+.took-lead {
+  flex: none;
+  margin-left: 7px;
+  padding: 0 4px 1px;
+  border: 2px solid #07050d;
+  background: #ffd25a;
+  color: #1b1626;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.1;
+}
+.seat-man {
+  width: 24px;
+  height: 24px;
 }
 
 /* Board games: the other player above the board and you below, whoever is to move lit up, a line saying what's on. */
@@ -4380,87 +4810,228 @@ body {
     transform: scale(0.6);
   }
 }
-/* The frame: walnut, the files and ranks burnt into it, and a gold rim while it is your move. */
+/* The table: a walnut frame with brass corners, the files and ranks burnt into it, and a gold rim while it is your move. */
 .board-wrap {
+  --band: 20px;
   position: relative;
-  display: grid;
-  grid-template-columns: 14px 1fr;
-  grid-template-rows: 1fr 14px;
-  gap: 2px;
-  padding: 8px 10px 4px 4px;
+  padding: var(--band);
   border: 2px solid #07050d;
-  background: linear-gradient(#5b3d26, #3e2818);
+  background:
+    linear-gradient(#f0c877, #b98a3c) left 5px top 5px / 4px 4px no-repeat,
+    linear-gradient(#f0c877, #b98a3c) right 5px top 5px / 4px 4px no-repeat,
+    linear-gradient(#f0c877, #b98a3c) left 5px bottom 5px / 4px 4px no-repeat,
+    linear-gradient(#f0c877, #b98a3c) right 5px bottom 5px / 4px 4px no-repeat,
+    repeating-linear-gradient(
+      0deg,
+      rgba(0, 0, 0, 0.1) 0 1px,
+      transparent 1px 4px,
+      rgba(255, 220, 170, 0.05) 4px 5px,
+      transparent 5px 9px
+    ),
+    linear-gradient(#6a4529, #4a2f1b);
   box-shadow:
-    3px 3px 0 var(--px-drop),
-    inset 2px 2px 0 rgba(255, 220, 170, 0.14),
-    inset -2px -2px 0 rgba(0, 0, 0, 0.3);
+    4px 4px 0 var(--px-drop),
+    inset 2px 2px 0 rgba(255, 220, 170, 0.22),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.38);
 }
 .board-wrap.go {
   border-color: #ffd25a;
 }
+/* your clock is nearly gone: the rim says so with it */
+.board-wrap.tense {
+  border-color: #ff5a5a;
+  animation: board-tense 1s steps(2, end) infinite;
+}
+@keyframes board-tense {
+  50% {
+    border-color: #7a1f24;
+  }
+}
+/* the squares are let into the frame behind a line of brass */
 .board-sq {
   position: relative;
   border: 2px solid #07050d;
-  box-shadow: 0 0 0 2px rgba(255, 220, 170, 0.14);
+  box-shadow:
+    0 0 0 2px rgba(226, 178, 94, 0.55),
+    0 0 0 4px rgba(7, 5, 13, 0.35);
+}
+.board-fx {
+  position: absolute;
+  top: -28px;
+  left: -28px;
+  z-index: 7;
+  width: calc(100% + 56px);
+  height: calc(100% + 56px);
+  pointer-events: none;
 }
 .board-ranks,
 .board-files {
+  position: absolute;
   display: grid;
-  color: #f1dcb4;
+  color: #f6e3bd;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 700;
   line-height: 1;
   text-shadow: 1px 1px 0 #07050d;
   user-select: none;
 }
 .board-ranks {
+  top: calc(var(--band) + 2px);
+  bottom: calc(var(--band) + 2px);
+  left: 0;
   grid-template-rows: repeat(8, 1fr);
-  padding: 2px 0;
+  width: var(--band);
 }
 .board-files {
-  grid-column: 2;
+  right: calc(var(--band) + 2px);
+  bottom: 0;
+  left: calc(var(--band) + 2px);
   grid-template-columns: repeat(8, 1fr);
-  padding: 0 2px;
+  height: var(--band);
 }
 .board-ranks span,
 .board-files span {
   display: grid;
   place-items: center;
 }
+/* an agent is thinking: three dots walk along the far edge of the table */
+.board-think {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: none;
+  align-items: center;
+  gap: 4px;
+  height: var(--band);
+  translate: -50% 0;
+}
+.duel[data-thinking] .board-think {
+  display: flex;
+}
+.board-think i {
+  width: 4px;
+  height: 4px;
+  background: #f1dcb4;
+  box-shadow: 1px 1px 0 #07050d;
+  opacity: 0.3;
+  animation: board-think 0.9s steps(1, end) infinite;
+}
+.board-think i:nth-child(2) {
+  animation-delay: 0.3s;
+}
+.board-think i:nth-child(3) {
+  animation-delay: 0.6s;
+}
+@keyframes board-think {
+  from {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+  34% {
+    opacity: 0.3;
+    transform: none;
+  }
+}
+@media (max-width: 480px) {
+  .board-wrap {
+    --band: 13px;
+  }
+  .board-ranks,
+  .board-files {
+    font-size: 10px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .board-wrap.tense,
+  .board-think i {
+    animation: none;
+  }
+}
+/* a pawn on the last rank: the four it can become, in a column from the square it reaches */
 .promo {
+  --cell: max(12.5%, 52px);
   position: absolute;
   inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: rgba(18, 14, 28, 0.76);
+  z-index: 8;
+  background: rgba(18, 14, 28, 0.62);
   font-size: 13px;
   font-weight: 600;
 }
+.promo > span {
+  position: absolute;
+  bottom: calc(6% + 40px);
+  left: 50%;
+  padding: 2px 8px;
+  background: rgba(18, 14, 28, 0.8);
+  white-space: nowrap;
+  translate: -50% 0;
+}
 .promo div {
+  position: absolute;
+  top: 0;
+  left: min(calc(var(--file) * 12.5%), calc(100% - var(--cell)));
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  width: var(--cell);
+  border: 2px solid #07050d;
+  background: #07050d;
+  box-shadow: 4px 4px 0 var(--px-drop);
+  gap: 2px;
+  animation: promo-in 160ms steps(4, end) both;
+}
+@keyframes promo-in {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
 }
 .promo div .btn {
-  width: 58px;
-  height: 58px;
-  padding: 4px;
   justify-content: center;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  padding: 6%;
+  border: 0;
+  background: #ead4a7;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.35),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.15);
+}
+.promo div .btn:hover,
+.promo div .btn:focus-visible {
+  background: #ffd25a;
 }
 .promo div .btn svg {
   width: 100%;
   height: 100%;
+  filter: drop-shadow(2px 2px 0 rgba(7, 5, 13, 0.38));
 }
+.promo div .btn:hover svg {
+  transform: translateY(-2px) scale(1.08);
+}
+.promo > .btn {
+  position: absolute;
+  bottom: 5%;
+  left: 50%;
+  translate: -50% 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .promo div {
+    animation: none;
+  }
+}
+/* the scoresheet: numbered pairs of moves in even columns, the latest one lit */
 .chess-moves {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 12px;
-  max-height: 68px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  align-content: start;
+  gap: 2px 8px;
+  height: 60px;
   margin: 0;
-  padding: 6px 8px;
+  padding: 5px 8px;
   overflow-y: auto;
   border: 2px solid var(--border);
   background: rgba(0, 0, 0, 0.22);
@@ -4468,16 +5039,40 @@ body {
   font-family: var(--mono);
   font-size: 12px;
   list-style: none;
+  scrollbar-width: thin;
 }
 .chess-moves li {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 20px 1fr 1fr;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+}
+.chess-moves .blank {
+  display: block;
+  grid-column: 1 / -1;
+  height: auto;
+  color: var(--dim);
+  font-family: var(--sans);
+  line-height: 46px;
+  text-align: center;
 }
 .chess-moves .n {
   color: var(--dim);
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 13px;
+  text-align: right;
+}
+.chess-moves .wt,
+.chess-moves .bk {
+  padding: 1px 4px;
+  white-space: nowrap;
 }
 .chess-moves .now {
-  color: #ffd25a;
+  background: #ffd25a;
+  box-shadow: 2px 2px 0 var(--px-drop);
+  color: #1b1626;
+  font-weight: 700;
 }
 .chess-moves .fig {
   display: inline-block;
@@ -4485,6 +5080,14 @@ body {
   height: 14px;
   margin-right: 1px;
   vertical-align: -2px;
+}
+/* a dark piece on the dark sheet is drawn round with a pale line */
+.chess-moves .bk:not(.now) .fig {
+  width: 12px;
+  height: 12px;
+  margin: 0 2px 0 1px;
+  vertical-align: -1px;
+  filter: drop-shadow(1px 0 0 #8d7fb0) drop-shadow(-1px 0 0 #8d7fb0) drop-shadow(0 1px 0 #8d7fb0) drop-shadow(0 -1px 0 #8d7fb0);
 }
 /* The end of a game seen live: a ribbon over the board, and pixel confetti for the winner; it clears by itself. */
 .finale {
@@ -5006,11 +5609,15 @@ body {
   font-size: 11px;
   font-weight: 700;
 }
-/* a game's clock beside its seat: lit while it runs, red in the last ten seconds */
+/*
+ * a game's clock beside its seat: it jumps alight when the move comes to it and sinks when the move is made, a bar
+ * under the digits drains with the time, the last ten seconds beat red, and a flag drops on it at the end
+ */
 .gclock {
+  position: relative;
   flex: none;
-  min-width: 54px;
-  padding: 2px 6px;
+  min-width: 60px;
+  padding: 2px 6px 5px;
   border: 2px solid #07050d;
   background: #0d0b14;
   box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.45);
@@ -5022,9 +5629,47 @@ body {
   line-height: 1.35;
   text-align: center;
 }
+.gclock b {
+  display: block;
+  font-weight: inherit;
+}
+.gclock i {
+  position: absolute;
+  right: 3px;
+  bottom: 2px;
+  left: 3px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.6;
+  transform: scaleX(var(--left, 1));
+  transform-origin: 0 50%;
+}
 .gclock.on {
   background: #ffd25a;
+  box-shadow: 2px 2px 0 var(--px-drop);
   color: #1b1626;
+  animation: gclock-on 220ms steps(4, end);
+}
+.gclock.rest {
+  animation: gclock-rest 180ms steps(3, end);
+}
+@keyframes gclock-on {
+  from {
+    transform: translateY(2px);
+  }
+  50% {
+    transform: translateY(-3px) scale(1.1);
+  }
+}
+@keyframes gclock-rest {
+  from {
+    background: #ffd25a;
+    color: #1b1626;
+    transform: translateY(-1px);
+  }
+  50% {
+    transform: translateY(2px);
+  }
 }
 .gclock.low {
   color: #ff6b6b;
@@ -5032,11 +5677,74 @@ body {
 .gclock.on.low {
   background: #ff5a5a;
   color: #1b1626;
-  animation: seat-pulse 1s steps(2) infinite;
+}
+.gclock.on.low b {
+  animation: gclock-beat 340ms steps(4, end);
+}
+@keyframes gclock-beat {
+  from {
+    transform: scale(1.24);
+  }
 }
 .gclock.out {
   background: #3a1416;
   color: #ff6b6b;
+}
+.gclock.fell {
+  animation: gclock-out 420ms steps(6, end) 300ms backwards;
+}
+@keyframes gclock-out {
+  from {
+    background: #ff5a5a;
+    color: #1b1626;
+  }
+  20% {
+    transform: translate(2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, 1px);
+  }
+  60% {
+    transform: translate(1px, 0);
+  }
+}
+.gclock-flag {
+  position: absolute;
+  top: -13px;
+  right: -8px;
+  width: 18px;
+  height: 21px;
+  filter: drop-shadow(1px 1px 0 #07050d);
+}
+.gclock.fell .gclock-flag {
+  animation: gclock-flag 520ms linear both;
+}
+@keyframes gclock-flag {
+  from {
+    opacity: 0;
+    transform: translateY(-44px) rotate(-40deg);
+    animation-timing-function: cubic-bezier(0.6, 0, 1, 0.6);
+  }
+  10% {
+    opacity: 1;
+  }
+  58% {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+  76% {
+    transform: translateY(-6px) rotate(8deg);
+    animation-timing-function: ease-in;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gclock.on,
+  .gclock.rest,
+  .gclock.fell,
+  .gclock.on.low b,
+  .gclock.fell .gclock-flag {
+    animation: none;
+  }
 }
 .leaders-2 {
   display: grid;
