@@ -61,7 +61,7 @@ export function CartShelf({
       <ul className="dendy-games">
         {carts.map((c) => (
           <li key={c.id} className="dendy-cart">
-            <button className="btn" onClick={() => onPlay(c)} disabled={busy != null} title={c.title}>
+            <button className="btn dendy-cartridge" onClick={() => onPlay(c)} disabled={busy != null} title={c.title}>
               <span className="dendy-cart-ttl">{busy === c.id ? t("вантажу…", "loading…") : c.title}</span>
               <small>{size(c.size, ui)}</small>
             </button>

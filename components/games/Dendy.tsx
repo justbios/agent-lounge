@@ -1,11 +1,12 @@
 "use client";
 
-import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, useEffect, useRef, useState } from "react";
 import { FolderOpen, Pause, Play, RotateCcw, X } from "lucide-react";
 import type { Browser, Controller } from "jsnes";
 import { Two, Ui, tr, useTr, useUi } from "@/lib/i18n";
 import { Cart } from "@/lib/live/cartShelf";
 import { NES_GAMES, NesGame, fetchRom, readRom } from "@/lib/live/nesGames";
+import { hallCart } from "@/lib/live/sounds/hall";
 import { CartShelf, useCartShelf } from "./CartShelf";
 import FullscreenButton from "./FullscreenButton";
 
@@ -90,6 +91,9 @@ function romFail(e: unknown): Two {
 const whoPlays = (g: NesGame, ui: Ui) =>
   g.players === 2 ? tr(ui, "1–2 гравці", "1–2 players") : tr(ui, "1 гравець", "1 player");
 
+/** the labels on the shelf's cartridges, one after another */
+const CART_TINTS = ["#ff6aa8", "#ffc456", "#62f0ff", "#8ee59b", "#9b7bff"];
+
 interface Loaded {
   title: string;
   data: string;
@@ -148,6 +152,7 @@ export default function Dendy() {
   }, [game]);
 
   const start = (title: string, data: string) => {
+    hallCart();
     setFail(null);
     setPaused(false);
     setGame((g) => ({ title, data, n: (g?.n ?? 0) + 1 }));
@@ -205,19 +210,31 @@ export default function Dendy() {
   };
 
   return (
-    <div className="dendy">
+    <div className={`dendy${game ? " on" : ""}`}>
       <div className="dendy-side">
         {NES_GAMES.length > 0 && (
-          <ul className="dendy-games">
-            {NES_GAMES.map((g) => (
-              <li key={g.id}>
-                <button className="btn" onClick={() => pickGame(g)} disabled={busy != null} title={g.about[ui]}>
-                  {busy === g.id ? t("вантажу…", "loading…") : g.title}
-                  <small>{whoPlays(g, ui)}</small>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <section className="dendy-shelf" aria-label={t("ігри з полиці", "games off the shelf")}>
+            <p className="dendy-shelf-ttl">
+              <b>{t("полиця", "the shelf")}</b>{" "}
+              <small>{t("вільні ігри, що йдуть із кафе", "free games that come with the café")}</small>
+            </p>
+            <ul className="dendy-games">
+              {NES_GAMES.map((g, i) => (
+                <li key={g.id}>
+                  <button
+                    className="btn dendy-cartridge"
+                    style={{ "--c": CART_TINTS[i % CART_TINTS.length] } as CSSProperties}
+                    onClick={() => pickGame(g)}
+                    disabled={busy != null}
+                    title={g.about[ui]}
+                  >
+                    <span className="dendy-cart-ttl">{busy === g.id ? t("вантажу…", "loading…") : g.title}</span>
+                    <small>{whoPlays(g, ui)}</small>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
         <CartShelf carts={shelf.carts} busy={busy} onPlay={playCart} onDrop={shelf.drop} />
         <div className="dendy-row">
@@ -243,37 +260,47 @@ export default function Dendy() {
       </div>
       <div className="dendy-main">
         {fail && <p className="key-paste-bad">{fail[ui]}</p>}
-        {game && (
-          <div className="dendy-bar">
-            <b className="dendy-ttl">{game.title}</b>
-            <button className="btn btn-ic" onClick={pause} title={paused ? t("далі", "resume") : t("пауза", "pause")}>
-              {paused ? <Play size={14} /> : <Pause size={14} />}
-            </button>
-            <button
-              className="btn btn-ic"
-              onClick={again}
-              title={t("спочатку", "restart")}
-              aria-label={t("спочатку", "restart")}
-            >
-              <RotateCcw size={14} />
-            </button>
-            <FullscreenButton target={tv} />
-            <button
-              className="btn btn-ic"
-              onClick={quit}
-              title={t("вийти з гри", "quit game")}
-              aria-label={t("вийти з гри", "quit game")}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        )}
-        <div className="dendy-tv" ref={tv}>
-          {game ? (
-            <div className="dendy-screen" ref={screen} key={game.n} />
-          ) : (
-            <div className="dendy-screen dendy-off">{t("встав картридж", "insert a cartridge")}</div>
+        <div className="dendy-set">
+          {game && (
+            <div className="dendy-bar">
+              <b className="dendy-ttl">{game.title}</b>
+              <button className="btn btn-ic" onClick={pause} title={paused ? t("далі", "resume") : t("пауза", "pause")}>
+                {paused ? <Play size={14} /> : <Pause size={14} />}
+              </button>
+              <button
+                className="btn btn-ic"
+                onClick={again}
+                title={t("спочатку", "restart")}
+                aria-label={t("спочатку", "restart")}
+              >
+                <RotateCcw size={14} />
+              </button>
+              <FullscreenButton target={tv} />
+              <button
+                className="btn btn-ic"
+                onClick={quit}
+                title={t("вийти з гри", "quit game")}
+                aria-label={t("вийти з гри", "quit game")}
+              >
+                <X size={14} />
+              </button>
+            </div>
           )}
+          <div className="dendy-tv" ref={tv}>
+            {game ? (
+              <div className="dendy-screen" ref={screen} key={game.n} />
+            ) : (
+              <div className="dendy-screen dendy-off">
+                <span>{t("встав картридж", "insert a cartridge")}</span>
+              </div>
+            )}
+          </div>
+          {/* the console under the telly: a picture of what is going on, nothing to press */}
+          <div className="dendy-deck" aria-hidden>
+            <i className="dendy-port" />
+            <i className="dendy-slot">{game && <b>{game.title}</b>}</i>
+            <i className="dendy-led" />
+          </div>
         </div>
         <p className="dendy-keys">
           {players === 2
