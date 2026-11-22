@@ -2,10 +2,14 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { tr, uiNow, useTr } from "@/lib/i18n";
+import { botTable } from "@/lib/live/botLine";
+import { sumoBot } from "@/lib/live/bots/sumo";
 import { Match, playersOf, seatOf } from "@/lib/live/duel";
 import { GameLink, devLag } from "@/lib/live/gameLink";
+import { labWatch } from "@/lib/live/lab";
 import { Netplay } from "@/lib/live/netplay";
 import { sfx } from "@/lib/live/sfx";
+import { hashOf } from "@/lib/live/solo";
 import {
   BODY_R,
   C,
@@ -279,7 +283,7 @@ export default function Sumo({
   const [result, setResult] = useState<Final | null>(null);
   const [tally, setTally] = useState<number[]>([0, 0, 0]);
   const end = useEffectEvent(onEnd);
-  const { id } = match;
+  const { id, solo } = match;
   const players = playersOf(match);
   const me = Math.max(0, seatOf(match, self));
   const ids = players.map((p) => p.id).join(" ");
@@ -294,18 +298,24 @@ export default function Sumo({
     const sb = supabase;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    if (!sb || !canvas || !ctx || !room) return;
+    if (!canvas || !ctx) return;
     const seats = ids.split(" ");
     const who = names.split(" ");
     const n = seats.length;
+    const rules = sumoRules(n);
+    const hear = (from: string, m: object) => net.receive(from, m);
+    // against one of the café's agents the line is a made-up one, with the agent at its far end
+    const table = solo ? botTable(seats, self, solo, hashOf(id), rules, sumoBot, hear) : null;
+    const wire = !table && sb && room ? new GameLink(sb, `relay-game:${room}:${id}`, self, seats, hear, devLag()) : null;
+    const link = table?.link ?? wire;
+    if (!link) return;
     const order = [me, ...seats.map((_, k) => k).filter((k) => k !== me)];
     const colors: string[] = [];
     order.forEach((k, i) => (colors[k] = [MINE, THEIRS, THIRD][i]));
     const view = new SumoView(canvas, colors);
     const cues = new Cues();
-    const rules = sumoRules(n);
-    const link = new GameLink(sb, `relay-game:${room}:${id}`, self, seats, (from, m) => net.receive(from, m), devLag());
     const net = new Netplay(rules, seats, self, link);
+    if (table) labWatch(() => net.game.state);
     // turned so this player starts at the bottom: (x, y) on the floe to the screen and back
     const st = STARTS[n][me];
     const turn = Math.PI / 2 - Math.atan2(st.y - C, st.x - C);
@@ -414,6 +424,7 @@ export default function Sumo({
     };
 
     const input = (): Push => {
+      if (table?.auto) return table.auto(net.game.state);
       const b = net.game.state.body[me];
       let aim = pointer ? toFloe(pointer.x, pointer.y) : { x: b.x, y: b.y };
       if (keys.size) {
@@ -551,9 +562,9 @@ export default function Sumo({
         react(net.game.state, now);
         settle(now);
       }
-      if (now - lineAt > 1000 && lineRef.current && net.started) {
+      if (wire && now - lineAt > 1000 && lineRef.current && net.started) {
         lineAt = now;
-        lineRef.current.textContent = lineSay(link);
+        lineRef.current.textContent = lineSay(wire);
       }
       const fade = Math.pow(0.5, dt / SMOOTH_MS);
       for (const o of off) {
@@ -575,8 +586,9 @@ export default function Sumo({
       window.removeEventListener("keyup", up);
       view.dispose();
       link.close();
+      if (table) labWatch(null);
     };
-  }, [id, ids, me, names, room, self]);
+  }, [id, ids, me, names, room, self, solo]);
 
   const verdict =
     result === null

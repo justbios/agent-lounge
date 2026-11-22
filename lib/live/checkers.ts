@@ -74,7 +74,7 @@ function jumps(cells: Piece[], sq: number, side: Side, king: boolean, taken: Set
 }
 
 /** The moves the side to play may make: a capture whenever there is one, carried on while it can go on. */
-export function legal(b: ChkBoard): number[][] {
+export function legal(b: Pick<ChkBoard, "cells" | "turn">): number[][] {
   const caps: number[][] = [];
   const steps: number[][] = [];
   b.cells.forEach((p, sq) => {

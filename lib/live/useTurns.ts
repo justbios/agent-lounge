@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import type { BoardMove } from "./bots/board";
 import type { BusEvent } from "./bus";
 import { Clock, GRACE_MS, cleanTimes, heard, left, moved, newClock, times } from "./clock";
 import { Match, Side, sideOf } from "./duel";
+import type { BoardKind } from "./solo";
+import { recordSolo } from "./soloStore";
+import { useBot } from "./useBot";
 import { Duels } from "./useDuels";
 import { Game, Scores } from "./useScores";
 import { Social } from "./useSocial";
@@ -46,6 +50,9 @@ export interface Turns<B, M> {
  * side has not answered, so a message lost on the way stalls nothing. On a clock each message also carries what every
  * move cost, and a side whose time ran out: this side's own screen says so at zero, the other's a little later in case
  * this side has gone quiet.
+ *
+ * In a solo match the other side is one of the café's agents: nothing is sent, the agent's moves come from
+ * {@link useBot}, its clock runs like a person's, and the result stays in this browser.
  */
 export function useTurns<B extends TurnBoard<M>, M>(
   rules: TurnRules<B, M>,
@@ -67,8 +74,10 @@ export function useTurns<B extends TurnBoard<M>, M>(
   const out = game?.clock?.out ?? null;
   const board = useMemo(() => (raw && out && !raw.winner ? rules.timeUp(raw, out) : raw), [rules, raw, out]);
 
-  const send = (b: B, clock: Clock | null) =>
-    bus.send(rules.event, { game: b.id, by: self, moves: b.moves, ...times(clock) });
+  const solo = !!match?.solo;
+  const send = (b: B, clock: Clock | null) => {
+    if (!solo) bus.send(rules.event, { game: b.id, by: self, moves: b.moves, ...times(clock) });
+  };
 
   const onMsg = useEffectEvent((p: unknown) => {
     const m = rules.clean(p);
@@ -104,7 +113,8 @@ export function useTurns<B extends TurnBoard<M>, M>(
     const mine = sideOf(match, self);
     const turn = game.board.turn;
     const ms = left(game.clock, turn, turn, false, performance.now());
-    if (!mine || (turn === mine ? ms > 0 : ms > -GRACE_MS)) return false;
+    // an agent's clock is kept on this screen too, so it needs no grace for a move still on its way
+    if (!mine || (turn === mine || solo ? ms > 0 : ms > -GRACE_MS)) return false;
     const clock = { ...game.clock, out: turn };
     setSaved({ board: game.board, clock });
     send(game.board, clock);
@@ -121,7 +131,9 @@ export function useTurns<B extends TurnBoard<M>, M>(
   const settle = useEffectEvent((m: Match, b: B) => {
     if (recorded.current.has(b.id)) return;
     recorded.current.add(b.id);
-    scores.record(name, rules.kind, b.winner === sideOf(m, self));
+    const won = b.winner === sideOf(m, self);
+    if (!m.solo) scores.record(name, rules.kind, won);
+    else if (!m.solo.auto) recordSolo(rules.kind, b.winner === "draw" ? "drawn" : won ? "won" : "lost");
     duels.finish(m.id);
   });
   useEffect(() => {
@@ -136,6 +148,18 @@ export function useTurns<B extends TurnBoard<M>, M>(
     setSaved({ board: next, clock });
     send(next, clock);
   };
+
+  /** an agent's move, made the way a person's is but for `by` and with nothing sent */
+  const botMove = (mv: BoardMove, by: string): boolean => {
+    if (!match || !game || game.clock?.out || flag()) return false;
+    const next = rules.play(match, game.board, mv as M, by);
+    if (!next) return false;
+    setSaved({ board: next, clock: game.clock && moved(game.clock, performance.now()) });
+    return true;
+  };
+  const leftNow = () =>
+    game?.clock ? left(game.clock, game.board.turn, game.board.turn, false, performance.now()) : null;
+  useBot(rules.kind as BoardKind, match, board, raw?.moves.length ?? 0, leftNow, botMove);
 
   return { match, board, clock: game?.clock ?? null, move };
 }

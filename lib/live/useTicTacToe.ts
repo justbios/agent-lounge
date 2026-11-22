@@ -2,7 +2,9 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Match, sideOf } from "./duel";
+import { recordSolo } from "./soloStore";
 import { TttBoard, cleanMove, newBoard, play } from "./ttt";
+import { useBot } from "./useBot";
 import { Duels } from "./useDuels";
 import { Scores } from "./useScores";
 import { Social } from "./useSocial";
@@ -13,7 +15,10 @@ export interface Ttt {
   move: (cell: number) => void;
 }
 
-/** Noughts and crosses on top of a duel: the moves ride the social channel. */
+/**
+ * Noughts and crosses on top of a duel: the moves ride the social channel. Against one of the café's agents nothing
+ * is sent: its moves come from {@link useBot} and the result stays in this browser.
+ */
 export function useTicTacToe(duels: Duels, social: Social, scores: Scores): Ttt {
   const { bus, self, name } = social;
   const match = duels.match?.kind === "ttt" ? duels.match : null;
@@ -32,7 +37,9 @@ export function useTicTacToe(duels: Duels, social: Social, scores: Scores): Ttt 
   const settle = useEffectEvent((m: Match, b: TttBoard) => {
     if (recorded.current.has(b.id)) return;
     recorded.current.add(b.id);
-    scores.record(name, "ttt", b.winner === sideOf(m, self));
+    const won = b.winner === sideOf(m, self);
+    if (!m.solo) scores.record(name, "ttt", won);
+    else if (!m.solo.auto) recordSolo("ttt", b.winner === "draw" ? "drawn" : won ? "won" : "lost");
     duels.finish(m.id);
   });
   useEffect(() => {
@@ -44,8 +51,15 @@ export function useTicTacToe(duels: Duels, social: Social, scores: Scores): Ttt 
     const next = play(match, board, cell, self);
     if (!next) return;
     setSaved(next);
-    bus.send("ttt", { game: match.id, cell, by: self });
+    if (!match.solo) bus.send("ttt", { game: match.id, cell, by: self });
   };
+
+  const ply = board ? board.cells.filter(Boolean).length : 0;
+  useBot("ttt", match, board, ply, () => null, (mv, by) => {
+    const next = match && board && typeof mv === "number" ? play(match, board, mv, by) : null;
+    if (next) setSaved(next);
+    return !!next;
+  });
 
   return { match, board, move };
 }

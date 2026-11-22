@@ -1,4 +1,5 @@
 import type { Ui } from "@/lib/i18n";
+import type { Solo } from "./solo";
 
 export type DuelKind = "ttt" | "pong" | "cables" | "checkers" | "hockey" | "chess" | "sumo" | "four" | "arena" | "raid";
 
@@ -66,6 +67,8 @@ export interface Match {
   over: boolean;
   /** seconds on each side's clock, for chess and draughts played on one */
   clock?: number;
+  /** played here against one of the café's agents: nothing of it is sent to anyone */
+  solo?: Solo;
 }
 
 export type Side = "x" | "o";

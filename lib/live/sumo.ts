@@ -19,15 +19,15 @@ const SHOW_STEPS = 120;
 export const MELT_AFTER = 500;
 const MELT = 0.02;
 /** top speed one heads for, units/ms, and how quickly the speed changes on the ice, units/ms² */
-const SPEED = 0.1;
-const ACC = 0.0005;
+export const SPEED = 0.1;
+export const ACC = 0.0005;
 /** within this many units of the aim one slows down to stop on it */
 const NEAR = 14;
 /** a dash adds this much speed towards the aim, then waits DASH_COOL steps */
-const DASH = 0.14;
+export const DASH = 0.14;
 export const DASH_COOL = 100;
 /** the fastest anything slides, after a dash or a hit */
-const MAX_SPEED = 0.3;
+export const MAX_SPEED = 0.3;
 /** how much of the speed two wrestlers meet with they bounce off with */
 const BOUNCE = 0.9;
 /** where a player aims, in steps of 1/AIM units, so every screen reads the same number */

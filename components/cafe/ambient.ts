@@ -7,7 +7,8 @@ import { Fixtures, fixtures } from "./room";
 import { THEMES, Theme, keepsSky } from "./theme";
 import { drawWeather } from "./windows";
 
-const BARISTA = lookFor(9, "#e9e2cf", {
+/** the barista: the café's own person, there even when no agent is */
+export const BARISTA = lookFor(9, "#e9e2cf", {
   hair: "#3a2416",
   hairDark: "#2a1a10",
   skin: "#e0ac7e",

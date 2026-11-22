@@ -25,12 +25,15 @@ export default function Seat({
   children?: ReactNode;
 }) {
   const t = useTr();
+  const mine = t("ти", "you");
+  // someone with no name of their own is just called "you" (the café outside the cloud): said once, not twice
+  const bare = you && ["ти", "you"].includes(name.trim().toLowerCase());
   return (
     <div className={`seat${on ? " on" : ""}${won ? " won" : ""}`}>
       <span className="seat-mark">{mark}</span>
       <span className="seat-name">
-        {name}
-        {you && <em>{t("ти", "you")}</em>}
+        {bare ? mine : name}
+        {you && !bare && <em>{mine}</em>}
       </span>
       <span className="seat-took">{children}</span>
       {on && !clock && <span className="seat-turn">{t("ходить", "to move")}</span>}
