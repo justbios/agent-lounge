@@ -211,6 +211,7 @@ export default function GamesPanel({
                   else if (!solo.auto) recordSolo(kind, win ? "won" : "lost");
                   if (duels.match) duels.finish(duels.match.id);
                 }}
+                onShut={shut}
               />
             </Corner>
           </div>

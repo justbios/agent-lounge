@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw, Volume2, VolumeX } from "lucide-react";
 import { useTr } from "@/lib/i18n";
 import { DuelKind, LiveDuel, Match, playersOf } from "@/lib/live/duel";
@@ -21,12 +21,13 @@ import Cables from "./Cables";
 import Checkers from "./Checkers";
 import Chess from "./Chess";
 import Four from "./Four";
-import FullscreenButton from "./FullscreenButton";
 import Hockey from "./Hockey";
+import MatchFrame from "./match/MatchFrame";
 import Pong from "./Pong";
 import Sumo from "./Sumo";
 import TicTacToe from "./TicTacToe";
 import Lobby from "./hall/Lobby";
+import { rivalsOf } from "./hall/games";
 import { recalledGame } from "./hall/last";
 
 /** Everyone else at a match. */
@@ -119,6 +120,7 @@ export default function Duels({
   roster,
   rows,
   onEnd,
+  onShut,
 }: {
   duels: DuelsState;
   ttt: Ttt;
@@ -137,11 +139,16 @@ export default function Duels({
   rows: HourRow[] | null;
   /** a real-time match was played to the end */
   onEnd: (kind: LiveDuel, win: boolean) => void;
+  /** closes the games altogether: «закрити» on a match's result card, shown only where this is given */
+  onShut?: () => void;
 }) {
   const t = useTr();
   // the board and its buttons go full screen together, so «play again» is there once a game ends
   const board = useRef<HTMLDivElement>(null);
   const thinking = useBotThinking(duels.match?.id);
+  // the café's agents as they look at their desks: the faces at the seats and on the cards of a match
+  const barista = t("Бариста", "Barista");
+  const rivals = useMemo(() => rivalsOf(agents, looks ?? {}, barista), [agents, looks, barista]);
   const [game, setGame] = useState<DuelKind | null>(recalledGame);
   const [picked, setPicked] = useState<string[]>([]);
   useEffect(() => {
@@ -163,9 +170,26 @@ export default function Duels({
           ? t(`${duels.away} більше не в кафе`, `${duels.away} left the café`)
           : null;
     return (
-      <div className="duel" ref={board} data-solo={m.solo?.level} data-thinking={thinking ? "" : undefined}>
-        <div className="duel-board">
-          {m.kind === "arena" || m.kind === "raid" ? (
+      <MatchFrame
+        frame={board}
+        duels={duels}
+        boards={{
+          ttt: ttt.board,
+          four: four.board,
+          checkers: chk.board,
+          chess: chess.board,
+          timeOut: (m.kind === "chess" ? chess.clock : m.kind === "checkers" ? chk.clock : null)?.out ?? null,
+        }}
+        faces={rivals}
+        thinking={!!thinking}
+        note={note}
+        again={<Rematch duels={duels} />}
+        sound={<SoundButton />}
+        onEnd={onEnd}
+        onShut={onShut}
+      >
+        {(end) =>
+          m.kind === "arena" || m.kind === "raid" ? (
             <ArenaDuel
               key={m.id}
               net={arena}
@@ -185,24 +209,16 @@ export default function Duels({
           ) : m.kind === "four" ? (
             <Four key={m.id} four={four} self={duels.self} note={note} />
           ) : m.kind === "sumo" ? (
-            <Sumo key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("sumo", w)} />
+            <Sumo key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => end("sumo", w)} />
           ) : m.kind === "cables" ? (
-            <Cables key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("cables", w)} />
+            <Cables key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => end("cables", w)} />
           ) : m.kind === "hockey" ? (
-            <Hockey key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("hockey", w)} />
+            <Hockey key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => end("hockey", w)} />
           ) : (
-            <Pong key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => onEnd("pong", w)} />
-          )}
-        </div>
-        <div className="duel-tools">
-          {(m.over || m.gone) && <Rematch duels={duels} />}
-          <button className="btn" onClick={duels.close}>
-            {m.over || note ? t("закрити", "close") : t("здатись і вийти", "give up and leave")}
-          </button>
-          <SoundButton />
-          <FullscreenButton target={board} />
-        </div>
-      </div>
+            <Pong key={m.id} match={m} self={duels.self} room={room} note={note} onEnd={(w) => end("pong", w)} />
+          )
+        }
+      </MatchFrame>
     );
   }
   return (
