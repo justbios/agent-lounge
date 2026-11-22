@@ -19,11 +19,12 @@ const SPOTIFY = ["https://open.spotify.com", "https://open.spotifycdn.com"];
 /**
  * Without nonces, so pages stay static: Next's own inline scripts need 'unsafe-inline'. The rest is pinned to what the
  * café loads: the jukebox's YouTube and Spotify players, the games from their authors' sites, the Supabase project, and
- * blob: for the clip and the day card.
+ * blob: for the clip and the day card. Scripts may come from blob: too: the Dendy emulator loads its sound that way,
+ * and with 'unsafe-inline' already there it opens nothing new.
  */
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""} ${[...YOUTUBE, ...SPOTIFY].join(" ")}`,
+  `script-src 'self' 'unsafe-inline' blob:${isDev ? " 'unsafe-eval'" : ""} ${[...YOUTUBE, ...SPOTIFY].join(" ")}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "media-src 'self' blob:",

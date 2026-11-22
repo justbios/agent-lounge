@@ -4,6 +4,28 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.20.0 — not released yet
+
+No database change and no change to `plugin/`. The old café room back, and every game reworked; «Кабелі» stays as it
+was. Shown first as the Claude Design pages «Стара зала — трошки краще» and «Ігри — було і стало».
+
+- The café room is the one from before 0.18 again (layout, furniture, side column), with readable name plates
+  (name and state in words), and a night a little lighter round the lamps, windows and desks.
+- Play against one of the café's own agents in chess, draughts, four in a row, tic-tac-toe, ping-pong, air hockey
+  and sumo, on easy, normal or hard, even in an empty café. Nothing is sent anywhere; the score stays in the browser.
+- The games hall is an arcade: a wall of machines, each with a small living picture, the agents as rivals, a record
+  board, Dendy and the strategy games in their own corners.
+- Every match opens with a short "you vs agent" intro and ends with a result card beside the board: how it ended,
+  a line from the agent, «ще раз», «інша гра», «закрити». Seats show the agent's face, "thinking", a crown.
+- «Битва агентів»: an opening, hits with weight and damage numbers, a victory with stars.
+- Ping-pong, air hockey and sumo: new tables, rink and ice floe, effects and sounds that build with the rally, goals
+  and ring-outs staged; match point is called. Rules: an edge hit speeds the ball more, a puck warms up when nobody
+  scores, a floe melts in a long round, the first serve comes after the intro.
+- Chess and draughts keep their pieces: pieces lift and land with a click, the knight hops, mate topples the king,
+  multi-jumps go hop by hop, low clocks pulse. Four in a row drops discs into a real frame; tic-tac-toe is chalk.
+- Dendy games may have sound again: the page's security rules now let the emulator load its sound code.
+- `/lab` (development only, 404 in production) plays any game against an agent for testing; see `docs/lab.md`.
+
 ## 0.19.0 — not released yet
 
 No database change and no change to `plugin/`. The 0.18 hall with two fixes, built from the Claude Design board
