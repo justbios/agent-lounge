@@ -8,11 +8,11 @@ import { Dice, seedOf } from "@/lib/arena/rng";
 import type { Battle, Beat, Strike, Team, Unit } from "@/lib/arena/types";
 import { sfx } from "@/lib/live/sfx";
 import { type Figure, disposeFigure, makeFigure } from "./figures";
-import { type Missile, Numbers, Particles, fly, ring } from "./fx3d";
+import { type Missile, Debris, Numbers, Particles, fly, ring, slash } from "./fx3d";
 import { HALF_D, HALF_W, R, TOP, facing, hexAtXZ, hexXZ } from "./geo";
 import { lookOf } from "./portraits";
 import { PLACES, type Place, type PlaceId, Weather, dress, skyTexture, tileTexture } from "./scenery";
-import { Clock, backOut, easeIn, easeInOut, easeOut } from "./tween";
+import { Clock, backOut, easeIn, easeInOut, easeOut, linear } from "./tween";
 
 /*
  * The battlefield in 3D: a board of raised hex tiles in a place of its own (scenery.ts), rocks, the fighters as
@@ -33,6 +33,10 @@ export interface StageOptions {
   words: Words;
   /** the two sides' colours: their rings, banners and health bars */
   colors: [string, string];
+  /** the side the person here plays: whose turn glows amber, whose wounds read red, whose win is a feast */
+  me?: Team;
+  /** the field has been drawn for the first time: whatever is timed against it may start */
+  onReady?(): void;
   /** `sx`, `sy`: the pointer on the canvas, px */
   onHover(h: Hex | null, x: number, z: number, sx: number, sy: number): void;
   onClick(h: Hex | null, x: number, z: number, right: boolean, sx: number, sy: number): void;
@@ -80,8 +84,18 @@ interface View {
   fade: number;
   grow: number;
   shake: number;
+  /** how far a blow has thrown it off its hex, units, and which way the last blow went */
+  knock: number;
+  kdx: number;
+  kdz: number;
+  /** flattened by a blow or a landing (above 0), stretched in a leap (below) */
+  squash: number;
+  /** tipped away from the last blow, radians */
+  reel: number;
   label: HTMLDivElement;
   bar: HTMLElement;
+  /** what the bar showed a moment ago: it follows the health down late, so a blow's size is seen */
+  barLag: HTMLElement;
   /** the part of the bar a blow being aimed would take */
   barHit: HTMLElement;
   barShield: HTMLElement;
@@ -133,8 +147,25 @@ const DANGER = { mine: new THREE.Color("#ff2a3a"), both: new THREE.Color("#ff8a1
 const HIDDEN = new THREE.Matrix4().makeScale(0, 0, 0);
 
 const WHITE = new THREE.Color(1, 1, 1);
+const HURT = new THREE.Color("#ff3b2f");
 const tmpV = new THREE.Vector3();
+const tmpW = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
+/** what a fallen fighter leaves on its tile for a while */
+const SCORCH = new THREE.CircleGeometry(0.6, 10).rotateX(-Math.PI / 2);
+/** how much of the way to the action the camera turns, while beats play */
+const PAN = 0.5;
+const MINE = "#ffc456";
+const PAPER = ["#62f0ff", "#ffc456", "#ff6aa8", "#8ee59b", "#f4eeff"];
+
+interface Sweep {
+  /** when it began, by the wall clock: the screen's own timers run on it, and a slow frame must not put them apart */
+  start: number;
+  secs: number;
+  /** the middle of the person's own line, and of the line across the field */
+  mine: THREE.Vector3;
+  theirs: THREE.Vector3;
+}
 
 export class Stage {
   private readonly o: StageOptions;
@@ -144,10 +175,34 @@ export class Stage {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(34, 1, 0.1, 200);
   private readonly camHome = new THREE.Vector3();
-  private readonly camAt = new THREE.Vector3();
-  /** the opening sweep, while it lasts: the camera comes down round the field to its place */
-  private sweep: { age: number; secs: number } | null = null;
+  /** the opening, while it lasts: a look at each side's line, then up and back to where the battle is played from */
+  private sweep: Sweep | null = null;
   private readonly look = new THREE.Vector3(0, 0, 0.6);
+  /** where the action is: the camera leans that way and closes in while beats play, and lets go after */
+  private readonly focusAt = new THREE.Vector3();
+  private focusOn = false;
+  private focusZoom = 0;
+  private readonly rigAt = new THREE.Vector3(0, 0, 0.6);
+  private rigZoom = 0;
+  /** how much of the way to the action the camera turns: part of it in a fight, all of it for the winners */
+  private focusPan = PAN;
+  private rigPan = PAN;
+  /** a blow's push on the camera, dying away */
+  private readonly kick = new THREE.Vector3();
+  private readonly camPos = new THREE.Vector3();
+  private readonly camAim = new THREE.Vector3();
+  /** the side that won, once the battle is over: its fighters cheer until the field is left */
+  private cheer: Team | "draw" | null = null;
+  private orbit = 0;
+  /** the light going out of a lost battle, 0–1 */
+  private gloom = 0;
+  /** paper falling on the winners: until when, when the next handful is thrown (by the scene's own time), and where */
+  private party: { until: number; next: number; x: number; z: number } | null = null;
+  private exposure = 1;
+  private readonly me: Team;
+  /** the person asked their system for less motion: no shake, no flashes, no slow motion, a still camera */
+  private readonly calm: boolean;
+  private readonly chips = new Debris();
   private readonly overlay: HTMLDivElement;
   private readonly numbers: Numbers;
   private readonly fx = new Particles();
@@ -162,6 +217,7 @@ export class Stage {
   private dangerHexes = new Map<Hex, Team | "both">();
   private readonly hoverRing: THREE.Mesh;
   private readonly activeRing: THREE.Mesh;
+  private readonly activeGlow: THREE.Mesh;
   private active: number | null = null;
   private raf = 0;
   private last = 0;
@@ -178,6 +234,8 @@ export class Stage {
 
   constructor(o: StageOptions) {
     this.o = o;
+    this.me = o.me ?? 0;
+    this.calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     const small = Math.min(innerWidth, innerHeight) < 700;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, small ? 1.5 : 2));
@@ -204,6 +262,7 @@ export class Stage {
 
     this.scene.add(this.world);
     this.scene.add(this.fx.points);
+    this.scene.add(this.chips.mesh);
     this.scene.fog = new THREE.Fog("#2c2a3a", 34, 80);
     this.camera.far = 400;
     this.setupLights(small);
@@ -214,12 +273,19 @@ export class Stage {
     );
     this.hoverRing.visible = false;
     this.scene.add(this.hoverRing);
+    // whose turn it is: a bright rim round its hex and a glow under its feet, amber when the turn is the person's
     this.activeRing = new THREE.Mesh(
-      new THREE.RingGeometry(0.62, 0.8, 6, 1, Math.PI / 6).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: "#ffd25a", transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+      new THREE.RingGeometry(0.7, 0.93, 6, 1, Math.PI / 6).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: MINE, transparent: true, depthWrite: false }),
     );
     this.activeRing.visible = false;
     this.scene.add(this.activeRing);
+    this.activeGlow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.7, 6).rotateX(-Math.PI / 2).rotateY(Math.PI / 6),
+      new THREE.MeshBasicMaterial({ color: MINE, transparent: true, opacity: 0.2, depthWrite: false }),
+    );
+    this.activeGlow.visible = false;
+    this.scene.add(this.activeGlow);
 
     const el = this.renderer.domElement;
     el.addEventListener("pointermove", this.onMove);
@@ -271,6 +337,7 @@ export class Stage {
     this.sun.intensity = p.sun[1];
     this.rim.color.set(p.rim[0]);
     this.rim.intensity = p.rim[1];
+    this.exposure = p.exposure;
     this.renderer.toneMappingExposure = p.exposure;
   }
 
@@ -413,8 +480,8 @@ export class Stage {
     });
 
     const label = document.createElement("div");
-    label.className = `ar-unit ar-t${u.team}${u.leader ? " ar-lead" : ""}`;
-    label.innerHTML = `<span class="ar-lv">${u.level}</span><span class="ar-bar"><i class="ar-hp"></i><i class="ar-fc"></i><i class="ar-sh"></i></span><b></b>`;
+    label.className = `ar-unit ar-t${u.team}${u.leader ? " ar-lead" : ""}${u.team === this.me ? " ar-mine" : ""}`;
+    label.innerHTML = `<span class="ar-lv">${u.level}</span><span class="ar-bar"><i class="ar-lag"></i><i class="ar-hp"></i><i class="ar-fc"></i><i class="ar-sh"></i></span><b></b>`;
     this.overlay.appendChild(label);
     const [x, z] = hexXZ(u.hex);
     const v: View = {
@@ -447,8 +514,14 @@ export class Stage {
       fade: 0,
       grow: 1,
       shake: 0,
+      knock: 0,
+      kdx: u.team === 0 ? -1 : 1,
+      kdz: 0,
+      squash: 0,
+      reel: 0,
       label,
       bar: label.querySelector(".ar-hp")!,
+      barLag: label.querySelector(".ar-lag")!,
       barHit: label.querySelector(".ar-fc")!,
       barShield: label.querySelector(".ar-sh")!,
       hpText: label.querySelector("b")!,
@@ -470,9 +543,16 @@ export class Stage {
     this.views.delete(v.id);
   }
 
-  private paintBar(v: View) {
+  private paintBar(v: View, hurt = false) {
     const k = Math.max(0, v.hp) / v.max;
     v.bar.style.width = `${k * 100}%`;
+    // the same width: its own slow, late transition is what leaves the pale strip of health just lost
+    v.barLag.style.width = `${k * 100}%`;
+    if (hurt && !this.calm)
+      v.bar.parentElement?.animate(
+        [{ transform: "translateX(-3px) scaleY(1.7)", filter: "brightness(2.4)" }, { transform: "translateX(2px)" }, { transform: "none" }],
+        { duration: 200, easing: "steps(4, end)" },
+      );
     v.bar.style.background = k > 0.5 ? "" : k > 0.25 ? "#f2b84b" : "#e5484d";
     v.barShield.style.width = `${Math.min(1, v.shield / v.max) * 100}%`;
     v.hpText.textContent = String(Math.max(0, v.hp));
@@ -483,6 +563,12 @@ export class Stage {
   load(b: Battle, place: PlaceId = "meadow") {
     for (const v of [...this.views.values()]) this.dropView(v);
     this.world.clear();
+    this.cheer = null;
+    this.orbit = 0;
+    this.gloom = 0;
+    this.party = null;
+    this.focusOn = false;
+    this.focusPan = this.rigPan = PAN;
     const p = PLACES[place];
     this.light(p);
     if (this.weather) {
@@ -519,7 +605,7 @@ export class Stage {
       v.dead = false;
       v.fall = 0;
       v.fade = 0;
-      v.lunge = v.lean = v.swingR = v.swingL = v.raise = v.hop = 0;
+      v.lunge = v.lean = v.swingR = v.swingL = v.raise = v.hop = v.knock = v.squash = v.reel = 0;
       v.grow = u.kind === "memoryLeak" ? Math.cbrt(u.maxHp / v.max0) : 1;
       const want = new Set<string>(u.statuses.map((s) => s.id));
       if (u.defending) want.add("defending");
@@ -554,7 +640,13 @@ export class Stage {
 
   setActive(id: number | null) {
     this.active = id;
-    this.activeRing.visible = id != null && !!this.views.get(id);
+    const a = id != null ? this.views.get(id) : undefined;
+    this.activeRing.visible = this.activeGlow.visible = !!a;
+    for (const v of this.views.values()) v.label.classList.toggle("ar-active", v === a);
+    if (!a) return;
+    const color = a.team === this.me ? MINE : this.o.colors[a.team];
+    (this.activeRing.material as THREE.MeshBasicMaterial).color.set(color);
+    (this.activeGlow.material as THREE.MeshBasicMaterial).color.set(color);
   }
 
   // ---------- statuses on the figures ----------
@@ -571,9 +663,10 @@ export class Stage {
           new THREE.MeshStandardMaterial({
             color: "#7fd8ff",
             emissive: "#3aa8ff",
-            emissiveIntensity: 0.9,
+            // a thin shell: whoever stands inside it must still be seen
+            emissiveIntensity: 0.4,
             transparent: true,
-            opacity: 0.18,
+            opacity: 0.11,
             depthWrite: false,
             side: THREE.DoubleSide,
             flatShading: true,
@@ -746,23 +839,65 @@ export class Stage {
     this.last = t;
     this.time += dt;
     this.clock.tick(dt);
-    this.fx.update(dt * this.clock.speed);
+    // sparks and chips hang in the air with everything else through a freeze or a slow moment
+    const fdt = dt * this.clock.rate;
+    this.fx.update(fdt);
+    // the paper over the winners falls at its own pace however fast the battle was played
+    if (this.party) this.confetti(this.party);
+    this.chips.update(this.cheer != null ? dt : fdt, TOP);
     this.weather?.update(dt, this.time);
     for (const v of this.views.values()) this.pose(v, dt);
     this.animateWorld(dt);
+    this.aimCamera(dt);
     this.placeLabels();
-    // the camera shakes on heavy blows and settles back
-    this.shakeAmp = Math.max(0, this.shakeAmp - dt * 1.8);
-    const s = this.shakeAmp * this.shakeAmp;
-    const home = this.sweep ? this.swept(this.sweep, dt) : this.camHome;
-    this.camera.position.set(
-      home.x + (Math.random() - 0.5) * s,
-      home.y + (Math.random() - 0.5) * s,
-      home.z + (Math.random() - 0.5) * s * 0.5,
-    );
-    this.camera.lookAt(this.look);
+    this.renderer.toneMappingExposure = this.exposure * (1 - this.gloom * 0.42);
     this.composer.render(dt);
+    if (!this.drawn) {
+      this.drawn = true;
+      this.o.onReady?.();
+    }
   };
+  private drawn = false;
+
+  /**
+   * Puts the camera where this frame wants it: on the opening's rails, or at its place over the board, leaning
+   * towards whatever is happening, pushed by a blow, shaking after a heavy one.
+   */
+  private aimCamera(dt: number) {
+    const pos = this.camPos;
+    const aim = this.camAim;
+    if (this.sweep) this.swept(this.sweep);
+    else {
+      const k = 1 - Math.exp(-dt * (this.focusOn ? 4.5 : 6.5));
+      this.rigAt.lerp(this.focusOn ? this.focusAt : this.look, k);
+      this.rigZoom += ((this.focusOn ? this.focusZoom : 0) - this.rigZoom) * k;
+      this.rigPan += (this.focusPan - this.rigPan) * k;
+      aim.copy(this.look).lerp(this.rigAt, this.rigPan);
+      pos.copy(this.camHome).sub(this.look).multiplyScalar(1 - this.rigZoom);
+      // round the winners, slowly, once it is over
+      if (this.cheer === this.me && !this.calm) this.orbit = Math.min(0.42, this.orbit + dt * 0.05);
+      if (this.orbit) pos.applyAxisAngle(UP, this.orbit);
+      pos.add(aim);
+    }
+    this.shakeAmp = Math.max(0, this.shakeAmp - dt * 1.8);
+    this.kick.multiplyScalar(Math.exp(-dt * 11));
+    const s = this.calm ? 0 : this.shakeAmp * this.shakeAmp;
+    this.camera.position.set(
+      pos.x + this.kick.x + (Math.random() - 0.5) * s,
+      pos.y + this.kick.y + (Math.random() - 0.5) * s,
+      pos.z + this.kick.z + (Math.random() - 0.5) * s * 0.5,
+    );
+    this.camera.lookAt(aim);
+  }
+
+  /** Turns the camera towards a place on the board and closes in by `zoom` of the way, until it is let go. */
+  private focus(x: number, z: number, zoom: number) {
+    // a battle played fast would only swing the camera about
+    if (this.calm || this.sweep || this.clock.speed > 2) return;
+    this.focusAt.set(x, 0, z);
+    this.focusZoom = zoom;
+    this.focusOn = true;
+  }
 
   private animateWorld(dt: number) {
     const t = this.time;
@@ -787,12 +922,15 @@ export class Stage {
       this.danger.instanceColor!.needsUpdate = true;
     }
     const a = this.active != null ? this.views.get(this.active) : undefined;
-    if (a && !a.dead) {
-      this.activeRing.visible = true;
+    if (a && !a.dead && this.cheer == null) {
+      const beat = this.calm ? 0 : Math.sin(t * 5);
+      this.activeRing.visible = this.activeGlow.visible = true;
       this.activeRing.position.set(a.x, TOP + 0.03, a.z);
-      this.activeRing.scale.setScalar(1 + Math.sin(t * 4) * 0.05);
-      (this.activeRing.material as THREE.MeshBasicMaterial).opacity = 0.65 + Math.sin(t * 4) * 0.3;
-    } else this.activeRing.visible = false;
+      this.activeRing.scale.setScalar(1 + beat * 0.05);
+      (this.activeRing.material as THREE.MeshBasicMaterial).opacity = 0.85 + beat * 0.15;
+      this.activeGlow.position.set(a.x, TOP + 0.028, a.z);
+      (this.activeGlow.material as THREE.MeshBasicMaterial).opacity = 0.22 + beat * 0.1;
+    } else this.activeRing.visible = this.activeGlow.visible = false;
     void dt;
   }
 
@@ -803,17 +941,31 @@ export class Stage {
     v.flash = Math.max(0, v.flash - dt * 6);
     v.shake = Math.max(0, v.shake - dt * 5);
     const float = f.hover ? 0.32 + Math.sin(t * 2.2) * 0.07 : 0;
-    const jitter = v.shake > 0 ? Math.sin(this.time * 80) * v.shake * 0.08 : 0;
-    f.root.position.set(v.x + jitter, TOP + v.y + v.hop + float - v.fall * 0.25 - v.fade * 0.4, v.z);
+    const jitter = v.shake > 0 && !this.calm ? Math.sin(this.time * 80) * v.shake * 0.08 : 0;
+    // the winners jump for it, each to its own beat; the rest hang their heads
+    const over = this.cheer != null && !v.dead;
+    const joy = over && this.cheer === v.team ? Math.abs(Math.sin(t * 5.2)) : 0;
+    const sad = over && this.cheer !== v.team && this.cheer !== "draw" ? 1 : 0;
+    f.root.position.set(
+      v.x + jitter + v.kdx * v.knock,
+      TOP + v.y + v.hop + joy * 0.3 + float - v.fall * 0.25 - v.fade * 0.4,
+      v.z + v.kdz * v.knock,
+    );
     f.root.rotation.y = v.face;
     f.root.rotation.x = 0;
-    f.body.rotation.x = v.lean - v.fall * 1.35;
+    // a blow tips it away from where the blow came from, whichever way it happens to face
+    const sin = Math.sin(v.face);
+    const cos = Math.cos(v.face);
+    f.body.rotation.x = v.lean - v.fall * 1.35 + (v.kdx * sin + v.kdz * cos) * v.reel + sad * 0.24;
+    f.body.rotation.z = -(v.kdx * cos - v.kdz * sin) * v.reel;
     f.body.position.z = v.lunge * 0.42;
     const breathe = v.dead ? 0 : Math.sin(t * 2.4) * 0.018;
-    const g = v.grow * (v.kind === "monolith" ? 1 : 1);
-    f.body.scale.set(g * (1 - breathe * 0.5), g * (1 + breathe), g * (1 - breathe * 0.5));
-    f.armR.rotation.x = v.swingR - v.raise * 2.3 + Math.sin(t * 2.4) * 0.05;
-    f.armL.rotation.x = v.swingL - v.raise * 2.3 - Math.sin(t * 2.4) * 0.05;
+    const g = v.grow;
+    const wide = 1 - breathe * 0.5 + v.squash * 0.16;
+    f.body.scale.set(g * wide, g * (1 + breathe - v.squash * 0.22), g * wide);
+    const up = v.raise + joy * 0.75;
+    f.armR.rotation.x = v.swingR - up * 2.3 + Math.sin(t * 2.4) * 0.05;
+    f.armL.rotation.x = v.swingL - up * 2.3 - Math.sin(t * 2.4) * 0.05;
     f.armR.rotation.z = v.raise * 0.35;
     f.armL.rotation.z = -v.raise * 0.35;
     // a ghost's sheet and the tentacles sway, the boss's shards circle
@@ -829,10 +981,13 @@ export class Stage {
     });
     const fl = v.flash;
     const fade = v.fade;
+    // a blow shows white for an instant, then red as it fades: bright enough to read, never so bright the glow
+    // swallows the figure; with less motion asked for it is the red alone
+    const white = fl > 0.6 && !this.calm;
     f.mats.forEach((m, i) => {
       const e = v.emissive[i];
-      m.emissive.copy(e.c).lerp(fl > 0 ? WHITE : v.tint.equals(WHITE) ? e.c : v.tint, fl > 0 ? fl : v.tint.equals(WHITE) ? 0 : 0.35);
-      m.emissiveIntensity = fl > 0 ? Math.max(e.i, fl * 1.4) : v.tint.equals(WHITE) ? e.i : Math.max(e.i, 0.6);
+      m.emissive.copy(e.c).lerp(fl > 0 ? (white ? WHITE : HURT) : v.tint.equals(WHITE) ? e.c : v.tint, fl > 0 ? (white ? 0.85 : Math.min(1, fl * 1.6)) : v.tint.equals(WHITE) ? 0 : 0.35);
+      m.emissiveIntensity = fl > 0 ? Math.max(e.i, white ? 0.5 : fl * 0.75) : v.tint.equals(WHITE) ? e.i : Math.max(e.i, 0.6);
       if (fade > 0) {
         m.transparent = true;
         m.opacity = Math.min(m.userData.opacity ?? (m.userData.opacity = m.opacity), 1 - fade);
@@ -851,7 +1006,7 @@ export class Stage {
     const h = this.height;
     for (const v of this.views.values()) {
       if (v.dead) continue;
-      tmpV.set(v.x, TOP + v.y + v.hop + v.fig.height * v.size * v.grow + 0.28 + (v.fig.hover ? 0.32 : 0), v.z);
+      tmpV.set(v.x + v.kdx * v.knock, TOP + v.y + v.hop + v.fig.height * v.size * v.grow + 0.28 + (v.fig.hover ? 0.32 : 0), v.z + v.kdz * v.knock);
       tmpV.project(this.camera);
       v.label.style.transform = `translate(${((tmpV.x + 1) / 2) * w}px, ${((1 - tmpV.y) / 2) * h}px) translate(-50%, -100%)`;
     }
@@ -925,22 +1080,79 @@ export class Stage {
     fog.far = hi * 2.8;
   }
 
-  /** Sweeps the camera in from high up and off to one side, as a battle opens. */
-  flyIn(secs = 2.4) {
-    this.sweep = { age: 0, secs };
+  /**
+   * The battle's opening: the camera looks along the person's own line while it salutes, then at what waits across
+   * the field, then rises to where the battle is played from. With less motion asked for the field is simply shown.
+   */
+  flyIn(secs = 3) {
+    if (this.calm) return;
+    const middle = (team: Team) => {
+      const c = new THREE.Vector3();
+      let n = 0;
+      for (const v of this.views.values()) {
+        if (v.team !== team || v.dead) continue;
+        c.x += v.x;
+        c.z += v.z;
+        n++;
+      }
+      return n ? c.multiplyScalar(1 / n) : c.set(team === 0 ? -HALF_W * 0.6 : HALF_W * 0.6, 0, 0);
+    };
+    const them: Team = this.me === 0 ? 1 : 0;
+    this.sweep = { start: performance.now(), secs, mine: middle(this.me), theirs: middle(them) };
+    // each of ours raises its weapon in turn, nearest the camera first; theirs lean in, one after another
+    const line = (team: Team) => [...this.views.values()].filter((v) => v.team === team && !v.dead).sort((a, b) => b.z - a.z);
+    line(this.me).forEach((v, i) => {
+      void this.clock.wait(0.2 + i * 0.1).then(() =>
+        this.clock.tween(0.5, (k) => {
+          v.hop = Math.sin(k * Math.PI) * 0.3;
+          v.raise = Math.sin(k * Math.PI) * 0.8;
+        }),
+      );
+    });
+    line(them).forEach((v, i) => {
+      void this.clock.wait(secs * 0.4 + i * 0.07).then(() =>
+        this.clock.tween(0.55, (k) => {
+          v.lean = Math.sin(k * Math.PI) * 0.32;
+          v.squash = -Math.sin(k * Math.PI) * 0.35;
+          v.shake = Math.sin(k * Math.PI) * 0.8;
+        }),
+      );
+    });
   }
 
-  /** Where the opening sweep has the camera now: round the field, further out and higher, closing in as it ends. */
-  private swept(sw: { age: number; secs: number }, dt: number): THREE.Vector3 {
-    sw.age += dt;
-    const k = Math.min(1, sw.age / sw.secs);
-    const left = (1 - k) ** 3;
-    const off = this.camAt.copy(this.camHome).sub(this.look);
-    const d = off.length();
-    off.applyAxisAngle(UP, left * 1.1).multiplyScalar(1 + left * 0.8);
-    off.y += left * d * 0.45;
-    if (k >= 1) this.sweep = null;
-    return off.add(this.look);
+  /** Where the opening has the camera now, written to `camPos` and `camAim`. */
+  private swept(sw: Sweep) {
+    const k = Math.min(1, (performance.now() - sw.start) / 1000 / sw.secs);
+    const A = 0.36;
+    const B = 0.7;
+    // a tall screen sees a narrow slice: stand further back so a line still fits
+    const back = Math.max(1, 1.25 / this.camera.aspect);
+    // a look at one side's line from in front and a little above, drifting along it; `side` is where that side stands
+    const shot = (c: THREE.Vector3, side: number, u: number) => {
+      this.camPos.set(c.x - side * (7 + u * 0.8) * back, 0.6 + (2.9 + u * 0.3) * back, c.z + (8.4 - u * 1.4) * back);
+      this.camAim.set(c.x - side * 0.4, 0.9, c.z + 0.4);
+    };
+    const mySide = this.me === 0 ? -1 : 1;
+    if (k < A) shot(sw.mine, mySide, k / A);
+    else if (k < B) shot(sw.theirs, -mySide, (k - A) / (B - A));
+    else {
+      shot(sw.theirs, -mySide, 1);
+      const u = easeInOut((k - B) / (1 - B));
+      this.camPos.lerp(this.camHome, u);
+      this.camAim.lerp(this.look, u);
+    }
+    if (k >= 1) {
+      this.sweep = null;
+      this.rigAt.copy(this.look);
+      this.rigZoom = 0;
+    }
+  }
+
+  /** Cuts the opening short: the camera goes straight to its place. */
+  endIntro() {
+    this.sweep = null;
+    this.rigAt.copy(this.look);
+    this.rigZoom = 0;
   }
 
   // ---------- the pointer ----------
@@ -1022,9 +1234,16 @@ export class Stage {
     this.shakeAmp = Math.max(this.shakeAmp, amp);
   }
 
-  private pop(v: View, text: string, kind: Parameters<Numbers["pop"]>[3]) {
+  private pop(v: View, text: string, kind: Parameters<Numbers["pop"]>[3], lean = 0, weight = 0) {
     const s = this.screenOf(v.id, 0.35);
-    if (s) this.numbers.pop(s[0], s[1], text, kind);
+    if (s) this.numbers.pop(s[0], s[1], text, kind, lean, weight);
+  }
+
+  /** Which way across the screen a push along (dx, dz) at a fighter goes: −1 left, 1 right. */
+  private screenLean(v: View, dx: number, dz: number): number {
+    const a = tmpV.set(v.x, TOP + 1, v.z).project(this.camera).x;
+    const b = tmpW.set(v.x + dx, TOP + 1, v.z + dz).project(this.camera).x;
+    return Math.max(-1, Math.min(1, (b - a) * 40));
   }
 
   private async beat(b: Beat, all: Beat[], i: number): Promise<void> {
@@ -1033,9 +1252,20 @@ export class Stage {
       case "round":
         sfx("gong");
         return this.clock.wait(0.35);
-      case "turn":
+      case "turn": {
         this.setActive(b.unit);
+        // its turn: a ring opens under it, and one of the person's own steps up
+        const v = V(b.unit);
+        if (!v || v.dead) return;
+        const mine = v.team === this.me;
+        void ring(this.scene, this.clock, new THREE.Vector3(v.x, TOP + 0.05, v.z), mine ? MINE : this.o.colors[v.team], 0.5, 1.5, 0.4);
+        if (mine && !this.calm)
+          void this.clock.tween(0.24, (k) => {
+            v.hop = Math.sin(k * Math.PI) * 0.2;
+            v.squash = -Math.sin(k * Math.PI) * 0.3;
+          });
         return;
+      }
       case "move":
         return this.walk(V(b.unit), b.path, b.fly);
       case "blink":
@@ -1047,7 +1277,7 @@ export class Stage {
       case "cast":
         return this.cast(V(b.unit), b.skill, b.at, b.hexes, all, i);
       case "damage":
-        return this.damage(V(b.unit), b.amount, !!b.crit, !!b.miss, b.soaked ?? 0);
+        return this.damage(V(b.unit), b.amount, !!b.crit, !!b.miss, b.soaked ?? 0, b.from != null ? V(b.from) : undefined);
       case "heal": {
         const v = V(b.unit);
         if (!v) return;
@@ -1073,7 +1303,8 @@ export class Stage {
         return;
       }
       case "die":
-        return this.die(V(b.unit));
+        // the blow that ends the battle is given its moment
+        return this.die(V(b.unit), all.slice(i + 1).some((x) => x.e === "over") && !all.slice(i + 1).some((x) => x.e === "hit" || x.e === "cast"));
       case "saved": {
         const v = V(b.unit);
         if (!v) return;
@@ -1135,30 +1366,15 @@ export class Stage {
         }
         return this.clock.wait(0.7);
       }
-      case "over": {
-        for (const v of this.views.values()) {
-          if (v.dead || v.team !== b.winner) continue;
-          void this.clock
-            .tween(0.3, (k) => {
-              v.hop = Math.sin(k * Math.PI) * 0.5;
-              v.raise = Math.sin(k * Math.PI) * 0.7;
-            })
-            .then(() =>
-              this.clock.tween(0.3, (k) => {
-                v.hop = Math.sin(k * Math.PI) * 0.35;
-                v.raise = Math.sin(k * Math.PI) * 0.7;
-              }),
-            );
-        }
-        return this.clock.wait(0.8);
-      }
+      case "over":
+        return this.finale(b.winner);
     }
   }
 
   private async walk(v: View | undefined, path: Hex[], flying: boolean) {
     if (!v || !path.length) return;
-    sfx("move");
     if (flying) {
+      sfx("move");
       const pts = [new THREE.Vector3(v.x, 0, v.z), ...path.map((h) => new THREE.Vector3(...[hexXZ(h)[0], 0, hexXZ(h)[1]] as [number, number, number]))];
       const curve = new THREE.CatmullRomCurve3(pts);
       const secs = 0.25 + path.length * 0.11;
@@ -1184,18 +1400,23 @@ export class Stage {
         const z0 = v.z;
         void this.turnTo(v, x, z, 0.08);
         await this.clock.tween(
-          0.17,
+          0.15,
           (k) => {
             v.x = x0 + (x - x0) * k;
             v.z = z0 + (z - z0) * k;
-            v.hop = Math.sin(k * Math.PI) * 0.16;
-            v.lean = 0.12;
+            v.hop = Math.sin(k * Math.PI) * 0.2;
+            v.lean = 0.16;
+            // it gathers itself, stretches through the step and lands heavy
+            v.squash = k < 0.8 ? -Math.sin((k / 0.8) * Math.PI) * 0.3 : (k - 0.8) * 2.5;
           },
           linear01,
         );
-        this.fx.burst(new THREE.Vector3(x, TOP + 0.05, z), { color: "#8a7a62", n: 3, speed: 0.6, life: 0.4, size: 0.14, gravity: 0.5, flat: true });
+        // every hex is a footfall: heard, and seen in the dust it kicks up
+        sfx("step");
+        this.fx.burst(new THREE.Vector3(x, TOP + 0.05, z), { color: "#6a5e4c", n: 4, speed: 0.9, life: 0.36, size: 0.14, gravity: 0.5, flat: true });
       }
       v.lean = 0;
+      void this.clock.tween(0.12, (k) => (v.squash = 0.5 * (1 - k)), easeOut);
     }
     v.hex = path[path.length - 1];
   }
@@ -1244,37 +1465,56 @@ export class Stage {
         skill === "findBug"
           ? (["arrow", "#ff8a3c"] as [Missile, string])
           : (MISSILES[v.body] ?? (["bolt", "#ffd25a"] as [Missile, string]));
+      this.focus(t.x * 0.7 + v.x * 0.3, t.z * 0.7 + v.z * 0.3, 0.1);
       if (skill === "cloudTask") return this.lightning(t);
-      await this.clock.tween(0.14, (k) => {
+      // it draws and holds a breath, then lets go and the shot throws it back on its heels
+      await this.clock.tween(0.16, (k) => {
         v.raise = 0.45 * k;
-        v.lean = -0.1 * k;
-      });
-      sfx("shoot");
+        v.lean = -0.14 * k;
+        v.squash = 0.3 * k;
+      }, easeOut);
+      sfx(missile === "arrow" ? "arrow" : "shoot");
       const from = this.muzzle(v);
-      void this.clock.tween(0.25, (k) => {
+      const way = tmpW.set(t.x - v.x, 0.15, t.z - v.z).normalize().clone();
+      this.fx.burst(from, { color: missile === "arrow" ? "#fff3d6" : color, n: 12, speed: 3.4, life: 0.22, size: 0.2, dir: way, cone: 0.35 });
+      void this.clock.tween(0.3, (k) => {
+        const kick = k < 0.2 ? k / 0.2 : 1 - (k - 0.2) / 0.8;
         v.raise = 0.45 * (1 - k);
-        v.lean = -0.1 * (1 - k);
-      });
+        v.lean = -0.14 * (1 - k) - 0.2 * kick;
+        v.lunge = -0.45 * kick;
+        v.squash = 0.3 * (1 - k);
+      }, linear);
       await fly(this.scene, this.clock, this.fx, missile, from, this.chest(t), color);
       return;
     }
     const color = skill ? (SKILL_COLOR[skill] ?? "#ffffff") : "#ffffff";
-    // wind up, then lunge
-    await this.clock.tween(answer ? 0.1 : 0.16, (k) => {
-      v.swingR = 0.9 * k;
-      v.lean = -0.18 * k;
+    this.focus((v.x + t.x) / 2, (v.z + t.z) / 2, 0.16);
+    // it coils back, then throws itself into the blow and past it
+    await this.clock.tween(answer ? 0.09 : 0.19, (k) => {
+      v.swingR = 1.15 * k;
+      v.lean = -0.26 * k;
+      v.lunge = -0.3 * k;
+      v.squash = 0.5 * k;
     }, easeOut);
-    sfx("slash");
-    await this.clock.tween(0.08, (k) => {
-      v.swingR = 0.9 - 2.6 * k;
-      v.lunge = k;
-      v.lean = -0.18 + 0.45 * k;
+    sfx("swing");
+    await this.clock.tween(0.07, (k) => {
+      v.swingR = 1.15 - 3 * k;
+      v.lunge = -0.3 + 1.6 * k;
+      v.lean = -0.26 + 0.62 * k;
+      v.squash = 0.5 - 1 * k;
     }, easeIn);
+    sfx("slash");
+    // the blade's arc hangs in the air between them for an instant
+    const mid = this.chest(v).lerp(this.chest(t), 0.55);
+    void slash(this.scene, this.clock, mid, v.face, skill ? color : "#ffe9a8", 0.8 * v.size * Math.max(1, v.grow), 0.22);
     if (skill) this.fx.burst(this.chest(t), { color, n: 30, speed: 3.2, life: 0.5, size: 0.22 });
-    void this.clock.tween(0.3, (k) => {
-      v.swingR = -1.7 * (1 - k);
-      v.lunge = 1 - k;
-      v.lean = 0.27 * (1 - k);
+    void this.clock.tween(0.34, (k) => {
+      // it holds the follow-through a moment before it steps back
+      const back = Math.max(0, (k - 0.25) / 0.75);
+      v.swingR = -1.85 * (1 - back);
+      v.lunge = 1.3 * (1 - back);
+      v.lean = 0.36 * (1 - back);
+      v.squash = -0.5 * (1 - Math.min(1, k * 4));
     }, easeInOut);
   }
 
@@ -1302,49 +1542,240 @@ export class Stage {
     (bolt.material as THREE.Material).dispose();
   }
 
-  private async damage(t: View | undefined, amount: number, crit: boolean, miss: boolean, soaked: number) {
+  private async damage(t: View | undefined, amount: number, crit: boolean, miss: boolean, soaked: number, by?: View) {
     if (!t) return;
     const at = this.chest(t);
+    // which way the blow goes: from whoever struck it, or from the far side of the field if nobody did
+    if (by && by !== t && (by.x !== t.x || by.z !== t.z)) {
+      const d = Math.hypot(t.x - by.x, t.z - by.z);
+      t.kdx = (t.x - by.x) / d;
+      t.kdz = (t.z - by.z) / d;
+    }
+    const lean = this.screenLean(t, t.kdx, t.kdz);
     if (miss) {
       sfx("miss");
-      this.pop(t, this.o.words.miss, "miss");
-      const x0 = t.x;
-      await this.clock.tween(0.18, (k) => (t.x = x0 + Math.sin(k * Math.PI) * 0.3));
+      this.pop(t, this.o.words.miss, "miss", -lean);
+      // it sways out of the way, across the line of the blow
+      await this.clock.tween(0.2, (k) => {
+        t.knock = Math.sin(k * Math.PI) * 0.12;
+        t.reel = Math.sin(k * Math.PI) * 0.3;
+      });
+      t.knock = t.reel = 0;
       return;
     }
     t.hp -= amount;
     if (soaked) {
       t.shield = Math.max(0, t.shield - soaked);
-      this.pop(t, `−${soaked}`, "shield");
+      this.pop(t, `−${soaked}`, "shield", -lean * 0.5);
       this.fx.burst(at, { color: "#7fd8ff", n: 16, speed: 2, life: 0.4, size: 0.2 });
       sfx("shield");
     }
     if (amount > 0) {
-      this.pop(t, crit ? `${amount}!` : String(amount), crit ? "crit" : "hit");
+      // how heavy the blow is to whoever takes it: a third of its health is as heavy as they come
+      const w = Math.min(1, amount / (t.max * 0.34)) * (crit ? 1 : 0.85) + (crit ? 0.15 : 0);
+      const mine = t.team === this.me;
+      this.pop(t, crit ? `${amount}!` : String(amount), crit ? "crit" : mine ? "hurt" : "hit", lean, w);
       t.flash = 1;
-      t.shake = crit ? 1.2 : 0.7;
-      this.fx.burst(at, { color: crit ? "#ffd25a" : "#ff8a6a", n: crit ? 40 : 18, speed: crit ? 3.6 : 2.4, life: 0.5, size: crit ? 0.26 : 0.2 });
-      if (crit) {
-        sfx("crit");
-        this.shake(0.6);
-        this.clock.freeze(0.08);
-      } else if (amount >= t.max * 0.25) this.shake(0.3);
+      t.shake = crit ? 1.2 : 0.5 + w * 0.4;
+      const dir = new THREE.Vector3(t.kdx, 0.35, t.kdz).normalize();
+      const hot = crit ? "#ffd25a" : mine ? "#ff6a5a" : "#ffe9a8";
+      // sparks off the far side of it, a white star where it landed, dust from under its feet
+      this.fx.burst(at, { color: hot, n: Math.round(10 + w * 22), speed: 3 + w * 3.4, life: 0.34 + w * 0.2, size: 0.17 + w * 0.1, dir, cone: 0.42 });
+      this.fx.burst(at, { color: "#fff6dc", n: 2, speed: 0.4, life: 0.06, size: 0.3 + w * 0.2, gravity: 0 });
+      this.fx.burst(tmpV.set(t.x, TOP + 0.06, t.z), { color: "#6a5e4c", n: Math.round(3 + w * 5), speed: 1 + w, life: 0.4, size: 0.15, flat: true });
+      if (w > 0.55) this.chips.burst(at, { colors: t.fig.mats.map((m) => m.color), n: crit ? 9 : 5, speed: 2.6, size: 0.07, life: 0.9, dir, spread: 0.2 });
+      // thrown back and flattened for a moment, tipped away from the blow, then back on its feet
+      const far = (0.16 + w * 0.3) / Math.max(1, t.size * t.grow * 0.8);
+      void this.clock.tween(0.3, (k) => {
+        const out = k < 0.22 ? easeOut(k / 0.22) : 1 - easeInOut((k - 0.22) / 0.78);
+        t.knock = far * out;
+        t.reel = (0.22 + w * 0.3) * out;
+        t.squash = (0.45 + w * 0.5) * (k < 0.15 ? k / 0.15 : Math.max(0, 1 - (k - 0.15) / 0.5));
+      }, linear);
+      sfx(crit ? "crit" : w > 0.6 ? "thudBig" : "thud");
+      if (!this.calm) {
+        // the camera takes the blow too, and the world holds still for it: longer the heavier it is
+        this.kick.addScaledVector(dir, 0.12 + w * 0.3);
+        this.shake(crit ? 0.62 : 0.14 + w * 0.34);
+        this.clock.freeze((0.028 + w * 0.05 + (crit ? 0.045 : 0)) / Math.max(1, this.clock.speed * 0.75));
+      }
     }
-    this.paintBar(t);
+    this.paintBar(t, amount > 0);
     await this.clock.wait(0.12);
   }
 
-  private async die(v: View | undefined) {
+  /** A fighter's end: thrown off its feet by the blow that did it, it comes down and breaks into pieces of itself. */
+  private async die(v: View | undefined, last: boolean) {
     if (!v) return;
     v.dead = true;
     v.label.style.display = "none";
+    const big = v.fig.height * v.size * v.grow > 2.3;
+    this.focus(v.x, v.z, last ? 0.3 : 0.18);
+    // the moment is slowed, and the last one of a battle longer still
+    if (!this.calm && this.clock.speed <= 2) this.clock.slow(last ? 0.28 : 0.6, last ? 0.8 : 0.22);
     sfx("fall");
-    this.fx.burst(this.chest(v), { color: v.kind === "nullPointer" || v.kind.startsWith("leak") ? "#b8ff6a" : "#cfc6e6", n: 30, speed: 2, life: 0.8, size: 0.2 });
-    await this.clock.tween(0.45, (k) => (v.fall = k), easeIn);
-    this.fx.burst(new THREE.Vector3(v.x, TOP + 0.1, v.z), { color: "#8a7a62", n: 14, speed: 1.4, life: 0.5, size: 0.2, flat: true });
-    void this.clock.tween(0.6, (k) => (v.fade = k)).then(() => {
-      if (this.views.get(v.id) === v && v.dead) this.dropView(v);
+    v.flash = 1;
+    const k0 = v.knock;
+    const far = big ? 0.4 : 0.7;
+    await this.clock.tween(0.26, (k) => {
+      v.knock = k0 + (far - k0) * easeOut(k);
+      v.hop = Math.sin(k * Math.PI) * (big ? 0.15 : 0.5);
+      v.reel = 1.45 * k * k;
+      v.squash = -0.3 * Math.sin(k * Math.PI);
+    }, linear);
+    const x = v.x + v.kdx * v.knock;
+    const z = v.z + v.kdz * v.knock;
+    const at = new THREE.Vector3(x, TOP + (v.fig.hover ? 0.6 : 0.3), z);
+    const ground = new THREE.Vector3(x, TOP + 0.06, z);
+    const dir = new THREE.Vector3(v.kdx, 0, v.kdz).multiplyScalar(0.45);
+    sfx(big ? "boom" : "shatter");
+    this.shake(big ? 0.85 : last ? 0.6 : 0.36);
+    this.kick.y -= this.calm ? 0 : 0.25;
+    this.chips.burst(at, {
+      colors: v.fig.mats.map((m) => m.color),
+      n: big ? 70 : 36,
+      speed: big ? 4.4 : 3.3,
+      size: big ? 0.18 : 0.14,
+      life: 1.6,
+      dir,
+      spread: big ? 0.8 : 0.4,
     });
+    // what was in it goes up in its side's colour; the dust goes out along the ground
+    this.fx.burst(at, { color: this.o.colors[v.team], n: 26, speed: 0.9, gravity: -2.6, life: 1.1, size: 0.2, spread: 0.5 });
+    this.fx.burst(at, { color: "#fff6dc", n: 3, speed: 0.6, life: 0.08, size: 0.45, gravity: 0 });
+    this.fx.burst(ground, { color: "#6a5e4c", n: 14, speed: 2.2, life: 0.5, size: 0.18, flat: true });
+    void ring(this.scene, this.clock, ground, "#fff6dc", 0.2, big ? 2.4 : 1.5, 0.32);
+    this.scorch(x, z);
+    this.dropView(v);
+    await this.clock.wait(last ? 0.3 : 0.1);
+  }
+
+  /** The dark mark a fallen fighter leaves on its tile, there for a while and then gone. */
+  private scorch(x: number, z: number) {
+    const m = new THREE.MeshBasicMaterial({ color: "#120e1c", transparent: true, opacity: 0.5, depthWrite: false });
+    const o = new THREE.Mesh(SCORCH, m);
+    o.position.set(x, TOP + 0.014, z);
+    const world = this.world;
+    world.add(o);
+    void this.clock
+      .wait(1.8)
+      .then(() => this.clock.tween(1.6, (k) => (m.opacity = 0.5 * (1 - k))))
+      .then(() => {
+        world.remove(o);
+        m.dispose();
+      });
+  }
+
+  /**
+   * The battle's end on the field. The winners jump and wave from here on; if the person won, the camera closes in
+   * on them and paper rains down; if they lost, the light goes out of the day and the camera backs away.
+   */
+  private async finale(winner: Team | "draw") {
+    this.cheer = winner;
+    this.setActive(null);
+    if (winner === "draw") return this.clock.wait(0.6);
+    const crowd = [...this.views.values()].filter((v) => !v.dead && v.team === winner);
+    const c = new THREE.Vector3();
+    for (const v of crowd) c.add(tmpV.set(v.x, 0, v.z));
+    if (crowd.length) c.multiplyScalar(1 / crowd.length);
+    const won = winner === this.me;
+    if (!this.calm && crowd.length) {
+      if (won) {
+        // the word of the win stands across the top, and the account of the battle comes up on the far side of the
+        // screen from where the person's side began (on a phone, from below): the winners are framed in what both
+        // leave free, as close as still shows them all
+        const wide = this.width >= 760 && this.width > this.height * 1.15;
+        const free: [number, number, number, number] = !wide
+          ? [-0.88, 0.88, -0.1, 0.5]
+          : this.me === 1
+            ? [-0.3, 0.9, -0.8, 0.2]
+            : [-0.9, 0.3, -0.8, 0.2];
+        const f = this.frameCrowd(crowd, c, free);
+        this.focusOn = !!f;
+        if (f) {
+          this.focusAt.set(f.x, 0, f.z);
+          this.focusZoom = f.zoom;
+          this.focusPan = 1;
+        }
+      } else {
+        this.focusAt.set(c.x, 0, c.z);
+        this.focusZoom = -0.1;
+        this.focusPan = PAN;
+        this.focusOn = true;
+      }
+    }
+    for (const v of crowd) void ring(this.scene, this.clock, new THREE.Vector3(v.x, TOP + 0.05, v.z), won ? MINE : this.o.colors[winner], 0.3, 1.5, 0.6);
+    if (won) {
+      // paper from the sky over the winners, in handfuls, for a few seconds
+      this.party = { until: this.time + (this.calm ? 0.5 : 3.4), next: 0, x: c.x, z: c.z };
+      for (const v of crowd) this.fx.burst(this.chest(v), { color: MINE, n: 16, speed: 2.2, gravity: -1.5, life: 0.9, size: 0.2 });
+    } else {
+      void this.clock.tween(1.4, (k) => (this.gloom = k), easeOut);
+    }
+    return this.clock.wait(0.7);
+  }
+
+  private confetti(p: { until: number; next: number; x: number; z: number }) {
+    if (this.time >= p.until || this.cheer == null) this.party = null;
+    else if (this.time >= p.next) {
+      p.next = this.time + 0.1;
+      tmpV.set(p.x + (Math.random() - 0.5) * 8, TOP + 4.5 + Math.random() * 2, p.z + (Math.random() - 0.5) * 5);
+      this.chips.burst(tmpV, { colors: PAPER, n: 7, speed: 1.6, up: 0.1, size: 0.13, life: 2.6, gravity: 3.2, spread: 1.6 });
+    }
+  }
+
+  /**
+   * Where on the board to aim and how close to come so that every one of `crowd` stays inside `free`: a part of the
+   * screen as left, right, bottom, top, each from −1 to 1. It holds from the first moment to the end of the slow
+   * turn round them. Nothing, if they stand too far apart for that.
+   */
+  private frameCrowd(
+    crowd: View[],
+    c: THREE.Vector3,
+    free: [number, number, number, number],
+  ): { x: number; z: number; zoom: number } | null {
+    const [x0, x1, y0, y1] = free;
+    const home = new THREE.Vector3().copy(this.camHome).sub(this.look);
+    const aim = new THREE.Vector3();
+    const p = new THREE.Vector3();
+    /** how far off the middle of the free part they would stand, or nothing if someone is out of it */
+    const off = (zoom: number, x: number, z: number): number | null => {
+      let l = 1;
+      let r = -1;
+      let b = 1;
+      let t = -1;
+      for (const turn of [0, 0.42]) {
+        aim.set(x, 0, z);
+        this.camera.position.copy(home).multiplyScalar(1 - zoom).applyAxisAngle(UP, turn).add(aim);
+        this.camera.lookAt(aim);
+        this.camera.updateMatrixWorld();
+        for (const v of crowd)
+          for (const y of [0, 2.1]) {
+            p.set(v.x, y, v.z).project(this.camera);
+            if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) return null;
+            if (turn) continue;
+            l = Math.min(l, p.x);
+            r = Math.max(r, p.x);
+            b = Math.min(b, p.y);
+            t = Math.max(t, p.y);
+          }
+      }
+      return Math.abs((l + r - x0 - x1) / 2) + Math.abs((b + t - y0 - y1) / 2);
+    };
+    for (let zoom = 0.3; zoom > -0.01; zoom -= 0.05) {
+      let best: { x: number; z: number; zoom: number } | null = null;
+      let least = Infinity;
+      for (let dx = -8; dx <= 8; dx += 0.5)
+        for (let dz = -6; dz <= 6; dz += 0.75) {
+          const d = off(zoom, c.x + dx, c.z + dz);
+          if (d != null && d < least) {
+            least = d;
+            best = { x: c.x + dx, z: c.z + dz, zoom: Math.max(0, zoom) };
+          }
+        }
+      if (best) return best;
+    }
+    return null;
   }
 
   private async spawn(id: number) {
@@ -1371,6 +1802,8 @@ export class Stage {
     if (this.disposed) return;
     this.pending = null;
     this.sync(after);
+    // the camera goes back to where the board is played from, unless the battle just ended
+    if (this.cheer == null) this.focusOn = false;
   }
 
   private async cast(v: View | undefined, skill: string, at: Hex | null, hexes: Hex[] | undefined, all: Beat[], i: number) {
@@ -1505,6 +1938,7 @@ export class Stage {
       }
     });
     this.fx.dispose();
+    this.chips.dispose();
     this.composer.dispose();
     this.renderer.dispose();
     // a browser keeps only a handful of WebGL contexts: give this one back now, not when it is collected
