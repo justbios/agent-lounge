@@ -1,8 +1,11 @@
 import { Point } from "@/lib/layout";
 
-/** The room widens for a big crew so everyone fits in fewer bands. */
+/**
+ * The room widens as the crew grows, so more desks share a band and the picture, fitted to the page's width,
+ * draws everyone smaller instead of stacking them into a tall room to scroll through.
+ */
 export function cafeWidth(n: number): number {
-  return n > 16 ? 576 : n > 10 ? 512 : 384;
+  return n > 16 ? 768 : n > 10 ? 704 : n > 6 ? 640 : n > 3 ? 576 : 512;
 }
 export const WALL_H = 50;
 export const SEAT_DY = 44;
@@ -50,8 +53,8 @@ export function rng(seed: number): () => number {
 }
 
 function bandCap(seed: number, band: number, width: number): number {
-  const lo = width >= 576 ? 5 : width >= 512 ? 4 : 2;
-  return lo + Math.floor(rng(seed * 31 + band * 7919)() * (width >= 512 ? 2 : 3));
+  const most = Math.floor((width - 66) / MIN_GAP);
+  return Math.max(2, most - 3) + Math.floor(rng(seed * 31 + band * 7919)() * 3);
 }
 
 function fits(xs: number[], x: number): boolean {

@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useEffectEvent, useState, useSyncExternalStore } from "react";
+import { ReactNode, useEffect, useEffectEvent, useState } from "react";
 import {
   Building2,
   Gamepad2,
@@ -40,16 +40,6 @@ type Pop =
 const TOP: Anchor = { x: 0.5, y: 0.08, below: true };
 export type Side = "agents" | "log";
 
-/** Wide enough for the agents and the log to stand beside the café rather than slide out over it. */
-const WIDE = "(min-width: 1180px)";
-const onWide = (cb: () => void) => {
-  const m = matchMedia(WIDE);
-  m.addEventListener("change", cb);
-  return () => m.removeEventListener("change", cb);
-};
-function useWide(): boolean {
-  return useSyncExternalStore(onWide, () => matchMedia(WIDE).matches, () => false);
-}
 
 function Drawer({
   side,
@@ -232,11 +222,9 @@ export default function Stage({
   const ui = useUi();
   const t = useTr();
   const [pop, setPop] = useState<Pop | null>(null);
-  const wide = useWide();
   const [full, toggleFull] = useFullscreen();
-  // beside the café on a wide screen; on a narrow one, and over the full-screen café, they slide out as drawers
-  const beside = wide && !full;
-  const drawer = beside ? null : side;
+  // the café takes the whole width; the agents and the log slide out as drawers from the menu
+  const drawer = side;
   const setDrawer = onSide;
   const theme = themeOf(cafe.settings.theme);
   const halloween = useHalloween();
@@ -282,12 +270,8 @@ export default function Stage({
       ? [{ icon: <MessageCircle size={14} />, label: t("чат кафе", "café chat"), onClick: onChat, badge: chatUnread }]
       : []),
     { icon: <Gamepad2 size={14} />, label: t("ігри", "games"), onClick: onGames },
-    ...(beside
-      ? []
-      : [
-          { icon: <Users size={14} />, label: t("агенти", "agents"), onClick: () => flip("agents") },
-          { icon: <ScrollText size={14} />, label: t("журнал подій", "event log"), onClick: () => flip("log") },
-        ]),
+    { icon: <Users size={14} />, label: t("агенти", "agents"), onClick: () => flip("agents") },
+    { icon: <ScrollText size={14} />, label: t("журнал подій", "event log"), onClick: () => flip("log") },
     ...(cafe.editable ? [{ icon: <LayoutGrid size={14} />, label: t("план кафе", "café plan"), onClick: onPlan }] : []),
   ];
   const place = async (p: Placed) => {
@@ -392,7 +376,7 @@ export default function Stage({
     ) : null;
 
   return (
-    <div className={`stage-grid ${beside ? "with-side" : ""}`}>
+    <div className="stage-grid">
       <section className={`card stage-card ${full ? "stage-full" : ""} ${onHouse ? "zoomed" : ""}`}>
         <div className="card-hd">
           {onHouse && (
@@ -456,28 +440,13 @@ export default function Stage({
           {empty}
           {below}
         </div>
-        {!beside && (
-          <>
-            <Drawer side="left" title={t("агенти", "agents")} open={drawer === "agents"} onClose={() => setDrawer(null)}>
-              {agents}
-            </Drawer>
-            <Drawer
-              side="right"
-              title={t("журнал подій", "event log")}
-              open={drawer === "log"}
-              onClose={() => setDrawer(null)}
-            >
-              {log}
-            </Drawer>
-          </>
-        )}
+        <Drawer side="left" title={t("агенти", "agents")} open={drawer === "agents"} onClose={() => setDrawer(null)}>
+          {agents}
+        </Drawer>
+        <Drawer side="right" title={t("журнал подій", "event log")} open={drawer === "log"} onClose={() => setDrawer(null)}>
+          {log}
+        </Drawer>
       </section>
-      {beside && (
-        <aside className="stage-side" aria-label={t("агенти і стрічка подій", "agents and the event log")}>
-          <div className={side === "agents" ? "side-flash" : ""}>{agents}</div>
-          <div className="side-log">{log}</div>
-        </aside>
-      )}
     </div>
   );
 }

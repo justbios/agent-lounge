@@ -4,6 +4,15 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.20.1 — not released yet
+
+No database change and no change to `plugin/`. Shown first as the Claude Design page «Зала — ширше і дрібніше».
+
+- The café room takes the whole width: the agents list and the event log no longer stand in a column beside it, they
+  slide out from «агенти» on the hotbar and from the room's menu, as on a phone.
+- The room widens as the crew grows, so desks and people are drawn smaller and more share a row: 6 agents sit in one
+  row, 12 in two, 20 in three, with no scrolling to find them.
+
 ## 0.20.0 — not released yet
 
 No database change and no change to `plugin/`. The old café room back, and every game reworked; «Кабелі» stays as it

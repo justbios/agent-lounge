@@ -11929,39 +11929,6 @@ body {
   justify-content: center;
 }
 
-/* the stage and, on a wide screen, the agents and the log beside it */
-.stage-grid.with-side {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 16px;
-  align-items: start;
-}
-.stage-side {
-  position: sticky;
-  top: 70px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  max-height: calc(100dvh - 180px);
-  min-height: 0;
-}
-.stage-side > div {
-  min-height: 0;
-}
-.side-log {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-}
-.side-log > * {
-  min-height: 0;
-  overflow: auto;
-}
-.side-flash > .card {
-  border-color: var(--live);
-}
 .stage-count {
   display: inline-flex;
   flex-wrap: wrap;
