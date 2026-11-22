@@ -4687,6 +4687,73 @@ body {
 .ggo {
   align-self: flex-start;
 }
+/* the café's own agents to play against: a click on one starts the game; above them, how well they play */
+.gwho-bot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.gset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+.gbots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: 8px;
+}
+.gbot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border: 2px solid var(--border);
+  background: var(--panel-2);
+  box-shadow: 2px 2px 0 var(--px-drop);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.1s, transform 0.05s;
+}
+.gbot:hover,
+.gbot:focus-visible {
+  border-color: #62f0ff;
+}
+.gbot:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.gbot .agent-sprite {
+  grid-row: 1 / 3;
+  width: 28px;
+  height: 48px;
+}
+.gbot b {
+  align-self: end;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.gbot small {
+  align-self: start;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+.gbot:hover small,
+.gbot:focus-visible small {
+  color: #62f0ff;
+}
+.gbot-tally {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.gwho-or {
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-2);
+}
 /* the clock chess and draughts are offered with, and its minutes on their invite buttons */
 .clock-pick {
   display: flex;
@@ -5650,6 +5717,7 @@ body {
   border: 0;
   box-shadow: none;
 }
+.lab .duel,
 .duel:fullscreen {
   align-items: center;
   justify-content: center;
@@ -5657,31 +5725,81 @@ body {
   padding: 24px;
   background: var(--panel);
 }
+.lab .duel .duel-board,
 .duel:fullscreen .duel-board {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
 }
+.lab .duel .duel-tools,
 .duel:fullscreen .duel-tools {
   justify-content: center;
 }
+.lab .duel .rematch,
 .duel:fullscreen .rematch {
   flex: 0 1 auto;
 }
+.lab .duel .pong,
 .duel:fullscreen .pong {
   max-width: min(100%, calc((100dvh - 210px) * 1.6));
 }
+.lab .duel .pong.hockey,
+.lab .duel .pong.sumo,
 .duel:fullscreen .pong.hockey,
 .duel:fullscreen .pong.sumo {
   max-width: none;
 }
+.lab .duel .pong.hockey canvas,
+.lab .duel .pong.sumo canvas,
 .duel:fullscreen .pong.hockey canvas,
 .duel:fullscreen .pong.sumo canvas {
   height: calc(100dvh - 210px);
 }
+.lab .duel .bgame,
 .duel:fullscreen .bgame {
   width: min(calc(100vw - 48px), calc(100dvh - 310px));
+}
+/* the games' lab (development only): one game on the whole window, laid out as on the full screen */
+.lab {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--panel);
+}
+.lab .duel {
+  flex: 1;
+  box-sizing: border-box;
+  width: 100%;
+}
+.lab-index {
+  gap: 12px;
+  padding: 24px;
+}
+.lab-index h1 {
+  margin: 0;
+  font-family: var(--font-pixel), var(--mono);
+  font-size: 24px;
+}
+.lab-index ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lab-index li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.lab-index li b {
+  min-width: 190px;
+}
+.lab-index li b::first-letter {
+  text-transform: uppercase;
 }
 .duel-tools {
   display: flex;

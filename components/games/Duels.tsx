@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { RotateCcw, Timer, Volume2, VolumeX } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Bot, Gauge, RotateCcw, Timer, Volume2, VolumeX } from "lucide-react";
 import { Two, useTr, useUi } from "@/lib/i18n";
 import { WIN_AT as CABLES_AT } from "@/lib/live/cables";
 import { setClockPick, useClockPick } from "@/lib/live/clock";
 import { CLOCKS, DuelKind, LiveDuel, Match, PARTY, TIMED, duelName, playersOf } from "@/lib/live/duel";
 import { WIN_AT as HOCKEY_AT } from "@/lib/live/hockey";
+import { LookPick, lookKey, lookOf } from "@/lib/live/interior";
 import { WIN_AT as PONG_AT } from "@/lib/live/pong";
 import { WIN_AT as SUMO_AT } from "@/lib/live/sumo";
 import { setSfxOn, unlockSfx, useSfxOn } from "@/lib/live/sfx";
 import { Guest } from "@/lib/live/social";
+import { LEVELS, Level, SOLO_KINDS, botPlayer } from "@/lib/live/solo";
+import { setSoloLevel, useBotThinking, useSoloLevel, useSoloTally } from "@/lib/live/soloStore";
 import { Checkers as CheckersState } from "@/lib/live/useCheckers";
 import { Chess as ChessState } from "@/lib/live/useChess";
 import { Duels as DuelsState } from "@/lib/live/useDuels";
@@ -19,6 +22,9 @@ import type { ArenaNet } from "@/lib/live/useArenaNet";
 import { Four as FourState } from "@/lib/live/useFour";
 import { Ttt } from "@/lib/live/useTicTacToe";
 import type { AgentDef } from "@/lib/types";
+import AgentSprite from "../cafe/AgentSprite";
+import { BARISTA } from "../cafe/ambient";
+import { Look, lookFor, pickedLook } from "../cafe/people";
 import ArenaDuel from "./ArenaDuel";
 import Cables from "./Cables";
 import Checkers from "./Checkers";
@@ -75,6 +81,36 @@ const GAMES: { kind: DuelKind; icon: string; about: Two }[] = [
   },
 ];
 
+/** at most this many of the café's agents are offered to play against */
+const MOST_RIVALS = 8;
+
+/** One of the café's own to play against: an agent as it looks at its desk, or the barista. */
+interface Rival {
+  key: string;
+  name: string;
+  color: string;
+  look: Look;
+}
+
+/**
+ * Who in the café can be played against right now: its agents, each once, under the names and looks they wear at
+ * their desks. A café with no agent at work still has its barista.
+ */
+function rivalsOf(agents: AgentDef[], looks: Record<string, LookPick>, barista: string): Rival[] {
+  const seen = new Set<string>();
+  const out: Rival[] = [];
+  agents.forEach((a, i) => {
+    const key = lookKey(a);
+    // a teammate's desk in the lobby stands for a person, not an agent
+    if (seen.has(key) || a.member != null) return;
+    seen.add(key);
+    const base = a.look ?? i;
+    out.push({ key, name: a.name, color: a.color, look: lookFor(base, a.color, pickedLook(lookOf(looks, a), base)) });
+  });
+  if (!out.length) return [{ key: "barista", name: barista, color: "#e9e2cf", look: BARISTA }];
+  return out.slice(0, MOST_RIVALS);
+}
+
 /** Everyone else at a match. */
 const othersOf = (m: Match, self: string) => playersOf(m).filter((p) => p.id !== self);
 
@@ -118,9 +154,39 @@ function ClockPick() {
   );
 }
 
+/** How well the café's agents play, for this browser. */
+function LevelPick() {
+  const t = useTr();
+  const level = useSoloLevel();
+  const names: Record<Level, string> = {
+    easy: t("легко", "easy"),
+    normal: t("нормально", "normal"),
+    hard: t("складно", "hard"),
+  };
+  return (
+    <div className="clock-pick" role="radiogroup" aria-label={t("як сильно грає агент", "how well the agent plays")}>
+      <span>
+        <Gauge size={13} /> {t("рівень агента", "agent's level")}
+      </span>
+      {LEVELS.map((l) => (
+        <button
+          key={l}
+          className={`btn${l === level ? " on" : ""}`}
+          role="radio"
+          aria-checked={l === level}
+          onClick={() => setSoloLevel(l)}
+        >
+          {names[l]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
  * Once a game is over, another one with the same person on the same board: the button, the wait for their yes, or
- * their own ask to answer. Whoever asks moves first, as with any invite.
+ * their own ask to answer. Whoever asks moves first, as with any invite. One of the café's agents never has to be
+ * asked: the next game starts at once.
  */
 function Rematch({ duels }: { duels: DuelsState }) {
   const t = useTr();
@@ -173,7 +239,10 @@ function Rematch({ duels }: { duels: DuelsState }) {
   );
 }
 
-/** The match being played, or who in the café can be called to one and the invite in flight. */
+/**
+ * The match being played, or the games to pick from and who to play with: one of the café's own agents, at once and
+ * with nothing sent anywhere, or a guest, by invite.
+ */
 export default function Duels({
   duels,
   ttt,
@@ -185,6 +254,7 @@ export default function Duels({
   room,
   online,
   agents,
+  looks,
   roster,
   rows,
   onEnd,
@@ -198,8 +268,10 @@ export default function Duels({
   guests: Guest[];
   room: string | null;
   online: boolean;
-  /** the café's agents, roster and last week: the squad for the agents' battle */
+  /** the café's agents, roster and last week: the squad for the agents' battle, and who to play against alone */
   agents: AgentDef[];
+  /** how the café dressed its agents, for their faces in the list */
+  looks?: Record<string, LookPick>;
   roster: string[];
   rows: HourRow[] | null;
   /** a real-time match was played to the end */
@@ -210,8 +282,13 @@ export default function Duels({
   // the board and its buttons go full screen together, so «play again» is there once a game ends
   const board = useRef<HTMLDivElement>(null);
   const pick = useClockPick();
+  const level = useSoloLevel();
+  const tally = useSoloTally();
+  const thinking = useBotThinking(duels.match?.id);
   const [game, setGame] = useState<DuelKind | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
+  const barista = t("Бариста", "Barista");
+  const rivals = useMemo(() => rivalsOf(agents, looks ?? {}, barista), [agents, looks, barista]);
   useEffect(() => {
     window.addEventListener("pointerdown", unlockSfx, true);
     window.addEventListener("keydown", unlockSfx, true);
@@ -231,7 +308,7 @@ export default function Duels({
           ? t(`${duels.away} більше не в кафе`, `${duels.away} left the café`)
           : null;
     return (
-      <div className="duel" ref={board}>
+      <div className="duel" ref={board} data-solo={m.solo?.level} data-thinking={thinking ? "" : undefined}>
         <div className="duel-board">
           {m.kind === "arena" || m.kind === "raid" ? (
             <ArenaDuel
@@ -275,16 +352,6 @@ export default function Duels({
   }
   const gameName = (g: { kind: DuelKind; clock?: number }) =>
     duelName(g.kind, ui) + (g.clock ? t(` на ${g.clock / 60} хв`, ` on ${g.clock / 60} min`) : "");
-  if (!online) {
-    return (
-      <p className="alerts-hint">
-        {t(
-          "Удвох і втрьох грають з тими, хто теж відкрив це кафе. Це працює в хмарному режимі.",
-          "Games for two or three are played with others who opened this café. They work in cloud mode.",
-        )}
-      </p>
-    );
-  }
   const w = duels.waiting;
   const waitFor = w?.party
     ? w.party
@@ -317,6 +384,10 @@ export default function Duels({
   const most = game && PARTY.includes(game) ? 2 : 1;
   const chosen = guests.filter((g) => picked.includes(g.id)).slice(0, most);
   const clock = game && TIMED.includes(game) ? pick : 0;
+  /** this game can be played against one of the café's agents */
+  const alone = !!game && SOLO_KINDS.includes(game);
+  const mine = game ? tally[game] : undefined;
+  const score = mine && mine.won + mine.lost + mine.drawn > 0 ? mine : null;
   const names = chosen.map((g) => g.name).join(t(" і ", " and "));
   const go = () => {
     if (!game || !chosen.length) return;
@@ -342,19 +413,67 @@ export default function Duels({
             <b>{duelName(g.kind, ui)}</b>
             <small>{g.about[ui]}</small>
             <span className="gtile-n">
-              {PARTY.includes(g.kind) ? t("2–3 гравці", "2–3 players") : t("удвох", "2 players")}
+              {SOLO_KINDS.includes(g.kind)
+                ? PARTY.includes(g.kind)
+                  ? t("агент або 2–3 гравці", "an agent or 2–3 players")
+                  : t("агент або удвох", "an agent or 2 players")
+                : PARTY.includes(g.kind)
+                  ? t("2–3 гравці", "2–3 players")
+                  : t("удвох", "2 players")}
             </span>
           </button>
         ))}
       </div>
       {game && (
         <div className="gwho">
-          {guests.length ? (
+          {alone && (
             <>
-              <div className="gwho-ttl">
-                {most === 2
-                  ? t("З ким? Познач одного або двох", "Who with? Pick one or two")
-                  : t("З ким?", "Who with?")}
+              <div className="gwho-ttl gwho-bot">
+                <Bot size={13} />
+                {t(
+                  "З агентом кафе: гра почнеться одразу",
+                  "Against one of the café's agents: the game starts at once",
+                )}
+              </div>
+              <div className="gset">
+                <LevelPick />
+                {TIMED.includes(game) && <ClockPick />}
+              </div>
+              <div className="gbots">
+                {rivals.map((r) => (
+                  <button
+                    key={r.key}
+                    className="gbot"
+                    aria-label={t(`Грати з агентом ${r.name}`, `Play against ${r.name}`)}
+                    onClick={() => duels.solo(game, botPlayer(r.key, r.name), { level }, { clock })}
+                  >
+                    <AgentSprite look={r.look} label={r.name} />
+                    <b style={{ color: r.color }}>{r.name}</b>
+                    <small>▶ {t("грати", "play")}</small>
+                  </button>
+                ))}
+              </div>
+              {score && (
+                <div className="gbot-tally">
+                  {t(
+                    `твій рахунок з агентами в цій грі: ${score.won} : ${score.lost}`,
+                    `you against the agents at this game: ${score.won} : ${score.lost}`,
+                  )}
+                  {score.drawn > 0 && t(` · нічиїх ${score.drawn}`, ` · ${score.drawn} drawn`)}
+                </div>
+              )}
+            </>
+          )}
+          {online && guests.length ? (
+            <>
+              <div className={`gwho-ttl${alone ? " gwho-or" : ""}`}>
+                {alone
+                  ? most === 2
+                    ? t("Або з гостями кафе: познач одного чи двох", "Or with the café's guests: pick one or two")
+                    : t("Або з гостем кафе", "Or with a guest of the café")
+                  : most === 2
+                    ? t("З ким? Познач одного або двох", "Who with? Pick one or two")
+                    : t("З ким?", "Who with?")}
               </div>
               <div className="gchips">
                 {guests.map((g) => {
@@ -371,7 +490,7 @@ export default function Duels({
                   );
                 })}
               </div>
-              {TIMED.includes(game) && <ClockPick />}
+              {TIMED.includes(game) && !alone && <ClockPick />}
               <button className="btn ask-yes ggo" disabled={!chosen.length} onClick={go}>
                 {chosen.length
                   ? t(`▶ Запросити: ${names}`, `▶ Invite ${names}`)
@@ -379,13 +498,28 @@ export default function Duels({
               </button>
             </>
           ) : (
-            <p className="alerts-hint">
-              {t(
-                "Поки в кафе більше нікого. Запроси когось через двері в сцені: щойно людина відкриє кафе, " +
-                  "її ім'я з'явиться тут.",
-                "Nobody else is in the café yet. Invite someone through the door in the scene: once they open " +
-                  "the café, their name shows up here.",
-              )}
+            <p className={`alerts-hint${alone ? " gwho-or" : ""}`}>
+              {!online
+                ? alone
+                  ? t(
+                      "З людьми грають у хмарному режимі: тоді тут з'являться гості кафе.",
+                      "Games with people work in cloud mode: the café's guests show up here then.",
+                    )
+                  : t(
+                      "У цю гру грають з тими, хто теж відкрив це кафе. Це працює в хмарному режимі.",
+                      "This game is played with others who opened this café. It works in cloud mode.",
+                    )
+                : alone
+                  ? t(
+                      "Гостей у кафе зараз немає. Запроси когось через двері в сцені, і зіграєте удвох.",
+                      "No guests in the café right now. Invite someone through the door in the scene to play together.",
+                    )
+                  : t(
+                      "Поки в кафе більше нікого. Запроси когось через двері в сцені: щойно людина відкриє кафе, " +
+                        "її ім'я з'явиться тут.",
+                      "Nobody else is in the café yet. Invite someone through the door in the scene: once they open " +
+                        "the café, their name shows up here.",
+                    )}
             </p>
           )}
         </div>

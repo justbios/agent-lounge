@@ -2,11 +2,15 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { tr, uiNow, useTr } from "@/lib/i18n";
+import { botTable } from "@/lib/live/botLine";
+import { hockeyBot } from "@/lib/live/bots/hockey";
 import { Match, Side, sideOf } from "@/lib/live/duel";
 import { GameLink, devLag } from "@/lib/live/gameLink";
 import { Aim, FIRST_STEPS, GOAL_W, H, HOCKEY, MALLET_R, PUCK_R, STEP_MS, W, WIN_AT, aimAt } from "@/lib/live/hockey";
+import { labWatch } from "@/lib/live/lab";
 import { Netplay } from "@/lib/live/netplay";
 import { sfx } from "@/lib/live/sfx";
+import { hashOf } from "@/lib/live/solo";
 import { supabase } from "@/lib/supabaseClient";
 import { shade } from "../cafe/pixel";
 import { ArcadeHud, ArcadeSay, ArcadeScreen, Final, lineSay } from "./Arcade";
@@ -345,7 +349,7 @@ export default function Hockey({
   const [result, setResult] = useState<Final | null>(null);
   const [tally, setTally] = useState<[number, number]>([0, 0]);
   const end = useEffectEvent(onEnd);
-  const { id } = match;
+  const { id, solo } = match;
   const me: Side = sideOf(match, self) ?? "o";
   const ids = `${match.x.id} ${match.o.id}`;
 
@@ -357,14 +361,20 @@ export default function Hockey({
     const sb = supabase;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    if (!sb || !canvas || !ctx || !room) return;
-    const view = new HockeyView(canvas);
-    const cues = new Cues();
+    if (!canvas || !ctx) return;
     const seat = me === "x" ? 0 : 1;
     const rival = 1 - seat;
     const seats = ids.split(" ");
-    const link = new GameLink(sb, `relay-game:${room}:${id}`, self, seats, (from, m) => net.receive(from, m), devLag());
+    const hear = (from: string, m: object) => net.receive(from, m);
+    // against one of the café's agents the line is a made-up one, with the agent at its far end
+    const table = solo ? botTable(seats, self, solo, hashOf(id), HOCKEY, hockeyBot, hear) : null;
+    const wire = !table && sb && room ? new GameLink(sb, `relay-game:${room}:${id}`, self, seats, hear, devLag()) : null;
+    const link = table?.link ?? wire;
+    if (!link) return;
+    const view = new HockeyView(canvas);
+    const cues = new Cues();
     const net = new Netplay(HOCKEY, seats, self, link);
+    if (table) labWatch(() => net.game.state);
     const keys = new Set<string>();
     const home = HOCKEY.idle(seat);
     let pointer = { x: home.x, y: home.y };
@@ -426,6 +436,7 @@ export default function Hockey({
     const tx = (x: number) => (me === "x" ? x : W - x);
     const ty = (y: number) => (me === "x" ? y : H - y);
     const input = (): Aim => {
+      if (table?.auto) return table.auto(net.game.state);
       if (!keys.size) return aimAt(me, pointer.x, pointer.y);
       let kx = 0;
       let ky = 0;
@@ -498,9 +509,9 @@ export default function Hockey({
         }
         settle();
       }
-      if (now - lineAt > 1000 && lineRef.current && net.started) {
+      if (wire && now - lineAt > 1000 && lineRef.current && net.started) {
         lineAt = now;
-        lineRef.current.textContent = lineSay(link);
+        lineRef.current.textContent = lineSay(wire);
       }
       const fade = Math.pow(0.5, dt / SMOOTH_MS);
       off.px *= fade;
@@ -521,8 +532,9 @@ export default function Hockey({
       window.removeEventListener("keyup", up);
       view.dispose();
       link.close();
+      if (table) labWatch(null);
     };
-  }, [id, ids, me, room, self]);
+  }, [id, ids, me, room, self, solo]);
 
   const rival = me === "x" ? match.o : match.x;
   const verdict =

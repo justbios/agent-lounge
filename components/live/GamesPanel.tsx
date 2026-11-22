@@ -4,7 +4,9 @@ import { ReactNode, useEffect, useEffectEvent } from "react";
 import { X } from "lucide-react";
 import { useTr, useUi } from "@/lib/i18n";
 import { DuelKind, TURN_BASED, duelName } from "@/lib/live/duel";
+import type { LookPick } from "@/lib/live/interior";
 import { Guest } from "@/lib/live/social";
+import { recordSolo } from "@/lib/live/soloStore";
 import { Checkers } from "@/lib/live/useCheckers";
 import { Chess } from "@/lib/live/useChess";
 import { Game, ScoreRow, Scores } from "@/lib/live/useScores";
@@ -82,6 +84,7 @@ export default function GamesPanel({
   online,
   me,
   agents,
+  looks,
   roster,
   rows,
   onClose,
@@ -97,8 +100,9 @@ export default function GamesPanel({
   room: string | null;
   online: boolean;
   me: string;
-  /** the café's agents, roster and last week, for the agents' battle */
+  /** the café's agents, roster and last week, for the agents' battle; the agents are also who one plays alone */
   agents: AgentDef[];
+  looks: Record<string, LookPick>;
   roster: string[];
   rows: HourRow[] | null;
   onClose: () => void;
@@ -141,7 +145,7 @@ export default function GamesPanel({
               <Arena agents={agents} roster={roster} rows={rows} />
             </Section>
 
-            <Section title={t("З гостями кафе", "With the café's guests")}>
+            <Section title={t("З агентами й гостями кафе", "With the café's agents and guests")}>
               <Duels
                 duels={duels}
                 ttt={ttt}
@@ -153,10 +157,14 @@ export default function GamesPanel({
                 room={room}
                 online={online}
                 agents={agents}
+                looks={looks}
                 roster={roster}
                 rows={rows}
                 onEnd={(kind, win) => {
-                  scores.record(me, kind, win);
+                  // a game against an agent stays in this browser: no leaderboard, nothing sent
+                  const solo = duels.match?.solo;
+                  if (!solo) scores.record(me, kind, win);
+                  else if (!solo.auto) recordSolo(kind, win ? "won" : "lost");
                   if (duels.match) duels.finish(duels.match.id);
                 }}
               />

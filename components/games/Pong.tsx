@@ -2,8 +2,11 @@
 
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { tr, uiNow, useTr } from "@/lib/i18n";
+import { botTable } from "@/lib/live/botLine";
+import { pongBot } from "@/lib/live/bots/pong";
 import { Match, Side, sideOf } from "@/lib/live/duel";
 import { GameLink, devLag } from "@/lib/live/gameLink";
+import { labWatch } from "@/lib/live/lab";
 import { Netplay } from "@/lib/live/netplay";
 import {
   FACE,
@@ -257,7 +260,7 @@ export default function Pong({
   const [result, setResult] = useState<Final | null>(null);
   const [tally, setTally] = useState<[number, number]>([0, 0]);
   const end = useEffectEvent(onEnd);
-  const { id } = match;
+  const { id, solo } = match;
   const me: Side = sideOf(match, self) ?? "o";
   const ids = `${match.x.id} ${match.o.id}`;
 
@@ -269,15 +272,21 @@ export default function Pong({
     const sb = supabase;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    if (!sb || !canvas || !ctx || !room) return;
-    const view = new PongView(canvas);
-    const cues = new Cues();
+    if (!canvas || !ctx) return;
     const seat = me === "x" ? 0 : 1;
     const rival = 1 - seat;
     const seats = ids.split(" ");
     const rules = pongRules(seedOf(id));
-    const link = new GameLink(sb, `relay-game:${room}:${id}`, self, seats, (from, m) => net.receive(from, m), devLag());
+    const hear = (from: string, m: object) => net.receive(from, m);
+    // against one of the café's agents the line is a made-up one, with the agent at its far end
+    const table = solo ? botTable(seats, self, solo, seedOf(id), rules, pongBot, hear) : null;
+    const wire = !table && sb && room ? new GameLink(sb, `relay-game:${room}:${id}`, self, seats, hear, devLag()) : null;
+    const link = table?.link ?? wire;
+    if (!link) return;
+    const view = new PongView(canvas);
+    const cues = new Cues();
     const net = new Netplay(rules, seats, self, link);
+    if (table) labWatch(() => net.game.state);
     const keys = new Set<string>();
     const off = { bx: 0, by: 0, pad: 0 };
     const seenBall = { x: 0, y: 0, vx: 0, vy: 0 };
@@ -339,7 +348,7 @@ export default function Pong({
       }
     };
 
-    const input = () => padAt(pad);
+    const input = () => (table?.auto ? table.auto(net.game.state) : padAt(pad));
     const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
     const draw = (now: number) => {
       const s = net.game.state;
@@ -398,9 +407,9 @@ export default function Pong({
         }
         settle();
       }
-      if (now - lineAt > 1000 && lineRef.current && net.started) {
+      if (wire && now - lineAt > 1000 && lineRef.current && net.started) {
         lineAt = now;
-        lineRef.current.textContent = lineSay(link);
+        lineRef.current.textContent = lineSay(wire);
       }
       const fade = Math.pow(0.5, dt / SMOOTH_MS);
       off.bx *= fade;
@@ -420,8 +429,9 @@ export default function Pong({
       window.removeEventListener("keyup", up);
       view.dispose();
       link.close();
+      if (table) labWatch(null);
     };
-  }, [id, ids, me, room, self]);
+  }, [id, ids, me, room, self, solo]);
 
   const rival = me === "x" ? match.o : match.x;
   const verdict =

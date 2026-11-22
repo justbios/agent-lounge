@@ -3,6 +3,7 @@
 import { useEffect, useEffectEvent, useState } from "react";
 import { DuelKind, Match, Player, TIMED, cleanDuel, playersOf, seatOf } from "./duel";
 import { Guest } from "./social";
+import { Solo, isBot } from "./solo";
 import { Social } from "./useSocial";
 
 export interface Invite {
@@ -39,7 +40,16 @@ export interface Duels {
   name: string;
   /** `clock`: seconds a side, for chess and draughts; two guests make a game for three */
   invite: (kind: DuelKind, to: Guest | Guest[], clock?: number) => void;
-  /** asks for another game of the same kind and clock; whoever asks moves first, as with any invite */
+  /**
+   * Starts a game against one of the café's agents at once: no invite, nothing sent. `bot` is the agent as a player
+   * (see `botPlayer`), `clock` seconds a side for chess and draughts, `id` a match id to use (the lab's seeded games),
+   * `second` seats the agent first, so it has white and the first serve.
+   */
+  solo: (kind: DuelKind, bot: Player, solo: Solo, opts?: { clock?: number; id?: string; second?: boolean }) => void;
+  /**
+   * asks for another game of the same kind and clock; whoever asks moves first, as with any invite. Against an agent
+   * it starts at once, with the sides swapped.
+   */
   rematch: () => void;
   accept: (i: Invite) => void;
   decline: (i: Invite) => void;
@@ -144,7 +154,8 @@ export function useDuels(social: Social): Duels {
   useEffect(() => bus.on("duel", (p, mine) => !mine && onMsg(p)), [bus]);
 
   const others = match ? playersOf(match).filter((p) => p.id !== self) : [];
-  const away = others.find((p) => !guests.some((g) => g.id === p.id))?.name ?? null;
+  // an agent is always in: it is not one of the guests and never leaves
+  const away = others.find((p) => !isBot(p.id) && !guests.some((g) => g.id === p.id))?.name ?? null;
   const ended = !!match && (match.over || match.gone);
   const again =
     (ended && invites.findLast((i) => i.again === match.id && others.some((p) => p.id === i.from.id))) || null;
@@ -168,8 +179,20 @@ export function useDuels(social: Social): Duels {
       });
     }
   };
+  const solo: Duels["solo"] = (kind, bot, how, opts = {}) => {
+    const me = { id: self, name };
+    const clock = opts.clock && TIMED.includes(kind) ? { clock: opts.clock } : {};
+    const seats = opts.second ? { x: bot, o: me } : { x: me, o: bot };
+    setDeclined(null);
+    setMatch({ kind, id: opts.id ?? gameId(), ...seats, gone: false, over: false, ...clock, solo: how });
+  };
   const rematch = () => {
     if (!match || !ended) return;
+    if (match.solo) {
+      const bot = others[0];
+      if (bot) solo(match.kind, bot, match.solo, { clock: match.clock, second: match.x.id === self });
+      return;
+    }
     // a game for three is asked again by whoever asked for it, so two asks never cross
     if (match.z && match.x.id !== self) return;
     const back = others.map((p) => guests.find((g) => g.id === p.id));
@@ -185,7 +208,7 @@ export function useDuels(social: Social): Duels {
     setWaiting(null);
   };
   const close = () => {
-    if (match && !match.over) bus.send("duel", { t: "leave", game: match.id, by: self });
+    if (match && !match.over && !match.solo) bus.send("duel", { t: "leave", game: match.id, by: self });
     cancel();
     setMatch(null);
   };
@@ -200,6 +223,7 @@ export function useDuels(social: Social): Duels {
     self,
     name,
     invite,
+    solo,
     rematch,
     accept,
     decline,

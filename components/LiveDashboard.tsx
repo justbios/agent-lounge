@@ -587,6 +587,7 @@ export default function LiveDashboard({
           online={cloud}
           me={social.name}
           agents={model.agents}
+          looks={looks}
           roster={roster}
           rows={recap.rows}
           onClose={() => setGamesOpen(false)}
