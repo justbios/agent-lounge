@@ -1,5 +1,5 @@
 import type { BrainFor } from "../botLine";
-import { Ball, FACE, H, PAD_H, PongState, R, STEP_MS, bounce, clampPad, padAt } from "../pong";
+import { Ball, FACE, H, MAX_SPEED, PAD_H, PongState, R, SPEED, STEP_MS, bounce, clampPad, padAt } from "../pong";
 import type { Level } from "../solo";
 
 interface Skill {
@@ -28,8 +28,10 @@ const SKILL: Record<Level, Skill> = {
 };
 
 /** how fast a serve flies and the fastest a ball gets, units/ms: the rules' own numbers */
-const SLOW = 0.075;
-const FAST = 0.17;
+const SLOW = SPEED;
+const FAST = MAX_SPEED;
+/** a serve comes off the paddle wherever it is held: an agent picks a height this far from the middle at most */
+const SERVE_SPAN = 30;
 /** a paddle takes the ball this far from its middle at most */
 const HALF = PAD_H / 2 + R;
 const SPAN = H - 2 * R;
@@ -62,6 +64,9 @@ export const pongBot: BrainFor<PongState, number> = (seat, level, rnd) => {
   /** this ball's misreading, -1 to 1 and more on a lapse, and where on the paddle it means to take it */
   let slip = 0;
   let off = 0;
+  /** the serve it is waiting to make, by the step it comes on, and the height it holds its paddle at for it */
+  let serving = 0;
+  let from = H / 2;
 
   const place = (s: PongState, ball: Ball): number => {
     if (!skill.plans) return (rnd() * 2 - 1) * skill.edge;
@@ -96,8 +101,12 @@ export const pongBot: BrainFor<PongState, number> = (seat, level, rnd) => {
         off = place(s, ball);
       }
     }
-    // between balls, and until it has seen one coming, it goes back to the middle
-    let want = H / 2;
+    if (s.serve !== serving) {
+      serving = s.serve;
+      if (serving && s.to === seat) from = H / 2 + (rnd() * 2 - 1) * SERVE_SPAN;
+    }
+    // between balls, and until it has seen one coming, it goes back to the middle; its own serve it carries somewhere
+    let want = serving && s.to === seat ? from : H / 2;
     if (ball && way === mine && seen === mine) {
       const m = meet(ball, seat);
       const frac = Math.min(1, Math.abs(ball.x - line) / (FACE.o - FACE.x));
