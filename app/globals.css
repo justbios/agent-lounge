@@ -1572,8 +1572,13 @@ body {
   box-shadow:
     0 3px 0 rgba(7, 5, 13, 0.55),
     inset 0 -2px 0 rgba(27, 22, 38, 0.08);
-  font-size: clamp(7px, 1.32cqw, 13px);
-  line-height: 1.2;
+  /* Golos, not the pixel face: small pixel letters blur once the room is scaled */
+  font-family: var(--sans);
+  font-size: clamp(9px, 1.2cqw, 15px);
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
   animation: cb-pop 260ms steps(5, end) both;
 }
 .cafe-bubble::before,
@@ -1615,9 +1620,9 @@ body {
   align-items: center;
   gap: 0.45em;
   margin-bottom: 0.18em;
-  font-size: 0.8em;
-  color: #4a4258;
-  text-transform: lowercase;
+  font-size: 0.82em;
+  font-weight: 600;
+  color: #3a3248;
   white-space: nowrap;
 }
 .cb-who::before {

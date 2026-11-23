@@ -4,6 +4,15 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.20.3 — not released yet
+
+No database change and no change to `plugin/`. Shown first as the Claude Design page «Бульбашки — чіткіше, без
+табличок».
+
+- No name-and-state plates over the desks on a wide screen: the speech bubble already says who and what.
+- The speech bubbles keep their look but set their text in Golos, a little larger, instead of the small pixel face
+  that blurred once the room was scaled. Phones keep the numbers and the list under the picture.
+
 ## 0.20.2 — not released yet
 
 No database change and no change to `plugin/`. Shown first as the Claude Design page «Зала — тільки ті, хто працює».

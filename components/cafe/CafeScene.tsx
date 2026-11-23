@@ -67,6 +67,8 @@ const CLOSED_TEXT: Two = { uk: "зачинено до ранку", en: "closed t
 const MACHINES: ItemId[] = ["jukebox", "arcade"];
 /** Below this width the name plates turn into numbers, with the names in a list under the picture. */
 const NARROW_PX = 560;
+/** The name-and-state plates over the desks; the speech bubbles carry the name now. */
+const SHOW_PLATES = false;
 const STATUS_TEXT: Record<Status, Two> = {
   work: { uk: "працює", en: "working" },
   wait: { uk: "питає тебе", en: "asking you" },
@@ -612,7 +614,8 @@ export default function CafeScene({
                   </span>
                 );
               }
-              if (i === noPlate || cramped.has(i)) return null;
+              // on a wide screen the speech bubble already says who and what: no name plates under it
+              if (!SHOW_PLATES || i === noPlate || cramped.has(i)) return null;
               const spot = placed(i);
               return (
                 <span
@@ -748,7 +751,7 @@ export default function CafeScene({
  * text, tail included, after the CSS in globals.css (.cafe-bubble).
  */
 function bubbleRoom(wide: number): number {
-  const font = Math.min(13, Math.max(7, wide * 0.0132));
+  const font = Math.min(15, Math.max(9, wide * 0.012));
   return font * 5 + 6;
 }
 
