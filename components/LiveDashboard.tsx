@@ -41,6 +41,7 @@ import { useGames } from "@/lib/live/useGames";
 import { useSocial } from "@/lib/live/useSocial";
 import { latestLimits, tokenRate } from "@/lib/live/usage";
 import { Dressing, Placing, SceneAlert, SceneWarn } from "./cafe/CafeScene";
+import { presentSeats, useRoom } from "./cafe/present";
 import { themeOf } from "./cafe/theme";
 import AchToast from "./live/AchToast";
 import AlertsMenu from "./live/AlertsMenu";
@@ -77,6 +78,18 @@ import { ago, logText } from "./live/format";
 const PICK_KEY = "relay.session";
 /** the games button says «new» until the games are opened once */
 const GAMES_SEEN_KEY = "relay.games.seen";
+
+/** "1" when the room shows every desk, resting agents too */
+const ALL_DESKS_KEY = "relay.room.all";
+
+function readAllDesks(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return localStorage.getItem(ALL_DESKS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 function readGamesSeen(): boolean {
   if (typeof window === "undefined") return true;
@@ -385,6 +398,26 @@ export default function LiveDashboard({
   const paces = usePaces(feed.events);
   const etas = !playing && scene?.runs ? guessAll(scene.runs, model.stints, paces, clock, scene.told) : undefined;
   const working = views.filter((v) => v.screen === "work").length;
+  // the room draws only who is busy (and Claude of the chat); resting agents wait in the agents list
+  const [allDesks, setAllDesks] = useState(readAllDesks);
+  const showAll = () => {
+    const on = !allDesks;
+    setAllDesks(on);
+    try {
+      localStorage.setItem(ALL_DESKS_KEY, on ? "1" : "0");
+    } catch {}
+  };
+  // keyed by the list of desks as text, so the room is rebuilt only when someone comes or goes
+  const keepKey = whole || allDesks ? "" : presentSeats(model, views, clock, alert).join(",");
+  const room = useRoom(model, keepKey);
+  const resting = model.agents.length - room.model.agents.length;
+  const roomAlert = alert && room.seat(alert.agent) >= 0 ? { ...alert, agent: room.seat(alert.agent) } : undefined;
+  const roomWarns = useMemo(() => {
+    const m = new Map<number, SceneWarn>();
+    for (const [i, w] of warns) if (room.seat(i) >= 0) m.set(room.seat(i), w);
+    return m;
+  }, [warns, room]);
+  const roomEtas = etas && keepKey ? keepKey.split(",").map((g) => etas[Number(g)] ?? null) : etas;
   const spent = model.agents.reduce((sum, a) => sum + (a.tokens ?? 0), 0);
   const viewEvents = useMemo(
     () => (whole ? feed.events : session ? feed.events.filter((e) => e.session === session.id) : []),
@@ -423,7 +456,7 @@ export default function LiveDashboard({
   });
   const reactions = social.reactions
     .filter((r) => r.scene === sceneId && now - r.at < REACT_MS)
-    .map((r) => ({ ...r, seat: model.agents.findIndex((a) => a.id === r.agent) }))
+    .map((r) => ({ ...r, seat: room.model.agents.findIndex((a) => a.id === r.agent) }))
     .filter((r) => r.seat >= 0);
   const myLimits = limits.find((l) => l.member === (team.me ?? "")) ?? limits[0] ?? null;
   const [limitReset, dismissReset] = useLimitResets(viewing ? null : myLimits, push.state === "on");
@@ -716,6 +749,16 @@ export default function LiveDashboard({
                 <span className={working ? "count-live" : ""}>
                   {t(`працюють ${working}`, `${working} working`)}
                 </span>
+                {!whole && (resting > 0 || allDesks) && (
+                  <>
+                    {" · "}
+                    <button className="rest-toggle" onClick={showAll} aria-pressed={allDesks}>
+                      {allDesks
+                        ? t("сховати тих, хто відпочиває", "hide those resting")
+                        : t(`ще ${resting} ${resting === 1 ? "відпочиває" : "відпочивають"} · показати`, `${resting} more resting · show`)}
+                    </button>
+                  </>
+                )}
                 {spent > 0 && ` · ${fmtTokens(spent, ui)} ${t("токенів", "tokens")}`}
                 {" · "}
                 {whole
@@ -726,18 +769,18 @@ export default function LiveDashboard({
               </span>
             )
           }
-          model={model}
+          model={room.model}
           clock={clock}
-          alert={alert}
-          warns={warns}
-          etas={etas}
+          alert={roomAlert}
+          warns={roomWarns}
+          etas={roomEtas}
           rate={rate}
           guests={social.guests}
           bar={social.bar}
           chatUnread={chat.unread}
           onChat={chat.on ? () => setChatOpen(true) : undefined}
           reactions={reactions}
-          onReact={(i, emoji) => social.react(sceneId, model.agents[i].id, emoji)}
+          onReact={(i, emoji) => social.react(sceneId, room.model.agents[i].id, emoji)}
           cafe={cafe}
           dress={dress}
           sound={sound}

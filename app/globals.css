@@ -11938,6 +11938,21 @@ body {
 .count-live {
   color: var(--live);
 }
+/* «ще N відпочивають · показати»: brings the resting agents back into the room */
+.rest-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.rest-toggle:hover,
+.rest-toggle:focus-visible {
+  color: var(--live);
+}
 
 /* every chat as a tab: the one shown lit, the one waiting on you amber */
 .board .board-rows {

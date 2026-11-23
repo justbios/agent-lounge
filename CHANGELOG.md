@@ -4,6 +4,15 @@ The plugin's `version` in `plugin/.claude-plugin/plugin.json` is what Claude Cod
 bump it, together with `package.json`, in every release that changes `plugin/`, then run `npm run plugin:pack` and tag
 the commit `vX.Y.Z`.
 
+## 0.20.2 — not released yet
+
+No database change and no change to `plugin/`. Shown first as the Claude Design page «Зала — тільки ті, хто працює».
+
+- The room draws only who is busy: working or carrying work, asking you, or done in the last minute, and Claude of the
+  chat always. Resting agents leave the room and stay in the agents list; they sit down again when work comes.
+- «ще N відпочивають · показати» in the room's header brings everyone back; the browser remembers it. The whole-team
+  view is unchanged.
+
 ## 0.20.1 — not released yet
 
 No database change and no change to `plugin/`. Shown first as the Claude Design page «Зала — ширше і дрібніше».
